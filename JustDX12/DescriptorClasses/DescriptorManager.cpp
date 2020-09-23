@@ -39,6 +39,7 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 		
 		hCPUDescriptor.Offset(1, descriptorSize);
 		hGPUDescriptor.Offset(1, descriptorSize);
+		descriptorsByType[job.type].push_back(&desc);
 		generatedDescriptors.emplace_back(&desc);
 	}
 	return generatedDescriptors;
@@ -80,6 +81,10 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::
 			break;
 		}
 	}
+}
+
+std::vector<DX12Descriptor*> DescriptorManager::getAllDescriptorsOfType(DESCRIPTOR_TYPE type) {
+	return descriptorsByType.at(type);
 }
 
 void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job) {

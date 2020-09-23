@@ -178,6 +178,7 @@
     <ClInclude Include="DX12App.h" />
     <ClInclude Include="DescriptorClasses\DX12Descriptor.h" />
     <ClInclude Include="DX12Helper.h" />
+    <ClInclude Include="RenderPipelineStageTask.h" />
     <ClInclude Include="ResourceClasses\DX12Resource.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="Tasks\ModelLoadTask.h" />

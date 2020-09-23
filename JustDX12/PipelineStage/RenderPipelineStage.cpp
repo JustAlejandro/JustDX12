@@ -1,5 +1,6 @@
 #include "PipelineStage\RenderPipelineStage.h"
 #include "DescriptorClasses\DescriptorManager.h"
+#include "ModelLoading/ModelLoader.h"
 #include <string>
 #include "Settings.h"
 
@@ -32,12 +33,18 @@ void RenderPipelineStage::Execute() {
 
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 	
-	// TODO: Bind things to the root signature
+	bindDescriptorsToRoot();
 
+	bindRenderTarget();
 
+	drawRenderObjects();
 	// TODO: Actually make the draw call
 
 
+}
+
+void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName) {
+	renderObjects.push_back(loader->loadModel(fileName, dirName));
 }
 
 void RenderPipelineStage::BuildPSO() {
@@ -57,9 +64,11 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	graphicsPSO.SampleMask = UINT_MAX;
 	graphicsPSO.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	graphicsPSO.NumRenderTargets = descriptorManager.getDescriptor("defaultRTV0", DESCRIPTOR_TYPE_RTV)->descriptorHeap->GetDesc().NumDescriptors;
-	for (int i = 0; i < graphicsPSO.NumRenderTargets; i++) {
-		graphicsPSO.RTVFormats[i] = resourceManager.getResource("defaultRTV" + std::to_string(i))->getFormat();
+	graphicsPSO.NumRenderTargets = renderTargetDescs.size();
+	for (int i = 0; i < renderTargetDescs.size(); i++) {
+		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(
+				renderTargetDescs[i].descriptorName, 
+				DESCRIPTOR_TYPE_RTV)->target->getFormat();
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
@@ -71,4 +80,46 @@ void RenderPipelineStage::BuildPSO() {
 }
 
 void RenderPipelineStage::bindDescriptorsToRoot() {
+	for (int i = 0; i < rootParameterDescs.size(); i++) {
+		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterType(rootParameterDescs[i].type);
+		switch (descriptorType) {
+		case DESCRIPTOR_TYPE_NONE:
+			throw "Not sure what this is";
+		case DESCRIPTOR_TYPE_SRV:
+			mCommandList->SetGraphicsRootDescriptorTable(i,
+				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+			break;
+		case DESCRIPTOR_TYPE_UAV:
+			mCommandList->SetGraphicsRootDescriptorTable(i,
+				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+			break;
+		default:
+			throw "Don't know what to do here.";
+			break;
+		}
+	}
+}
+
+void RenderPipelineStage::bindRenderTarget() {
+	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
+		&descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName, DESCRIPTOR_TYPE_RTV)->cpuHandle,
+		true,
+		&descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)[0]->cpuHandle);
+}
+
+void RenderPipelineStage::drawRenderObjects() {
+	for (int i = 0; i < renderObjects.size(); i++) {
+		Model* model = renderObjects[i];
+
+		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
+		mCommandList->IASetIndexBuffer(&model->indexBufferView());
+		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		//Here's where we need some constant buffer setups...
+
+		for (const Mesh& m : model->meshes) {
+			mCommandList->DrawIndexedInstanced(m.indexCount,
+				1, m.startIndexLocation, m.baseVertexLocation, 0);
+		}
+	}
 }

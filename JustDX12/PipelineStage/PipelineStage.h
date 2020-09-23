@@ -32,6 +32,11 @@ struct SamplerDesc {
 	int empty = 0;
 };
 
+struct RenderTargetDesc {
+	std::string descriptorName;
+	int slot;
+};
+
 struct ShaderDesc {
 	std::string fileName;
 	std::string shaderName;
@@ -47,6 +52,7 @@ struct PipeLineStageDesc {
 	std::vector<ResourceJob> resourceJobs;
 	std::vector<ShaderDesc> shaderFiles;
 	std::vector<std::pair<std::string, DX12Resource*>> externalResources;
+	std::vector<RenderTargetDesc> renderTargets;
 };
 
 class PipelineStage : public TaskQueueThread {
@@ -84,6 +90,7 @@ protected:
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
 
 	std::vector<RootParamDesc> rootParameterDescs;
+	std::vector<RenderTargetDesc> renderTargetDescs;
 
 	DX12Resource* output = nullptr;
 	ResourceManager resourceManager;

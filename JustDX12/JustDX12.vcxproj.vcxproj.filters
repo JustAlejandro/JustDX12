@@ -81,6 +81,7 @@
     <ClInclude Include="ModelLoading\Mesh.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
+    <ClInclude Include="RenderPipelineStageTask.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
