@@ -1,4 +1,5 @@
 #include "Tasks\TaskQueueThread.h"
+#include "DX12Helper.h"
 
 TaskQueueThread::TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType) : md3dDevice(d3dDevice) {
 	running = true;
@@ -30,6 +31,10 @@ TaskQueueThread::~TaskQueueThread() {
 	running = false;
 	taskCv.notify_one();
 	worker.join();
+	while (!taskQueue.empty()) {
+		delete taskQueue.front();
+		taskQueue.pop();
+	}
 }
 
 void TaskQueueThread::enqueue(Task* t) {
@@ -37,24 +42,18 @@ void TaskQueueThread::enqueue(Task* t) {
 	taskQueue.push(t);
 }
 
-void TaskQueueThread::waitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) {
-	if (fence->GetCompletedValue() < destVal) {
-		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
-
-		fence->SetEventOnCompletion(destVal, eventHandle);
-
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
-	}
-}
-
 void TaskQueueThread::waitOnFence() {
 	fenceValue++;
 	setFence(fenceValue);
-	waitOnFence(mFence, fenceValue);
+	WaitOnFenceForever(mFence, fenceValue);
+}
+
+int TaskQueueThread::getFenceValue() {
+	return fenceValue;
 }
 
 void TaskQueueThread::setFence(int destVal) {
+	fenceValue = destVal;
 	mCommandQueue->Signal(mFence.Get(), fenceValue);
 }
 

@@ -8,7 +8,7 @@ class DX12Resource;
 
 struct DescriptorJob {
 	std::string name;
-	DX12Resource* target;
+	std::string target;
 	DESCRIPTOR_TYPE type;
 	union {
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -29,14 +29,14 @@ struct hash_pair {
 class DescriptorManager {
 public:
 	DescriptorManager(ComPtr<ID3D12Device> device);
-	std::vector<DX12Descriptor*> makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, bool shaderVisibile = false);
+	std::vector<DX12Descriptor*> makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, bool shaderVisibile = false);
 	DX12Descriptor* getDescriptor(std::string name, DESCRIPTOR_TYPE type);
 	std::vector<ID3D12DescriptorHeap*> getAllHeaps();
 	std::vector < std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();
 
 private:
 	D3D12_DESCRIPTOR_HEAP_TYPE heapTypeFromDescriptorType(DESCRIPTOR_TYPE type);
-	void createDescriptorView(CD3DX12_CPU_DESCRIPTOR_HANDLE& handle, DescriptorJob& job);
+	void createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job);
 	UINT getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE type);
 
 	std::vector<ComPtr<ID3D12DescriptorHeap>> descriptorHeaps;

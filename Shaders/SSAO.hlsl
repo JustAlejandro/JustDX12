@@ -3,13 +3,14 @@
 // TAA Flag is included because ray sampling
 // should be random if we denoise and constant
 // if we don't, to avoid shimmering
+/*
 cbuffer cbSSAOSettings : register(b0)
 {
     int rayCount;
     float maxRange;
     float minRange;
     int TAA;
-};
+};*/
 
 Texture2D depthTex : register(t0);
 RWTexture2D<float4> outTex : register(u0);

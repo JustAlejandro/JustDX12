@@ -5,7 +5,7 @@
 #include <vector>
 using namespace Microsoft::WRL;
 
-class DX12Descriptor;
+struct DX12Descriptor;
 
 typedef enum DESCRIPTOR_TYPES {
 	DESCRIPTOR_TYPE_NONE	= 0,

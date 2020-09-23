@@ -19,8 +19,8 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> mCommandList;
 
-	void waitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal);
 	void waitOnFence();
+	int getFenceValue();
 	void setFence(int destVal);
 	Microsoft::WRL::ComPtr<ID3D12Fence> getFence();
 private:
@@ -30,7 +30,7 @@ private:
 	std::thread worker;
 	std::condition_variable taskCv;
 
-	Microsoft::WRL::ComPtr<ID3D12Fence> mFence;
+	Microsoft::WRL::ComPtr<ID3D12Fence> mFence = nullptr;
 	int fenceValue;
 
 	void threadMain();

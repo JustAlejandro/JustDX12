@@ -1,4 +1,5 @@
 #include "PipelineStage\PipelineStage.h"
+#include "Tasks/PipelineStageTask.h"
 #include <cassert>
 #include "DX12Helper.h"
 #include <AtlBase.h>
@@ -9,11 +10,30 @@ PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)
 	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice) {
 }
 
+void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
+	enqueue(new	PipelineStageTaskSetup(this, stageDesc));
+}
+
+void PipelineStage::deferExecute() {
+	enqueue(new PipelineStageTaskRun(this));
+}
+
+int PipelineStage::triggerFence() {
+	int dest = getFenceValue() + 1;
+	enqueue(new PipelineStageTaskFence(this, dest));
+	return dest;
+}
+
+void PipelineStage::waitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
+	enqueue(new PipelineStageTaskWaitFence(this, val, fence));
+}
+
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	for (std::pair<std::string, DX12Resource*>& res : stageDesc.externalResources) {
 		resourceManager.importResource(res.first, res.second);
 	}
 	BuildRootSignature(stageDesc);
+	BuildResources(stageDesc.resourceJobs);
 	BuildDescriptors(stageDesc.descriptorJobs);
 	BuildShaders(stageDesc.shaderFiles);
 	BuildInputLayout();
@@ -24,8 +44,10 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 	assert(stageDesc.samplerDesc.size() == 0);
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(stageDesc.rootSigDesc.size(), CD3DX12_ROOT_PARAMETER());
 	std::vector<int> shaderRegisters(ROOT_PARAMETER_TYPE_MAX_LENGTH, 0);
+	std::vector<CD3DX12_DESCRIPTOR_RANGE> tables(stageDesc.rootSigDesc.size(), CD3DX12_DESCRIPTOR_RANGE());
+
 	for (int i = 0; i < stageDesc.rootSigDesc.size(); i++) {
-		initRootParameterFromType(rootParameters[i], stageDesc.rootSigDesc[i], shaderRegisters);
+		initRootParameterFromType(rootParameters[i], stageDesc.rootSigDesc[i], shaderRegisters, tables[i]);
 	}
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
@@ -44,14 +66,14 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
 
-	device->CreateRootSignature(0, serializedRootSig->GetBufferPointer(),
+	md3dDevice->CreateRootSignature(0, serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf()));
 	rootParameterDescs = stageDesc.rootSigDesc;
 }
 
 void PipelineStage::BuildDescriptors(std::vector<std::vector<DescriptorJob>>& descriptorJobs) {
 	for (std::vector<DescriptorJob>& jobVec : descriptorJobs) {
-		descriptorManager.makeDescriptorHeap(jobVec);
+		descriptorManager.makeDescriptorHeap(jobVec, &resourceManager);
 	}
 }
 
@@ -82,7 +104,7 @@ void PipelineStage::BuildPSO() {
 	throw "Can't call BuildPSO on PipelineStage object";
 }
 
-void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers) {
+void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table) {
 	switch (desc.type) {
 	case ROOT_PARAMETER_TYPE_CONSTANTS:
 		param.InitAsConstants(desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANTS]++);
@@ -91,17 +113,18 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 		param.InitAsConstantBufferView(registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
 		break;
 	case ROOT_PARAMETER_TYPE_SRV:
-		param.InitAsShaderResourceView(registers[ROOT_PARAMETER_TYPE_SRV]++);
+		//param.InitAsShaderResourceView(registers[ROOT_PARAMETER_TYPE_SRV]++)
+		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_SRV]++);
+		param.InitAsDescriptorTable(1, &table);
 		break;
 	case ROOT_PARAMETER_TYPE_UAV:
-		param.InitAsUnorderedAccessView(registers[ROOT_PARAMETER_TYPE_UAV]++);
+		//param.InitAsUnorderedAccessView(registers[ROOT_PARAMETER_TYPE_UAV]++);
+			table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_UAV]++);
+			param.InitAsDescriptorTable(1, &table);
 		break;
 	case ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
-	{
-		CD3DX12_DESCRIPTOR_RANGE table;
 		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE]++);
 		param.InitAsDescriptorTable(1, &table);
-	}
 		break;
 	default:
 		break;

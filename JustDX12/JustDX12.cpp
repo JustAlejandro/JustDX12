@@ -9,6 +9,7 @@
 #include "DX12Helper.h"
 #include "SSAO.h"
 #include <DirectXColors.h>
+#include "PipelineStage/ComputePipelineStage.h"
 
 
 std::string baseDir = "..\\Models";
@@ -62,9 +63,9 @@ private:
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
 
+	ComputePipelineStage* computeStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
 	TextureLoader* textureLoader = nullptr;
-	SSAO* ssaoContainer = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mSSAORootSignature = nullptr;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> shaders;
@@ -112,6 +113,7 @@ DemoApp::~DemoApp() {
 	if (md3dDevice != nullptr)
 		FlushCommandQueue();
 	delete modelLoader;
+	delete computeStage;
 }
 
 bool DemoApp::initialize() {
@@ -119,10 +121,48 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
+	DescriptorJob depthTex;
+	depthTex.name = "inputDepth";
+	depthTex.target = "renderOutputTex";
+	depthTex.type = DESCRIPTOR_TYPE_SRV;
+	depthTex.srvDesc = DEFAULT_SRV_DESC();
+	RootParamDesc rootPDesc;
+	rootPDesc.name = "inputDepth";
+	rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
+	rootPDesc.numConstants = 1;
+	rootPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	RootParamDesc uavPDesc;
+	uavPDesc.name = "SSAOOut";
+	uavPDesc.type = ROOT_PARAMETER_TYPE_UAV;
+	uavPDesc.numConstants = 1;
+	uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	ResourceJob outTex;
+	outTex.name = "SSAOOut";
+	outTex.types = DESCRIPTOR_TYPE_UAV;
+	ShaderDesc SSAOShaders;
+	SSAOShaders.fileName = "..\\Shaders\\SSAO.hlsl";
+	SSAOShaders.methodName = "SSAO";
+	SSAOShaders.shaderName = "SSAO";
+	SSAOShaders.type = SHADER_TYPE_CS;
+	SSAOShaders.defines = nullptr;
+	DX12Resource* leakingResource = new DX12Resource(DESCRIPTOR_TYPE_SRV, deferredRenderPass.mAttachments[0].Get(), D3D12_RESOURCE_STATE_COMMON);
+
+	PipeLineStageDesc stageDesc;
+	stageDesc.descriptorJobs = { {depthTex} };
+	stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
+	stageDesc.samplerDesc = {};
+	stageDesc.resourceJobs = { outTex };
+	stageDesc.shaderFiles = { SSAOShaders };
+	stageDesc.externalResources = { std::make_pair("renderOutputTex",leakingResource) };
+
+	computeStage = new ComputePipelineStage(md3dDevice);
+
+	computeStage->deferSetup(stageDesc);
+
 	modelLoader = new ModelLoader(md3dDevice);
 	objectsToRender.push_back(modelLoader->loadModel(sponzaFile, sponzaDir));
 
-	ssaoContainer = new SSAO(md3dDevice.Get(), mClientWidth, mClientHeight, mBackBufferFormat, mCbvSrvUavDescriptorSize);
+	//ssaoContainer = new SSAO(md3dDevice.Get(), mClientWidth, mClientHeight, mBackBufferFormat, mCbvSrvUavDescriptorSize);
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -131,7 +171,7 @@ bool DemoApp::initialize() {
 	BuildShadersAndInputLayout();
 	BuildFrameResources();
 	BuildPSOs();
-	ssaoContainer->BuildDescriptors(deferredRenderPass.mAttachments[0].Get());
+	//ssaoContainer->BuildDescriptors(deferredRenderPass.mAttachments[0].Get());
 
 	mCommandList->Close();
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
@@ -198,18 +238,28 @@ void DemoApp::draw() {
 	renderObj();
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
 
+	computeStage->deferExecute();
+	computeStage->setFence(mCurrentFence);
+	WaitOnFenceForever(computeStage->getFence(), mCurrentFence);
+	/*
 	ssaoContainer->Execute(mCommandList.Get(), mSSAORootSignature.Get(), ssaoPSO.Get(),
 		DeferredResource(), DeferredResourceViewGPU());
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
 		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
+		*/
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST));
 
-	mCommandList->CopyResource(CurrentBackBuffer(), ssaoContainer->output());
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
+		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE));
+
+	mCommandList->CopyResource(CurrentBackBuffer(), DeferredResource());
+
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));

@@ -1,4 +1,5 @@
 #include "DescriptorClasses\DescriptorManager.h"
+#include "ResourceClasses\ResourceManager.h"
 #include <string>
 #include "Settings.h"
 
@@ -6,7 +7,7 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device> device) {
 	this->device = device;
 }
 
-std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, bool shaderVisibile) {
+std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, bool shaderVisibile) {
 	DESCRIPTOR_TYPE descriptorType = DESCRIPTOR_TYPE_NONE;
 	for (const DescriptorJob& job : descriptorJobs) {
 		descriptorType |= job.type;
@@ -31,10 +32,10 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 		DX12Descriptor& desc = descriptors[std::make_pair(job.name, job.type)];
 		desc.cpuHandle = hCPUDescriptor;
 		desc.gpuHandle = hGPUDescriptor;
-		desc.target = job.target;
+		desc.target = resourceManager->getResource(job.target);
 		desc.descriptorHeap = descriptorHeap;
 
-		createDescriptorView(desc.cpuHandle, job);
+		createDescriptorView(desc, job);
 		
 		hCPUDescriptor.Offset(1, descriptorSize);
 		hGPUDescriptor.Offset(1, descriptorSize);
@@ -81,20 +82,19 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::
 	}
 }
 
-void DescriptorManager::createDescriptorView(CD3DX12_CPU_DESCRIPTOR_HANDLE& handle, DescriptorJob& job) {
-	// TODO
+void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job) {
 	switch (job.type) {
 	case DESCRIPTOR_TYPE_RTV:
-		device->CreateRenderTargetView(job.target->get(), &job.rtvDesc, handle);
+		device->CreateRenderTargetView(descriptor.target->get(), &job.rtvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_DSV:
-		device->CreateDepthStencilView(job.target->get(), &job.dsvDesc, handle);
+		device->CreateDepthStencilView(descriptor.target->get(), &job.dsvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_SRV:
-		device->CreateShaderResourceView(job.target->get(), &job.srvDesc, handle);
+		device->CreateShaderResourceView(descriptor.target->get(), &job.srvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_UAV:
-		device->CreateUnorderedAccessView(job.target->get(), nullptr, &job.uavDesc, handle);
+		device->CreateUnorderedAccessView(descriptor.target->get(), nullptr, &job.uavDesc, descriptor.cpuHandle);
 		break;
 	default:
 		OutputDebugStringA(("Couldn't create DescriptorView of type: " + std::to_string(job.type)).c_str());

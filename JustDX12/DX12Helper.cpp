@@ -68,3 +68,14 @@ UINT CalcConstantBufferByteSize(UINT byteSize) {
 	// Constant buffers have to be multiples of 256 byte size
 	return (byteSize + 255) & ~255;
 }
+
+void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) {
+	if (fence->GetCompletedValue() < destVal) {
+		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+
+		fence->SetEventOnCompletion(destVal, eventHandle);
+
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+}

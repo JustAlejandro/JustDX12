@@ -34,6 +34,7 @@ void RenderPipelineStage::Execute() {
 	
 	// TODO: Bind things to the root signature
 
+
 	// TODO: Actually make the draw call
 
 
@@ -63,8 +64,11 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
 	graphicsPSO.DSVFormat = resourceManager.getResource("defaultDSV")->getFormat();
-	if (device->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)) < 0) {
+	if (md3dDevice->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)) < 0) {
 		OutputDebugStringA("PSO Setup Failed");
 		throw "PSO FAIL";
 	}
+}
+
+void RenderPipelineStage::bindDescriptorsToRoot() {
 }

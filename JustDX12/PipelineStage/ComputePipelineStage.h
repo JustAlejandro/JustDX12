@@ -3,9 +3,10 @@
 
 class ComputePipelineStage : public PipelineStage {
 public:
-	ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, PipeLineStageDesc stageDesc);
+	ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
 	void Execute() override;
 private:
 	void BuildPSO() override;
+	void bindDescriptorsToRoot() override;
 };
 

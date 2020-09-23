@@ -51,6 +51,11 @@ struct PipeLineStageDesc {
 
 class PipelineStage : public TaskQueueThread {
 public:
+	void deferSetup(PipeLineStageDesc stageDesc);
+	void deferExecute();
+	int triggerFence();
+	void waitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
+
 	void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;
 
@@ -63,14 +68,14 @@ protected:
 	void BuildInputLayout();
 	virtual void BuildPSO();
 
-	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers);
+	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
 	std::string getCompileTargetFromType(SHADER_TYPE type);
 	DESCRIPTOR_TYPE getDescriptorTypeFromRootParameterType(ROOT_PARAMETER_TYPE type);
 	void resetCommandList();
 	void bindDescriptorHeaps();
+	virtual void bindDescriptorsToRoot()=0;
 	void setResourceStates();
 protected:
-	Microsoft::WRL::ComPtr<ID3D12Device> device = nullptr;
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
@@ -79,10 +84,6 @@ protected:
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
 
 	std::vector<RootParamDesc> rootParameterDescs;
-
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCommandQueue;
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> mCommandList;
 
 	DX12Resource* output = nullptr;
 	ResourceManager resourceManager;

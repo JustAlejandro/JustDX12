@@ -24,3 +24,5 @@ Microsoft::WRL::ComPtr<ID3DBlob> compileShader(
 DirectX::XMFLOAT4X4 Identity();
 
 UINT CalcConstantBufferByteSize(UINT byteSize);
+
+void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal);

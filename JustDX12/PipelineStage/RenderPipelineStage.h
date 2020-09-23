@@ -7,6 +7,8 @@ public:
 	void Execute() override;
 protected:
 	void BuildPSO() override;
+	void bindDescriptorsToRoot() override;
+
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT scissorRect;
 };

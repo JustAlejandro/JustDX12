@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="DX12App.cpp" />
+    <ClCompile Include="DX12Helper.cpp" />
+    <ClCompile Include="JustDX12.cpp" />
+    <ClCompile Include="FrameResource.cpp" />
+    <ClCompile Include="Settings.cpp" />
+    <ClCompile Include="Tasks\TaskQueueThread.cpp" />
+    <ClCompile Include="PipelineStage\ComputePipelineStage.cpp">
+      <Filter>Pipelines</Filter>
+    </ClCompile>
+    <ClCompile Include="PipelineStage\PipelineStage.cpp">
+      <Filter>Pipelines</Filter>
+    </ClCompile>
+    <ClCompile Include="PipelineStage\RenderPipelineStage.cpp">
+      <Filter>Pipelines</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelLoading\ModelLoader.cpp">
+      <Filter>ModelLoading</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelLoading\TextureLoader.cpp">
+      <Filter>ModelLoading</Filter>
+    </ClCompile>
+    <ClCompile Include="DescriptorClasses\DescriptorManager.cpp">
+      <Filter>Descriptors</Filter>
+    </ClCompile>
+    <ClCompile Include="ResourceClasses\DX12Resource.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="ResourceClasses\ResourceManager.cpp">
+      <Filter>Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelLoading\Model.cpp">
+      <Filter>ModelLoading</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="DeferredRenderPass.h" />
+    <ClInclude Include="DX12App.h" />
+    <ClInclude Include="DX12Helper.h" />
+    <ClInclude Include="FrameResource.h" />
+    <ClInclude Include="Tasks\PipelineStageTask.h" />
+    <ClInclude Include="Settings.h" />
+    <ClInclude Include="Tasks\TaskQueueThread.h" />
+    <ClInclude Include="Tasks\Task.h" />
+    <ClInclude Include="UploadBuffer.h" />
+    <ClInclude Include="PipelineStage\ComputePipelineStage.h">
+      <Filter>Pipelines</Filter>
+    </ClInclude>
+    <ClInclude Include="PipelineStage\PipelineStage.h">
+      <Filter>Pipelines</Filter>
+    </ClInclude>
+    <ClInclude Include="PipelineStage\RenderPipelineStage.h">
+      <Filter>Pipelines</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelLoading\Model.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelLoading\ModelLoader.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="Tasks\ModelLoadTask.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelLoading\TextureLoader.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorClasses\DescriptorManager.h">
+      <Filter>Descriptors</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorClasses\DX12Descriptor.h">
+      <Filter>Descriptors</Filter>
+    </ClInclude>
+    <ClInclude Include="ResourceClasses\DX12Resource.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="ResourceClasses\ResourceManager.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelLoading\Mesh.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Pipelines">
+      <UniqueIdentifier>{211485a0-da2d-4d4f-afdd-b06da18c9c04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Descriptors">
+      <UniqueIdentifier>{3707e1d8-81f8-45cc-a07a-a5d327f4f882}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{438894ae-3e67-48b9-b234-6c7ba6049658}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ModelLoading">
+      <UniqueIdentifier>{3866f14f-67e9-450e-b24f-cc2a888a6f40}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

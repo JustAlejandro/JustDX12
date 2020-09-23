@@ -32,7 +32,7 @@ protected:
 
 class PipelineStageTaskWaitFence : public PipelineStageTask {
 public:
-	PipelineStageTaskWaitFence(PipelineStage* stage, int val, Microsoft::WRL::ComPtr<ID3D12Fence>* fence) : PipelineStageTask(stage) {
+	PipelineStageTaskWaitFence(PipelineStage* stage, int val, Microsoft::WRL::ComPtr<ID3D12Fence> fence) : PipelineStageTask(stage) {
 		this->val = val;
 		this->fence = fence;
 	}
