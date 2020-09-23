@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include "FrameResource.h"
 #include "DX12Helper.h"
-#include "SSAO.h"
 #include <DirectXColors.h>
 #include "PipelineStage/ComputePipelineStage.h"
 
@@ -114,6 +113,9 @@ DemoApp::~DemoApp() {
 		FlushCommandQueue();
 	delete modelLoader;
 	delete computeStage;
+	for (int i = 0; i < objectsToRender.size(); i++) {
+		delete objectsToRender[i];
+	}
 }
 
 bool DemoApp::initialize() {
@@ -126,6 +128,11 @@ bool DemoApp::initialize() {
 	depthTex.target = "renderOutputTex";
 	depthTex.type = DESCRIPTOR_TYPE_SRV;
 	depthTex.srvDesc = DEFAULT_SRV_DESC();
+	DescriptorJob outTexDesc;
+	outTexDesc.name = "SSAOOut";
+	outTexDesc.target = "SSAOOutTexture";
+	outTexDesc.type = DESCRIPTOR_TYPE_UAV;
+	outTexDesc.uavDesc = DEFAULT_UAV_DESC();
 	RootParamDesc rootPDesc;
 	rootPDesc.name = "inputDepth";
 	rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
@@ -137,7 +144,7 @@ bool DemoApp::initialize() {
 	uavPDesc.numConstants = 1;
 	uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 	ResourceJob outTex;
-	outTex.name = "SSAOOut";
+	outTex.name = "SSAOOutTexture";
 	outTex.types = DESCRIPTOR_TYPE_UAV;
 	ShaderDesc SSAOShaders;
 	SSAOShaders.fileName = "..\\Shaders\\SSAO.hlsl";
@@ -145,10 +152,11 @@ bool DemoApp::initialize() {
 	SSAOShaders.shaderName = "SSAO";
 	SSAOShaders.type = SHADER_TYPE_CS;
 	SSAOShaders.defines = nullptr;
-	DX12Resource* leakingResource = new DX12Resource(DESCRIPTOR_TYPE_SRV, deferredRenderPass.mAttachments[0].Get(), D3D12_RESOURCE_STATE_COMMON);
+	DX12Resource* leakingResource = new DX12Resource(DESCRIPTOR_TYPE_SRV, 
+		deferredRenderPass.mAttachments[0].Get(), D3D12_RESOURCE_STATE_COMMON);
 
 	PipeLineStageDesc stageDesc;
-	stageDesc.descriptorJobs = { {depthTex} };
+	stageDesc.descriptorJobs = { {depthTex, outTexDesc} };
 	stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
 	stageDesc.samplerDesc = {};
 	stageDesc.resourceJobs = { outTex };
@@ -241,8 +249,8 @@ void DemoApp::draw() {
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
 
 	computeStage->deferExecute();
-	computeStage->setFence(mCurrentFence);
-	WaitOnFenceForever(computeStage->getFence(), mCurrentFence);
+	int computeFenceValue = computeStage->triggerFence();
+	WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
 	/*
 	ssaoContainer->Execute(mCommandList.Get(), mSSAORootSignature.Get(), ssaoPSO.Get(),
 		DeferredResource(), DeferredResourceViewGPU());
@@ -256,7 +264,9 @@ void DemoApp::draw() {
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
 		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE));
 
-	mCommandList->CopyResource(CurrentBackBuffer(), DeferredResource());
+	DX12Resource* SSAOOut = computeStage->getOut();
+	SSAOOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	mCommandList->CopyResource(CurrentBackBuffer(), SSAOOut->get());
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
 		D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -303,8 +313,8 @@ void DemoApp::renderObj() {
 	
 	ID3D12Resource* objectCB = mCurrFrameResource->objectCB->Resource();
 	
-	while (!objectsToRender[0]->loaded) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	if (!objectsToRender[0]->loaded) {
+		return;
 	}
 
 	mCommandList->IASetVertexBuffers(0, 1, &objectsToRender[0]->vertexBufferView());

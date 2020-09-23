@@ -40,6 +40,7 @@ TaskQueueThread::~TaskQueueThread() {
 void TaskQueueThread::enqueue(Task* t) {
 	std::lock_guard<std::mutex> lk(taskQueueMutex);
 	taskQueue.push(t);
+	taskCv.notify_one();
 }
 
 void TaskQueueThread::waitOnFence() {
@@ -62,7 +63,7 @@ Microsoft::WRL::ComPtr<ID3D12Fence> TaskQueueThread::getFence() {
 }
 
 void TaskQueueThread::threadMain() {
-	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
+	//mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 	while (true) {
 		std::unique_lock<std::mutex> lk(taskQueueMutex);
 		if (taskQueue.empty()) {

@@ -65,6 +65,10 @@ public:
 	void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;
 
+	DX12Resource* getOut() {
+		return resourceManager.getResource("SSAOOutTexture");
+	}
+
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
 	void BuildRootSignature(PipeLineStageDesc stageDesc);
@@ -93,6 +97,7 @@ protected:
 	std::vector<RenderTargetDesc> renderTargetDescs;
 
 	DX12Resource* output = nullptr;
+
 	ResourceManager resourceManager;
 	DescriptorManager descriptorManager;
 };

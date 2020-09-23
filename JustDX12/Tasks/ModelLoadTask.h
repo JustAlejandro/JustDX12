@@ -16,6 +16,9 @@ public:
 	}
 
 	void execute() override {
+		taskQueueThread->mDirectCmdListAlloc->Reset();
+		taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
+
 		Assimp::Importer importer;
 		OutputDebugString(L"Starting to Load Model\n");
 		const aiScene* scene = importer.ReadFile(model->dir + "\\" + model->name,

@@ -29,7 +29,7 @@ struct hash_pair {
 class DescriptorManager {
 public:
 	DescriptorManager(ComPtr<ID3D12Device> device);
-	std::vector<DX12Descriptor*> makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, bool shaderVisibile = false);
+	std::vector<DX12Descriptor*> makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager);
 	DX12Descriptor* getDescriptor(std::string name, DESCRIPTOR_TYPE type);
 	std::vector<ID3D12DescriptorHeap*> getAllHeaps();
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();
@@ -37,6 +37,7 @@ public:
 
 private:
 	D3D12_DESCRIPTOR_HEAP_TYPE heapTypeFromDescriptorType(DESCRIPTOR_TYPE type);
+	D3D12_DESCRIPTOR_HEAP_FLAGS shaderVisibleFromHeapType(D3D12_DESCRIPTOR_HEAP_TYPE type);
 	void createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job);
 	UINT getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE type);
 

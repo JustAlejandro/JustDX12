@@ -19,7 +19,7 @@ void ComputePipelineStage::Execute() {
 	UINT numGroups = (UINT)ceilf(SCREEN_WIDTH / 256.0f);
 	mCommandList->Dispatch(numGroups, SCREEN_HEIGHT, 1);
 
-	resourceManager.getResource("SSAOOut")->changeState(mCommandList, D3D12_RESOURCE_STATE_COMMON);
+	resourceManager.getResource("SSAOOutTexture")->changeState(mCommandList, D3D12_RESOURCE_STATE_COMMON);
 
 	mCommandList->Close();
 

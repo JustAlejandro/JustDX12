@@ -7,7 +7,7 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device> device) {
 	this->device = device;
 }
 
-std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, bool shaderVisibile) {
+std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager) {
 	DESCRIPTOR_TYPE descriptorType = DESCRIPTOR_TYPE_NONE;
 	for (const DescriptorJob& job : descriptorJobs) {
 		descriptorType |= job.type;
@@ -19,7 +19,7 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
 	heapDesc.NumDescriptors = descriptorJobs.size();
 	heapDesc.Type = heapTypeFromDescriptorType(descriptorType);
-	heapDesc.Flags = shaderVisibile ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	heapDesc.Flags = shaderVisibleFromHeapType(heapDesc.Type);
 	
 	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
 	device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap));
@@ -126,6 +126,13 @@ D3D12_DESCRIPTOR_HEAP_TYPE DescriptorManager::heapTypeFromDescriptorType(DESCRIP
 		OutputDebugStringA(("Conflicting DESCIPTOR_TYPE recieved: " + std::to_string(type)).c_str());
 	}
 	return descriptorHeapType;
+}
+
+D3D12_DESCRIPTOR_HEAP_FLAGS DescriptorManager::shaderVisibleFromHeapType(D3D12_DESCRIPTOR_HEAP_TYPE type) {
+	if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV || type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+		return D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	}
+	return D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 }
 
 UINT DescriptorManager::getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE type) {
