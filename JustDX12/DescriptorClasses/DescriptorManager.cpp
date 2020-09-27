@@ -7,7 +7,7 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device> device) {
 	this->device = device;
 }
 
-std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager) {
+std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager) {
 	DESCRIPTOR_TYPE descriptorType = DESCRIPTOR_TYPE_NONE;
 	for (const DescriptorJob& job : descriptorJobs) {
 		descriptorType |= job.type;
@@ -32,8 +32,15 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 		DX12Descriptor& desc = descriptors[std::make_pair(job.name, job.type)];
 		desc.cpuHandle = hCPUDescriptor;
 		desc.gpuHandle = hGPUDescriptor;
-		desc.target = resourceManager->getResource(job.target);
-		desc.descriptorHeap = descriptorHeap;
+		if (job.type == DESCRIPTOR_TYPE_CBV) {
+			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.target);
+			desc.constantBufferTarget = buffer;
+			job.cbvDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress();
+			job.cbvDesc.SizeInBytes = buffer->getBufferSize();
+		}
+		else {
+			desc.resourceTarget = resourceManager->getResource(job.target);
+		}
 
 		createDescriptorView(desc, job);
 		
@@ -62,19 +69,22 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::
 	for (auto& entry : descriptors) {
 		switch (entry.first.second) {
 		case DESCRIPTOR_TYPE_NONE:
-			states.emplace_back(D3D12_RESOURCE_STATE_COMMON, entry.second.target);
+			states.emplace_back(D3D12_RESOURCE_STATE_COMMON, entry.second.resourceTarget);
 			break;
 		case DESCRIPTOR_TYPE_RTV:
-			states.emplace_back(D3D12_RESOURCE_STATE_RENDER_TARGET, entry.second.target);
+			states.emplace_back(D3D12_RESOURCE_STATE_RENDER_TARGET, entry.second.resourceTarget);
 			break;
 		case DESCRIPTOR_TYPE_DSV:
-			states.emplace_back(D3D12_RESOURCE_STATE_DEPTH_WRITE, entry.second.target);
+			states.emplace_back(D3D12_RESOURCE_STATE_DEPTH_WRITE, entry.second.resourceTarget);
 			break;
 		case DESCRIPTOR_TYPE_UAV:
-			states.emplace_back(D3D12_RESOURCE_STATE_UNORDERED_ACCESS, entry.second.target);
+			states.emplace_back(D3D12_RESOURCE_STATE_UNORDERED_ACCESS, entry.second.resourceTarget);
 			break;
 		case DESCRIPTOR_TYPE_SRV:
-			states.emplace_back(D3D12_RESOURCE_STATE_GENERIC_READ, entry.second.target);
+			states.emplace_back(D3D12_RESOURCE_STATE_GENERIC_READ, entry.second.resourceTarget);
+			break;
+		case DESCRIPTOR_TYPE_CBV:
+			//Stateless(ish), doesn't really need to be changed
 			break;
 		default:
 			throw "Invalid Type Given";
@@ -90,16 +100,19 @@ std::vector<DX12Descriptor*> DescriptorManager::getAllDescriptorsOfType(DESCRIPT
 void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job) {
 	switch (job.type) {
 	case DESCRIPTOR_TYPE_RTV:
-		device->CreateRenderTargetView(descriptor.target->get(), &job.rtvDesc, descriptor.cpuHandle);
+		device->CreateRenderTargetView(descriptor.resourceTarget->get(), &job.rtvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_DSV:
-		device->CreateDepthStencilView(descriptor.target->get(), &job.dsvDesc, descriptor.cpuHandle);
+		device->CreateDepthStencilView(descriptor.resourceTarget->get(), &job.dsvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_SRV:
-		device->CreateShaderResourceView(descriptor.target->get(), &job.srvDesc, descriptor.cpuHandle);
+		device->CreateShaderResourceView(descriptor.resourceTarget->get(), &job.srvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_UAV:
-		device->CreateUnorderedAccessView(descriptor.target->get(), nullptr, &job.uavDesc, descriptor.cpuHandle);
+		device->CreateUnorderedAccessView(descriptor.resourceTarget->get(), nullptr, &job.uavDesc, descriptor.cpuHandle);
+		break;
+	case DESCRIPTOR_TYPE_CBV:
+		device->CreateConstantBufferView(&job.cbvDesc, descriptor.cpuHandle);
 		break;
 	default:
 		OutputDebugStringA(("Couldn't create DescriptorView of type: " + std::to_string(job.type)).c_str());
@@ -118,7 +131,7 @@ D3D12_DESCRIPTOR_HEAP_TYPE DescriptorManager::heapTypeFromDescriptorType(DESCRIP
 		descriptorHeapType = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 		typeCounter++;
 	}
-	if (type & (DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_UAV)) {
+	if (type & (DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_UAV | DESCRIPTOR_TYPE_CBV)) {
 		descriptorHeapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		typeCounter++;
 	}

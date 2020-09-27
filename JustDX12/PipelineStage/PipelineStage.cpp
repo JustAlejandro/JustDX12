@@ -7,7 +7,7 @@
 using namespace Microsoft::WRL;
 
 PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)
-	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice) {
+	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
 }
 
 void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
@@ -35,6 +35,7 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	renderTargetDescs = stageDesc.renderTargets;
 	BuildRootSignature(stageDesc);
 	BuildResources(stageDesc.resourceJobs);
+	BuildConstantBuffers(stageDesc.constantBufferJobs);
 	BuildDescriptors(stageDesc.descriptorJobs);
 	BuildShaders(stageDesc.shaderFiles);
 	BuildInputLayout();
@@ -74,7 +75,14 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 
 void PipelineStage::BuildDescriptors(std::vector<std::vector<DescriptorJob>>& descriptorJobs) {
 	for (std::vector<DescriptorJob>& jobVec : descriptorJobs) {
-		descriptorManager.makeDescriptorHeap(jobVec, &resourceManager);
+		descriptorManager.makeDescriptorHeap(jobVec, &resourceManager, &constantBufferManager);
+	}
+}
+
+void PipelineStage::BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs) {
+	for (ConstantBufferJob& job : constantBufferJobs) {
+		constantBufferManager.makeConstantBuffer(job);
+		delete job.initialData;
 	}
 }
 
@@ -111,17 +119,16 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 		param.InitAsConstants(desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANTS]++);
 		break;
 	case ROOT_PARAMETER_TYPE_CONSTANT_BUFFER:
-		param.InitAsConstantBufferView(registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
+		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
+		param.InitAsDescriptorTable(1, &table);
 		break;
 	case ROOT_PARAMETER_TYPE_SRV:
-		//param.InitAsShaderResourceView(registers[ROOT_PARAMETER_TYPE_SRV]++)
 		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_SRV]++);
 		param.InitAsDescriptorTable(1, &table);
 		break;
 	case ROOT_PARAMETER_TYPE_UAV:
-		//param.InitAsUnorderedAccessView(registers[ROOT_PARAMETER_TYPE_UAV]++);
-			table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_UAV]++);
-			param.InitAsDescriptorTable(1, &table);
+		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_UAV]++);
+		param.InitAsDescriptorTable(1, &table);
 		break;
 	case ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
 		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE]++);
@@ -151,7 +158,7 @@ DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterType(ROOT_PARAM
 	case ROOT_PARAMETER_TYPE_CONSTANTS:
 		throw "Can't do constants";
 	case ROOT_PARAMETER_TYPE_CONSTANT_BUFFER:
-		throw "can't do constant buffers";
+		return DESCRIPTOR_TYPE_CBV;
 	case ROOT_PARAMETER_TYPE_SRV:
 		return DESCRIPTOR_TYPE_SRV;
 	case ROOT_PARAMETER_TYPE_UAV:

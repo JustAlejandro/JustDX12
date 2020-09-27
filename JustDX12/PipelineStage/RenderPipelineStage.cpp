@@ -68,7 +68,7 @@ void RenderPipelineStage::BuildPSO() {
 	for (int i = 0; i < renderTargetDescs.size(); i++) {
 		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(
 				renderTargetDescs[i].descriptorName, 
-				DESCRIPTOR_TYPE_RTV)->target->getFormat();
+				DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
@@ -93,6 +93,9 @@ void RenderPipelineStage::bindDescriptorsToRoot() {
 			mCommandList->SetGraphicsRootDescriptorTable(i,
 				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
 			break;
+		case DESCRIPTOR_TYPE_CBV:
+			mCommandList->SetGraphicsRootDescriptorTable(i,
+				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
 		default:
 			throw "Don't know what to do here.";
 			break;

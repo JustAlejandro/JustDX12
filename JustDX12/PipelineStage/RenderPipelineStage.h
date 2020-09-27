@@ -3,6 +3,7 @@
 class Model;
 class ModelLoader;
 
+
 class RenderPipelineStage : public PipelineStage {
 public:
 	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);

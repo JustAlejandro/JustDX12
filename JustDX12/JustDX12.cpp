@@ -123,6 +123,12 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
+
+
+	DescriptorJob constantsDesc;
+	constantsDesc.name = "SSAOConstantsDesc";
+	constantsDesc.target = "SSAOConstants";
+	constantsDesc.type = DESCRIPTOR_TYPE_CBV;
 	DescriptorJob depthTex;
 	depthTex.name = "inputDepth";
 	depthTex.target = "renderOutputTex";
@@ -133,6 +139,11 @@ bool DemoApp::initialize() {
 	outTexDesc.target = "SSAOOutTexture";
 	outTexDesc.type = DESCRIPTOR_TYPE_UAV;
 	outTexDesc.uavDesc = DEFAULT_UAV_DESC();
+	RootParamDesc cbvPDesc;
+	cbvPDesc.name = "SSAOConstantsDesc";
+	cbvPDesc.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
+	cbvPDesc.numConstants = 1;
+	cbvPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	RootParamDesc rootPDesc;
 	rootPDesc.name = "inputDepth";
 	rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
@@ -146,6 +157,11 @@ bool DemoApp::initialize() {
 	ResourceJob outTex;
 	outTex.name = "SSAOOutTexture";
 	outTex.types = DESCRIPTOR_TYPE_UAV;
+	SSAOConstants* initialData = new SSAOConstants();
+	initialData->data.maxRange = 0.8;
+	ConstantBufferJob cbOut;
+	cbOut.initialData = initialData;
+	cbOut.name = "SSAOConstants";
 	ShaderDesc SSAOShaders;
 	SSAOShaders.fileName = "..\\Shaders\\SSAO.hlsl";
 	SSAOShaders.methodName = "SSAO";
@@ -156,11 +172,12 @@ bool DemoApp::initialize() {
 		deferredRenderPass.mAttachments[0].Get(), D3D12_RESOURCE_STATE_COMMON);
 
 	PipeLineStageDesc stageDesc;
-	stageDesc.descriptorJobs = { {depthTex, outTexDesc} };
-	stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
+	stageDesc.descriptorJobs = { {constantsDesc, depthTex, outTexDesc} };
+	stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, uavPDesc };
 	stageDesc.samplerDesc = {};
 	stageDesc.resourceJobs = { outTex };
 	stageDesc.shaderFiles = { SSAOShaders };
+	stageDesc.constantBufferJobs = { cbOut };
 	stageDesc.externalResources = { std::make_pair("renderOutputTex",leakingResource) };
 
 	computeStage = new ComputePipelineStage(md3dDevice);
@@ -532,7 +549,7 @@ void DemoApp::UpdateObjectCBs() {
 		DirectX::XMMATRIX world = DirectX::XMMatrixTranslation(model->pos.x, model->pos.y, model->pos.z);
 		
 		PerObjectConstants objConst;
-		XMStoreFloat4x4(&objConst.World, XMMatrixTranspose(world));
+		//XMStoreFloat4x4(&objConst.World, XMMatrixTranspose(world));
 
 		objCB->copyData(0, objConst);
 	}
@@ -549,7 +566,7 @@ void DemoApp::UpdateMainPassCB() {
 	DirectX::XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
 	DirectX::XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
 	DirectX::XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
-	
+	/*
 	XMStoreFloat4x4(&mainPassCB.view, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&mainPassCB.invView, XMMatrixTranspose(invView));
 	XMStoreFloat4x4(&mainPassCB.proj, XMMatrixTranspose(proj));
@@ -563,7 +580,7 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.FarZ = 5000.0f;
 	mainPassCB.TotalTime = 0.0f;
 	mainPassCB.DeltaTime = 0.0f;
-
+	*/
 	UploadBuffer<PerPassConstants>* passCB = mCurrFrameResource->passCB.get();
 	passCB->copyData(0, mainPassCB);
 }

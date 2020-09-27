@@ -34,6 +34,8 @@
     <ClCompile Include="ModelLoading\Model.cpp">
       <Filter>ModelLoading</Filter>
     </ClCompile>
+    <ClCompile Include="DX12ConstantBuffer.cpp" />
+    <ClCompile Include="ConstantBufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DeferredRenderPass.h" />
@@ -82,6 +84,12 @@
       <Filter>ModelLoading</Filter>
     </ClInclude>
     <ClInclude Include="RenderPipelineStageTask.h" />
+    <ClInclude Include="ConstantBufferTypes.h" />
+    <ClInclude Include="DX12ConstantBuffer.h" />
+    <ClInclude Include="ConstantBufferData.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="ConstantBufferManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

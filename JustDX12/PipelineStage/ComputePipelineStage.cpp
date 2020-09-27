@@ -57,6 +57,10 @@ void ComputePipelineStage::bindDescriptorsToRoot() {
 			mCommandList->SetComputeRootDescriptorTable(i,
 				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
 			break;
+		case DESCRIPTOR_TYPE_CBV:
+			mCommandList->SetComputeRootDescriptorTable(i,
+				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+			break;
 		default:
 			throw "Don't know what to do here.";
 			break;

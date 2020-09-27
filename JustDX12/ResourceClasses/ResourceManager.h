@@ -2,6 +2,7 @@
 #include "ResourceClasses\DX12Resource.h"
 #include <unordered_map>
 #include "Settings.h"
+#include "DX12ConstantBuffer.h"
 
 struct ResourceJob {
 	std::string name;
@@ -25,4 +26,3 @@ private:
 	std::unordered_map<std::string, DX12Resource*> externalResources;
 	ComPtr<ID3D12Device> device = nullptr;
 };
-

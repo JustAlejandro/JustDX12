@@ -1,6 +1,7 @@
 #pragma once
 #include "DescriptorClasses\DX12Descriptor.h"
 #include "ResourceClasses\DX12Resource.h"
+#include "ConstantBufferManager.h"
 #include <unordered_map>
 
 class ResourceManager;
@@ -15,6 +16,7 @@ struct DescriptorJob {
 		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
 	};
 };
 
@@ -29,7 +31,7 @@ struct hash_pair {
 class DescriptorManager {
 public:
 	DescriptorManager(ComPtr<ID3D12Device> device);
-	std::vector<DX12Descriptor*> makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager);
+	std::vector<DX12Descriptor*> makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager);
 	DX12Descriptor* getDescriptor(std::string name, DESCRIPTOR_TYPE type);
 	std::vector<ID3D12DescriptorHeap*> getAllHeaps();
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();
@@ -46,4 +48,3 @@ private:
 	std::unordered_map<std::pair<std::string, DESCRIPTOR_TYPE>, DX12Descriptor, hash_pair> descriptors;
 	ComPtr<ID3D12Device> device = nullptr;
 };
-

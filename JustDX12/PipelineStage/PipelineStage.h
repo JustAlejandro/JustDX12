@@ -4,6 +4,7 @@
 #include "Tasks\TaskQueueThread.h"
 #include "DescriptorClasses\DescriptorManager.h"
 #include "ResourceClasses\ResourceManager.h"
+#include "ConstantBufferManager.h"
 #include <vector>
 
 enum ROOT_PARAMETER_TYPE {
@@ -50,6 +51,7 @@ struct PipeLineStageDesc {
 	std::vector<SamplerDesc> samplerDesc;
 	std::vector<std::vector<DescriptorJob>> descriptorJobs;
 	std::vector<ResourceJob> resourceJobs;
+	std::vector<ConstantBufferJob> constantBufferJobs;
 	std::vector<ShaderDesc> shaderFiles;
 	std::vector<std::pair<std::string, DX12Resource*>> externalResources;
 	std::vector<RenderTargetDesc> renderTargets;
@@ -73,6 +75,7 @@ protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
 	void BuildRootSignature(PipeLineStageDesc stageDesc);
 	void BuildDescriptors(std::vector<std::vector<DescriptorJob>>& descriptorJobs);
+	void BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs);
 	void BuildResources(std::vector<ResourceJob>& resourceJobs);
 	void BuildShaders(std::vector<ShaderDesc> shaderDescs);
 	void BuildInputLayout();
@@ -100,5 +103,6 @@ protected:
 
 	ResourceManager resourceManager;
 	DescriptorManager descriptorManager;
+	ConstantBufferManager constantBufferManager;
 };
 

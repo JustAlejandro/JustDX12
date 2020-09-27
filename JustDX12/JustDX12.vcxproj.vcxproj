@@ -152,6 +152,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ConstantBufferManager.cpp" />
+    <ClCompile Include="DX12ConstantBuffer.cpp" />
     <ClCompile Include="PipelineStage\ComputePipelineStage.cpp" />
     <ClCompile Include="DescriptorClasses\DescriptorManager.cpp" />
     <ClCompile Include="DX12App.cpp" />
@@ -172,6 +174,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ConstantBufferData.h" />
+    <ClInclude Include="ConstantBufferManager.h" />
+    <ClInclude Include="ConstantBufferTypes.h" />
+    <ClInclude Include="DX12ConstantBuffer.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />
     <ClInclude Include="DeferredRenderPass.h" />
     <ClInclude Include="DescriptorClasses\DescriptorManager.h" />
