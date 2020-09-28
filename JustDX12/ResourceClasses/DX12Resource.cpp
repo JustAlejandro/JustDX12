@@ -39,12 +39,14 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device> device, DESCRIPTOR_TYPES types, 
 
 	texDesc.Flags = flags;
 
+	D3D12_CLEAR_VALUE defaultDepthClear = DEFAULT_CLEAR_VALUE_DEPTH_STENCIL();
+	D3D12_CLEAR_VALUE* clearVal = (types & DESCRIPTOR_TYPE_DSV) ? &defaultDepthClear : nullptr;
 	device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
 		curState,
-		nullptr,
+		clearVal,
 		IID_PPV_ARGS(&resource));
 }
 

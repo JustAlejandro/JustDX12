@@ -20,7 +20,7 @@ DX12App* DX12App::getApp() {
 
 DX12App::DX12App(HINSTANCE hInstance) : hAppInst(hInstance) {
 	mBackBufferFormat = COLOR_TEXTURE_FORMAT;
-	mDepthStencilFormat = DEPTH_TEXTURE_FORMAT;
+	mDepthStencilFormat = DEPTH_TEXTURE_DSV_FORMAT;
 	mClientWidth = SCREEN_WIDTH;
 	mClientHeight = SCREEN_HEIGHT;
 	assert(app == nullptr);

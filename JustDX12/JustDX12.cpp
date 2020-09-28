@@ -9,6 +9,7 @@
 #include "DX12Helper.h"
 #include <DirectXColors.h>
 #include "PipelineStage/ComputePipelineStage.h"
+#include "PipelineStage\RenderPipelineStage.h"
 
 
 std::string baseDir = "..\\Models";
@@ -63,6 +64,7 @@ private:
 	int mCurrFrameResourceIndex = 0;
 
 	ComputePipelineStage* computeStage = nullptr;
+	RenderPipelineStage* renderStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
 	TextureLoader* textureLoader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
@@ -123,69 +125,160 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
+	{
+		DescriptorJob perObjectConstants;
+		perObjectConstants.name = "PerObjectConstDesc";
+		perObjectConstants.target = "PerObjectConstants";
+		perObjectConstants.type = DESCRIPTOR_TYPE_CBV;
+		DescriptorJob perPassConstants;
+		perPassConstants.name = "PerPassConstDesc";
+		perPassConstants.target = "PerPassConstants";
+		perPassConstants.type = DESCRIPTOR_TYPE_CBV;
+		DescriptorJob rtvDescs[3];
+		rtvDescs[0].name = "outTexDesc[0]";
+		rtvDescs[0].target = "outTexArray[0]";
+		rtvDescs[0].type = DESCRIPTOR_TYPE_RTV;
+		rtvDescs[0].rtvDesc = DEFAULT_RTV_DESC();
+		rtvDescs[1].name = "outTexDesc[1]";
+		rtvDescs[1].target = "outTexArray[1]";
+		rtvDescs[1].type = DESCRIPTOR_TYPE_RTV;
+		rtvDescs[1].rtvDesc = DEFAULT_RTV_DESC();
+		rtvDescs[2].name = "outTexDesc[2]";
+		rtvDescs[2].target = "outTexArray[2]";
+		rtvDescs[2].type = DESCRIPTOR_TYPE_RTV;
+		rtvDescs[2].rtvDesc = DEFAULT_RTV_DESC();
+		DescriptorJob dsvDesc;
+		dsvDesc.name = "depthStencilView";
+		dsvDesc.target = "depthTex";
+		dsvDesc.type = DESCRIPTOR_TYPE_DSV;
+		dsvDesc.dsvDesc = DEFAULT_DSV_DESC();
+		RootParamDesc perObjRoot;
+		perObjRoot.name = "PerObjectConstDesc";
+		perObjRoot.numConstants = 1;
+		perObjRoot.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
+		perObjRoot.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		RootParamDesc perPassRoot;
+		perPassRoot.name = "PerPassConstDesc";
+		perPassRoot.numConstants = 1;
+		perPassRoot.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
+		perPassRoot.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		ResourceJob outTex;
+		outTex.format = COLOR_TEXTURE_FORMAT;
+		outTex.texHeight = SCREEN_HEIGHT;
+		outTex.texWidth = SCREEN_WIDTH;
+		outTex.types = DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_SRV;
+		ResourceJob outTexArray[3] = { outTex,outTex,outTex };
+		outTexArray[0].name = "outTexArray[0]";
+		outTexArray[1].name = "outTexArray[1]";
+		outTexArray[2].name = "outTexArray[2]";
+		ResourceJob depthTex;
+		depthTex.format = DEPTH_TEXTURE_FORMAT;
+		depthTex.name = "depthTex";
+		depthTex.texHeight = SCREEN_HEIGHT;
+		depthTex.texWidth = SCREEN_WIDTH;
+		depthTex.types = DESCRIPTOR_TYPE_DSV | DESCRIPTOR_TYPE_SRV;
+		ConstantBufferJob perObjectJob;
+		perObjectJob.initialData = new PerObjectConstants();
+		perObjectJob.name = "PerObjectConstants";
+		ConstantBufferJob perPassJob;
+		perPassJob.initialData = new PerPassConstants();
+		perPassJob.name = "PerPassConstants";
+		ShaderDesc vs;
+		vs.methodName = "VS";
+		vs.defines = nullptr;
+		vs.shaderName = "Vertex Shader";
+		vs.type = SHADER_TYPE_VS;
+		vs.fileName = "..\\Shaders\\Default.hlsl";
+		ShaderDesc ps;
+		ps.methodName = "PS";
+		ps.defines = nullptr;
+		ps.shaderName = "Pixel Shader";
+		ps.type = SHADER_TYPE_PS;
+		ps.fileName = "..\\Shaders\\Default.hlsl";
+		RenderTargetDesc renderTargets[3];
+		renderTargets[0].descriptorName = "outTexDesc[0]";
+		renderTargets[0].slot = 0;
+		renderTargets[1].descriptorName = "outTexDesc[1]";
+		renderTargets[1].slot = 1;
+		renderTargets[2].descriptorName = "outTexDesc[2]";
+		renderTargets[2].slot = 2;
 
+		PipeLineStageDesc rasterDesc;
+		rasterDesc.constantBufferJobs = { perObjectJob, perPassJob };
+		rasterDesc.descriptorJobs = { {perObjectConstants, perPassConstants}, {rtvDescs[0], rtvDescs[1], rtvDescs[2]}, { dsvDesc } };
+		rasterDesc.externalResources = {};
+		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
+		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],depthTex };
+		rasterDesc.rootSigDesc = { perObjRoot, perPassRoot };
+		rasterDesc.samplerDesc = {};
+		rasterDesc.shaderFiles = { vs, ps };
 
-	DescriptorJob constantsDesc;
-	constantsDesc.name = "SSAOConstantsDesc";
-	constantsDesc.target = "SSAOConstants";
-	constantsDesc.type = DESCRIPTOR_TYPE_CBV;
-	DescriptorJob depthTex;
-	depthTex.name = "inputDepth";
-	depthTex.target = "renderOutputTex";
-	depthTex.type = DESCRIPTOR_TYPE_SRV;
-	depthTex.srvDesc = DEFAULT_SRV_DESC();
-	DescriptorJob outTexDesc;
-	outTexDesc.name = "SSAOOut";
-	outTexDesc.target = "SSAOOutTexture";
-	outTexDesc.type = DESCRIPTOR_TYPE_UAV;
-	outTexDesc.uavDesc = DEFAULT_UAV_DESC();
-	RootParamDesc cbvPDesc;
-	cbvPDesc.name = "SSAOConstantsDesc";
-	cbvPDesc.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
-	cbvPDesc.numConstants = 1;
-	cbvPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	RootParamDesc rootPDesc;
-	rootPDesc.name = "inputDepth";
-	rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
-	rootPDesc.numConstants = 1;
-	rootPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	RootParamDesc uavPDesc;
-	uavPDesc.name = "SSAOOut";
-	uavPDesc.type = ROOT_PARAMETER_TYPE_UAV;
-	uavPDesc.numConstants = 1;
-	uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	ResourceJob outTex;
-	outTex.name = "SSAOOutTexture";
-	outTex.types = DESCRIPTOR_TYPE_UAV;
-	SSAOConstants* initialData = new SSAOConstants();
-	initialData->data.maxRange = 0.8;
-	ConstantBufferJob cbOut;
-	cbOut.initialData = initialData;
-	cbOut.name = "SSAOConstants";
-	ShaderDesc SSAOShaders;
-	SSAOShaders.fileName = "..\\Shaders\\SSAO.hlsl";
-	SSAOShaders.methodName = "SSAO";
-	SSAOShaders.shaderName = "SSAO";
-	SSAOShaders.type = SHADER_TYPE_CS;
-	SSAOShaders.defines = nullptr;
-	DX12Resource* leakingResource = new DX12Resource(DESCRIPTOR_TYPE_SRV, 
-		deferredRenderPass.mAttachments[0].Get(), D3D12_RESOURCE_STATE_COMMON);
+		renderStage = new RenderPipelineStage(md3dDevice, DEFAULT_VIEW_PORT(), mScissorRect);
+		renderStage->deferSetup(rasterDesc);
+		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
+	}
 
-	PipeLineStageDesc stageDesc;
-	stageDesc.descriptorJobs = { {constantsDesc, depthTex, outTexDesc} };
-	stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, uavPDesc };
-	stageDesc.samplerDesc = {};
-	stageDesc.resourceJobs = { outTex };
-	stageDesc.shaderFiles = { SSAOShaders };
-	stageDesc.constantBufferJobs = { cbOut };
-	stageDesc.externalResources = { std::make_pair("renderOutputTex",leakingResource) };
+	{
+		DescriptorJob constantsDesc;
+		constantsDesc.name = "SSAOConstantsDesc";
+		constantsDesc.target = "SSAOConstants";
+		constantsDesc.type = DESCRIPTOR_TYPE_CBV;
+		DescriptorJob depthTex;
+		depthTex.name = "inputDepth";
+		depthTex.target = "renderOutputTex";
+		depthTex.type = DESCRIPTOR_TYPE_SRV;
+		depthTex.srvDesc = DEFAULT_SRV_DESC();
+		depthTex.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
+		DescriptorJob outTexDesc;
+		outTexDesc.name = "SSAOOut";
+		outTexDesc.target = "SSAOOutTexture";
+		outTexDesc.type = DESCRIPTOR_TYPE_UAV;
+		outTexDesc.uavDesc = DEFAULT_UAV_DESC();
+		RootParamDesc cbvPDesc;
+		cbvPDesc.name = "SSAOConstantsDesc";
+		cbvPDesc.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
+		cbvPDesc.numConstants = 1;
+		cbvPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		RootParamDesc rootPDesc;
+		rootPDesc.name = "inputDepth";
+		rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
+		rootPDesc.numConstants = 1;
+		rootPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		RootParamDesc uavPDesc;
+		uavPDesc.name = "SSAOOut";
+		uavPDesc.type = ROOT_PARAMETER_TYPE_UAV;
+		uavPDesc.numConstants = 1;
+		uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+		ResourceJob outTex;
+		outTex.name = "SSAOOutTexture";
+		outTex.types = DESCRIPTOR_TYPE_UAV;
+		SSAOConstants* initialData = new SSAOConstants();
+		initialData->data.maxRange = 0.8;
+		ConstantBufferJob cbOut;
+		cbOut.initialData = initialData;
+		cbOut.name = "SSAOConstants";
+		ShaderDesc SSAOShaders;
+		SSAOShaders.fileName = "..\\Shaders\\SSAO.hlsl";
+		SSAOShaders.methodName = "SSAO";
+		SSAOShaders.shaderName = "SSAO";
+		SSAOShaders.type = SHADER_TYPE_CS;
+		SSAOShaders.defines = nullptr;
 
-	computeStage = new ComputePipelineStage(md3dDevice);
+		PipeLineStageDesc stageDesc;
+		stageDesc.descriptorJobs = { {constantsDesc, depthTex, outTexDesc} };
+		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, uavPDesc };
+		stageDesc.samplerDesc = {};
+		stageDesc.resourceJobs = { outTex };
+		stageDesc.shaderFiles = { SSAOShaders };
+		stageDesc.constantBufferJobs = { cbOut };
+		stageDesc.externalResources = { std::make_pair("renderOutputTex",renderStage->getResource("depthTex")) };
 
-	computeStage->deferSetup(stageDesc);
-
+		computeStage = new ComputePipelineStage(md3dDevice);
+		computeStage->deferSetup(stageDesc);
+	}
 	modelLoader = new ModelLoader(md3dDevice);
-	objectsToRender.push_back(modelLoader->loadModel(sponzaFile, sponzaDir));
+	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
+	//objectsToRender.push_back(modelLoader->loadModel(sponzaFile, sponzaDir));
 
 	//ssaoContainer = new SSAO(md3dDevice.Get(), mClientWidth, mClientHeight, mBackBufferFormat, mCbvSrvUavDescriptorSize);
 
@@ -243,11 +336,11 @@ void DemoApp::draw() {
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue,
-		0, nullptr);
-	mCommandList->ClearDepthStencilView(DepthStencilView(),
-		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-		1.0f, 0, 0, nullptr);
+	//mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue,
+	//	0, nullptr);
+	//mCommandList->ClearDepthStencilView(DepthStencilView(),
+	//	D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+	//	1.0f, 0, 0, nullptr);
 
 	//mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 	mCommandList->OMSetRenderTargets(3, &DeferredResourceView(), true, &DepthStencilView());
@@ -265,6 +358,9 @@ void DemoApp::draw() {
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
 
+	renderStage->deferExecute();
+	int renderFenceValue = renderStage->triggerFence();
+	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
 	computeStage->deferExecute();
 	int computeFenceValue = computeStage->triggerFence();
 	WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
@@ -329,10 +425,8 @@ void DemoApp::renderObj() {
 	UINT objCBByteSize = CalcConstantBufferByteSize(sizeof(PerObjectConstants));
 	
 	ID3D12Resource* objectCB = mCurrFrameResource->objectCB->Resource();
-	
-	if (!objectsToRender[0]->loaded) {
-		return;
-	}
+
+	return;
 
 	mCommandList->IASetVertexBuffers(0, 1, &objectsToRender[0]->vertexBufferView());
 	mCommandList->IASetIndexBuffer(&objectsToRender[0]->indexBufferView());
@@ -566,21 +660,22 @@ void DemoApp::UpdateMainPassCB() {
 	DirectX::XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
 	DirectX::XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
 	DirectX::XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
-	/*
-	XMStoreFloat4x4(&mainPassCB.view, XMMatrixTranspose(view));
-	XMStoreFloat4x4(&mainPassCB.invView, XMMatrixTranspose(invView));
-	XMStoreFloat4x4(&mainPassCB.proj, XMMatrixTranspose(proj));
-	XMStoreFloat4x4(&mainPassCB.invProj, XMMatrixTranspose(invProj));
-	XMStoreFloat4x4(&mainPassCB.viewProj, XMMatrixTranspose(viewProj));
-	XMStoreFloat4x4(&mainPassCB.invViewProj, XMMatrixTranspose(invViewProj));
-	mainPassCB.EyePosW = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
-	mainPassCB.RenderTargetSize = DirectX::XMFLOAT2((float)mClientWidth, (float)mClientHeight);
-	mainPassCB.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
-	mainPassCB.NearZ = 1.0f;
-	mainPassCB.FarZ = 5000.0f;
-	mainPassCB.TotalTime = 0.0f;
-	mainPassCB.DeltaTime = 0.0f;
-	*/
-	UploadBuffer<PerPassConstants>* passCB = mCurrFrameResource->passCB.get();
-	passCB->copyData(0, mainPassCB);
+	
+	XMStoreFloat4x4(&mainPassCB.data.view, XMMatrixTranspose(view));
+	XMStoreFloat4x4(&mainPassCB.data.invView, XMMatrixTranspose(invView));
+	XMStoreFloat4x4(&mainPassCB.data.proj, XMMatrixTranspose(proj));
+	XMStoreFloat4x4(&mainPassCB.data.invProj, XMMatrixTranspose(invProj));
+	XMStoreFloat4x4(&mainPassCB.data.viewProj, XMMatrixTranspose(viewProj));
+	XMStoreFloat4x4(&mainPassCB.data.invViewProj, XMMatrixTranspose(invViewProj));
+	mainPassCB.data.EyePosW = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
+	mainPassCB.data.RenderTargetSize = DirectX::XMFLOAT2((float)mClientWidth, (float)mClientHeight);
+	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
+	mainPassCB.data.NearZ = 1.0f;
+	mainPassCB.data.FarZ = 5000.0f;
+	mainPassCB.data.TotalTime = 0.0f;
+	mainPassCB.data.DeltaTime = 0.0f;
+	
+	//UploadBuffer<PerPassConstants>* passCB = mCurrFrameResource->passCB.get();
+	//passCB->copyData(0, mainPassCB);
+	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 }

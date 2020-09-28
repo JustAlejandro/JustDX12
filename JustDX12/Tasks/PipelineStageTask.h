@@ -36,7 +36,7 @@ public:
 		this->val = val;
 		this->fence = fence;
 	}
-	void execute() override { stage->waitOnFence(fence, val); }
+	void execute() override { WaitOnFenceForever(fence, val); }
 protected:
 	int val;
 	Microsoft::WRL::ComPtr<ID3D12Fence> fence;
@@ -46,4 +46,14 @@ class PipelineStageTaskRun : public PipelineStageTask {
 public:
 	PipelineStageTaskRun(PipelineStage* stage) : PipelineStageTask(stage) {}
 	void execute() override { stage->Execute(); }
+};
+
+class PipelineStageTaskUpdateConstantBuffer : public PipelineStageTask {
+public:
+	PipelineStageTaskUpdateConstantBuffer(PipelineStage* stage, std::string name) : PipelineStageTask(stage) {
+		this->name = name;
+	}
+	void execute() override { stage->updateConstantBuffer(name); }
+private:
+	std::string name;
 };

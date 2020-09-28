@@ -61,8 +61,11 @@ class PipelineStage : public TaskQueueThread {
 public:
 	void deferSetup(PipeLineStageDesc stageDesc);
 	void deferExecute();
+	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data);
+	void updateConstantBuffer(std::string name);
 	int triggerFence();
-	void waitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
+	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
+	DX12Resource* getResource(std::string name);
 
 	void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;

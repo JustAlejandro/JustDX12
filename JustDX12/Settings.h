@@ -5,7 +5,9 @@
 #define SCREEN_HEIGHT 1080
 
 #define COLOR_TEXTURE_FORMAT DXGI_FORMAT_R16G16B16A16_FLOAT
-#define DEPTH_TEXTURE_FORMAT DXGI_FORMAT_D24_UNORM_S8_UINT
+#define DEPTH_TEXTURE_FORMAT DXGI_FORMAT_R24G8_TYPELESS
+#define DEPTH_TEXTURE_DSV_FORMAT DXGI_FORMAT_D24_UNORM_S8_UINT
+#define DEPTH_TEXTURE_SRV_FORMAT DXGI_FORMAT_R24_UNORM_X8_TYPELESS
 
 extern UINT gRtvDescriptorSize;
 extern UINT gDsvDescriptorSize;
@@ -19,6 +21,7 @@ inline D3D12_VIEWPORT DEFAULT_VIEW_PORT() {
 	defaultViewPort.Height = static_cast<float>(SCREEN_HEIGHT);
 	defaultViewPort.MinDepth = 0.0f;
 	defaultViewPort.MaxDepth = 1.0f;
+	return defaultViewPort;
 }
 
 inline D3D12_RENDER_TARGET_VIEW_DESC DEFAULT_RTV_DESC() {
@@ -33,8 +36,10 @@ inline D3D12_RENDER_TARGET_VIEW_DESC DEFAULT_RTV_DESC() {
 inline D3D12_DEPTH_STENCIL_VIEW_DESC DEFAULT_DSV_DESC() {
 	D3D12_DEPTH_STENCIL_VIEW_DESC gDsvDefaultDesc;
 	gDsvDefaultDesc.Flags = D3D12_DSV_FLAG_NONE;
+	gDsvDefaultDesc.Format = DEPTH_TEXTURE_DSV_FORMAT;
 	gDsvDefaultDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	gDsvDefaultDesc.Texture2D.MipSlice = 0;
+	return gDsvDefaultDesc;
 }
 
 inline D3D12_SHADER_RESOURCE_VIEW_DESC DEFAULT_SRV_DESC() {
@@ -69,7 +74,7 @@ inline D3D12_CLEAR_VALUE DEFAULT_CLEAR_VALUE() {
 
 inline D3D12_CLEAR_VALUE DEFAULT_CLEAR_VALUE_DEPTH_STENCIL() {
 	D3D12_CLEAR_VALUE optClear;
-	optClear.Format = DEPTH_TEXTURE_FORMAT;
+	optClear.Format = DEPTH_TEXTURE_DSV_FORMAT;
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
 	return optClear;

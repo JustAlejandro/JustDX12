@@ -18,14 +18,27 @@ void PipelineStage::deferExecute() {
 	enqueue(new PipelineStageTaskRun(this));
 }
 
+void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data) {
+	constantBufferManager.getConstantBuffer(name)->prepareUpdateBuffer(&data);
+	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, name));
+}
+
+void PipelineStage::updateConstantBuffer(std::string name) {
+	constantBufferManager.getConstantBuffer(name)->updateBuffer();
+}
+
 int PipelineStage::triggerFence() {
 	int dest = getFenceValue() + 1;
 	enqueue(new PipelineStageTaskFence(this, dest));
 	return dest;
 }
 
-void PipelineStage::waitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
+void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
 	enqueue(new PipelineStageTaskWaitFence(this, val, fence));
+}
+
+DX12Resource* PipelineStage::getResource(std::string name) {
+	return resourceManager.getResource(name);
 }
 
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
@@ -176,7 +189,7 @@ void PipelineStage::resetCommandList() {
 }
 
 void PipelineStage::bindDescriptorHeaps() {
-	std::vector<ID3D12DescriptorHeap*> descHeaps = descriptorManager.getAllHeaps();
+	std::vector<ID3D12DescriptorHeap*> descHeaps = descriptorManager.getAllBindableHeaps();
 	mCommandList->SetDescriptorHeaps(descHeaps.size(), descHeaps.data());
 }
 

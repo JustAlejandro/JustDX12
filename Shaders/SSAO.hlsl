@@ -20,8 +20,10 @@ RWTexture2D<float4> outTex : register(u0);
 [numthreads(N,1,1)]
 void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_DispatchThreadID)
 {
-	float4 outCol = depthTex[int2(dispatchThreadID.x, dispatchThreadID.y)];
-	outCol.xyz = outCol.xyz * float3(0.5f, 0.5f, 0.5f);
-	outCol = float4(maxRange, maxRange, 0.1, 1.0);
+	float4 outCol = depthTex[dispatchThreadID.xy];
+	outCol = outCol - float4(0.99, 0.0, 0.0, 0.0);
+	outCol.x *= 100.0;
+	//outCol.xyz = outCol.xyz * float3(0.5f, 0.5f, 0.5f);
+	//outCol = float4(maxRange, maxRange, 0.1, 1.0);
 	outTex[dispatchThreadID.xy] = outCol;
 }

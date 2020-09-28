@@ -22,8 +22,11 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 	heapDesc.Flags = shaderVisibleFromHeapType(heapDesc.Type);
 	
 	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
-	device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap));
-	descriptorHeaps.push_back(descriptorHeap);
+	if (device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap)) < 0) {
+		OutputDebugStringA("Heap creation FAILED");
+		throw "HEAP FAILED";
+	}
+	descriptorHeaps.push_back(std::make_pair(descriptorType, descriptorHeap));
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hCPUDescriptor(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	CD3DX12_GPU_DESCRIPTOR_HANDLE hGPUDescriptor(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -56,10 +59,12 @@ DX12Descriptor* DescriptorManager::getDescriptor(std::string name, DESCRIPTOR_TY
 	return &descriptors.at(std::make_pair(name, type));
 }
 
-std::vector<ID3D12DescriptorHeap*> DescriptorManager::getAllHeaps() {
+std::vector<ID3D12DescriptorHeap*> DescriptorManager::getAllBindableHeaps() {
 	std::vector<ID3D12DescriptorHeap*> allHeaps;
-	for (ComPtr<ID3D12DescriptorHeap>& heap : descriptorHeaps) {
-		allHeaps.push_back(heap.Get());
+	for (std::pair<DESCRIPTOR_TYPE,ComPtr<ID3D12DescriptorHeap>>& heap : descriptorHeaps) {
+		if ((heap.first & (DESCRIPTOR_TYPE_CBV | DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_UAV)) > 0) {
+			allHeaps.push_back(heap.second.Get());
+		}
 	}
 	return allHeaps;
 }
@@ -91,10 +96,11 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::
 			break;
 		}
 	}
+	return states;
 }
 
-std::vector<DX12Descriptor*> DescriptorManager::getAllDescriptorsOfType(DESCRIPTOR_TYPE type) {
-	return descriptorsByType.at(type);
+std::vector<DX12Descriptor*>* DescriptorManager::getAllDescriptorsOfType(DESCRIPTOR_TYPE type) {
+	return &descriptorsByType.at(type);
 }
 
 void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job) {

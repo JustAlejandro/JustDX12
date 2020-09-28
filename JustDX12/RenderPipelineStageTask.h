@@ -2,7 +2,7 @@
 #include "Tasks/Task.h"
 #include "PipelineStage\RenderPipelineStage.h"
 
-class RenderPipelineStageTask : Task {
+class RenderPipelineStageTask : public Task {
 public:
 	virtual void execute() = 0;
 protected:
@@ -10,7 +10,7 @@ protected:
 	RenderPipelineStage* stage;
 };
 
-class RenderPipelineStageLoadModel : RenderPipelineStageTask {
+class RenderPipelineStageLoadModel : public RenderPipelineStageTask {
 public:
 	void execute() override {
 		stage->LoadModel(loader, name, dir);

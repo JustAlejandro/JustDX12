@@ -1,6 +1,7 @@
 #include "PipelineStage\RenderPipelineStage.h"
 #include "DescriptorClasses\DescriptorManager.h"
 #include "ModelLoading/ModelLoader.h"
+#include "RenderPipelineStageTask.h"
 #include <string>
 #include "Settings.h"
 
@@ -18,19 +19,6 @@ void RenderPipelineStage::Execute() {
 	mCommandList->RSSetViewports(1, &viewport);
 	mCommandList->RSSetScissorRects(1, &scissorRect);
 
-	resourceManager.getResource("renderTexture")->changeState(mCommandList, D3D12_RESOURCE_STATE_RENDER_TARGET);
-
-	mCommandList->ClearDepthStencilView(
-		descriptorManager.getDescriptor("renderTexture", DESCRIPTOR_TYPE_DSV)->cpuHandle,
-		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-		1.0f, 0, 0, nullptr);
-
-	mCommandList->OMSetRenderTargets(
-		descriptorManager.getDescriptor("defaultRTV0", DESCRIPTOR_TYPE_RTV)->descriptorHeap->GetDesc().NumDescriptors,
-		&descriptorManager.getDescriptor("defaultRTV0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
-		true,
-		&descriptorManager.getDescriptor("defualtDSV", DESCRIPTOR_TYPE_DSV)->cpuHandle);
-
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 	
 	bindDescriptorsToRoot();
@@ -38,9 +26,11 @@ void RenderPipelineStage::Execute() {
 	bindRenderTarget();
 
 	drawRenderObjects();
-	// TODO: Actually make the draw call
 
+	mCommandList->Close();
 
+	ID3D12CommandList* cmdList[] = { mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
 }
 
 void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName) {
@@ -72,7 +62,7 @@ void RenderPipelineStage::BuildPSO() {
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
-	graphicsPSO.DSVFormat = resourceManager.getResource("defaultDSV")->getFormat();
+	graphicsPSO.DSVFormat = DEPTH_TEXTURE_DSV_FORMAT;
 	if (md3dDevice->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)) < 0) {
 		OutputDebugStringA("PSO Setup Failed");
 		throw "PSO FAIL";
@@ -96,6 +86,7 @@ void RenderPipelineStage::bindDescriptorsToRoot() {
 		case DESCRIPTOR_TYPE_CBV:
 			mCommandList->SetGraphicsRootDescriptorTable(i,
 				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+			break;
 		default:
 			throw "Don't know what to do here.";
 			break;
@@ -104,15 +95,21 @@ void RenderPipelineStage::bindDescriptorsToRoot() {
 }
 
 void RenderPipelineStage::bindRenderTarget() {
+	mCommandList->ClearDepthStencilView(
+		descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle,
+		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+		1.0f, 0, 0, nullptr);
+
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
 		&descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName, DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
-		&descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)[0]->cpuHandle);
+		&descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle);
 }
 
 void RenderPipelineStage::drawRenderObjects() {
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
+		if (!model->loaded) continue;
 
 		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
 		mCommandList->IASetIndexBuffer(&model->indexBufferView());
