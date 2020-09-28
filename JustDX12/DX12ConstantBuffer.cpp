@@ -13,7 +13,7 @@ DX12ConstantBuffer::DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device* d
 		IID_PPV_ARGS(&uploadBuffer));
 
 	uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData));
-	memcpy(mappedData, data->getData(), elementByteSize);
+	memcpy(mappedData, data->getData(), data->byteSize());
 }
 
 DX12ConstantBuffer::~DX12ConstantBuffer() {
@@ -32,7 +32,7 @@ UINT DX12ConstantBuffer::getBufferSize() {
 
 void DX12ConstantBuffer::updateBuffer() {
 	std::unique_lock<std::mutex> lk(dataUpdate);
-	memcpy(mappedData, data->getData(), elementByteSize);
+	memcpy(mappedData, data->getData(), data->byteSize());
 }
 
 void DX12ConstantBuffer::prepareUpdateBuffer(ConstantBufferData* copySource) {

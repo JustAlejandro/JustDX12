@@ -38,13 +38,7 @@ public:
 	virtual void onResize()override;
 
 private:
-	void renderObj();
-
-	void BuildRootSignature();
-	void BuildShadersAndInputLayout();
-	void BuildDescriptorHeaps();
 	void BuildFrameResources();
-	void BuildPSOs();
 
 	void onKeyboardInput();
 
@@ -115,6 +109,7 @@ DemoApp::~DemoApp() {
 		FlushCommandQueue();
 	delete modelLoader;
 	delete computeStage;
+	delete renderStage;
 	for (int i = 0; i < objectsToRender.size(); i++) {
 		delete objectsToRender[i];
 	}
@@ -229,6 +224,11 @@ bool DemoApp::initialize() {
 		depthTex.type = DESCRIPTOR_TYPE_SRV;
 		depthTex.srvDesc = DEFAULT_SRV_DESC();
 		depthTex.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
+		DescriptorJob normalTex;
+		normalTex.name = "normalTex";
+		normalTex.target = "renderOutputNormals";
+		normalTex.type = DESCRIPTOR_TYPE_SRV;
+		normalTex.srvDesc = DEFAULT_SRV_DESC();
 		DescriptorJob outTexDesc;
 		outTexDesc.name = "SSAOOut";
 		outTexDesc.target = "SSAOOutTexture";
@@ -244,6 +244,11 @@ bool DemoApp::initialize() {
 		rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
 		rootPDesc.numConstants = 1;
 		rootPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		RootParamDesc normalPDesc;
+		normalPDesc.name = "normalTex";
+		normalPDesc.type = ROOT_PARAMETER_TYPE_SRV;
+		normalPDesc.numConstants = 1;
+		normalPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		RootParamDesc uavPDesc;
 		uavPDesc.name = "SSAOOut";
 		uavPDesc.type = ROOT_PARAMETER_TYPE_UAV;
@@ -265,31 +270,26 @@ bool DemoApp::initialize() {
 		SSAOShaders.defines = nullptr;
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { {constantsDesc, depthTex, outTexDesc} };
-		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, uavPDesc };
+		stageDesc.descriptorJobs = { {constantsDesc, depthTex, normalTex, outTexDesc} };
+		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, normalPDesc, uavPDesc };
 		stageDesc.samplerDesc = {};
 		stageDesc.resourceJobs = { outTex };
 		stageDesc.shaderFiles = { SSAOShaders };
 		stageDesc.constantBufferJobs = { cbOut };
-		stageDesc.externalResources = { std::make_pair("renderOutputTex",renderStage->getResource("depthTex")) };
+		stageDesc.externalResources = { 
+			std::make_pair("renderOutputTex",renderStage->getResource("depthTex")),
+			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[1]")) 
+		};
 
 		computeStage = new ComputePipelineStage(md3dDevice);
 		computeStage->deferSetup(stageDesc);
 	}
 	modelLoader = new ModelLoader(md3dDevice);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
-	//objectsToRender.push_back(modelLoader->loadModel(sponzaFile, sponzaDir));
-
-	//ssaoContainer = new SSAO(md3dDevice.Get(), mClientWidth, mClientHeight, mBackBufferFormat, mCbvSrvUavDescriptorSize);
-
+	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
-	BuildRootSignature();
-	BuildDescriptorHeaps();
-	BuildShadersAndInputLayout();
 	BuildFrameResources();
-	BuildPSOs();
-	//ssaoContainer->BuildDescriptors(deferredRenderPass.mAttachments[0].Get());
 
 	mCommandList->Close();
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
@@ -327,36 +327,8 @@ void DemoApp::draw() {
 
 	mCommandList->Reset(cmdListAlloc.Get(), defaultPSO.Get());
 
-	//ID3D12DescriptorHeap* heaps[1] = { ssaoContainer->descriptorHeap.Get() };
-	//mCommandList->SetDescriptorHeaps(1, heaps);
-
-	mCommandList->RSSetViewports(1, &mScreenViewport);
-	mCommandList->RSSetScissorRects(1, &mScissorRect);
-
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-	//mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue,
-	//	0, nullptr);
-	//mCommandList->ClearDepthStencilView(DepthStencilView(),
-	//	D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-	//	1.0f, 0, 0, nullptr);
-
-	//mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
-	mCommandList->OMSetRenderTargets(3, &DeferredResourceView(), true, &DepthStencilView());
-
-	// Here's where the SRV descriptor heap goes... Probably
-
-	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
-
-	ID3D12Resource* passCB = mCurrFrameResource->passCB->Resource();
-	mCommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
-
-	// Draw the objects
-	renderObj();
-
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
 
 	renderStage->deferExecute();
 	int renderFenceValue = renderStage->triggerFence();
@@ -364,43 +336,14 @@ void DemoApp::draw() {
 	computeStage->deferExecute();
 	int computeFenceValue = computeStage->triggerFence();
 	WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
-	/*
-	ssaoContainer->Execute(mCommandList.Get(), mSSAORootSignature.Get(), ssaoPSO.Get(),
-		DeferredResource(), DeferredResourceViewGPU());
 
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
-		*/
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST));
-
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_SOURCE));
-
-	DX12Resource* SSAOOut = computeStage->getOut();
+	DX12Resource* SSAOOut = computeStage->getResource("SSAOOutTexture");
 	SSAOOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	mCommandList->CopyResource(CurrentBackBuffer(), SSAOOut->get());
 
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));
-	/*
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST));
-
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE));
-
-	mCommandList->CopyResource(CurrentBackBuffer(), DeferredResource());
-
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(DeferredResource(),
-		D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));
-		*/
+	
 	mCommandList->Close();
 
 	ID3D12CommandList* cmdList[] = { mCommandList.Get() };
@@ -421,154 +364,11 @@ void DemoApp::onResize() {
 	XMStoreFloat4x4(&proj, P);
 }
 
-void DemoApp::renderObj() {
-	UINT objCBByteSize = CalcConstantBufferByteSize(sizeof(PerObjectConstants));
-	
-	ID3D12Resource* objectCB = mCurrFrameResource->objectCB->Resource();
-
-	return;
-
-	mCommandList->IASetVertexBuffers(0, 1, &objectsToRender[0]->vertexBufferView());
-	mCommandList->IASetIndexBuffer(&objectsToRender[0]->indexBufferView());
-	mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	D3D12_GPU_VIRTUAL_ADDRESS objCBAdress = objectCB->GetGPUVirtualAddress() + 0;
-
-	mCommandList->SetGraphicsRootConstantBufferView(0, objCBAdress);
-
-	//mCommandList->DrawIndexedInstanced(objectsToRender[0]->indices.size(),
-	//	1, 0, 0, 0);
-	for (const Mesh& m : objectsToRender[0]->meshes) {
-		mCommandList->DrawIndexedInstanced(m.indexCount,
-			1, m.startIndexLocation, m.baseVertexLocation, 0);
-	}
-}
-
-void DemoApp::BuildRootSignature() {
-	CD3DX12_ROOT_PARAMETER slotRootParameter[3];
-
-	slotRootParameter[0].InitAsConstantBufferView(0);
-	slotRootParameter[1].InitAsConstantBufferView(1);
-	slotRootParameter[2].InitAsConstantBufferView(2);
-
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-		3,
-		slotRootParameter,
-		0,
-		nullptr,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	Microsoft::WRL::ComPtr<ID3DBlob> serializedRootSig = nullptr;
-	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
-	HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-		serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
-
-	if (errorBlob != nullptr) {
-		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-	}
-
-	md3dDevice->CreateRootSignature(
-		0,
-		serializedRootSig->GetBufferPointer(),
-		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(mRootSignature.GetAddressOf()));
-
-	// SSAO Root Signature
-	CD3DX12_DESCRIPTOR_RANGE srvTable;
-	srvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-	CD3DX12_DESCRIPTOR_RANGE uavTable;
-	uavTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
-
-	CD3DX12_ROOT_PARAMETER CSslotRootParameter[3];
-
-	CSslotRootParameter[0].InitAsConstants(4, 0);
-	CSslotRootParameter[1].InitAsDescriptorTable(1, &srvTable);
-	CSslotRootParameter[2].InitAsDescriptorTable(1, &uavTable);
-
-	CD3DX12_ROOT_SIGNATURE_DESC CSrootSigDesc(3, CSslotRootParameter,
-		0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	Microsoft::WRL::ComPtr<ID3DBlob> CSserializedRootSig = nullptr;
-	Microsoft::WRL::ComPtr<ID3DBlob> CSerrorBlob = nullptr;
-	HRESULT CShr = D3D12SerializeRootSignature(&CSrootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-		CSserializedRootSig.GetAddressOf(), CSerrorBlob.GetAddressOf());
-	if (CSerrorBlob != nullptr) {
-		OutputDebugStringA((char*)CSerrorBlob->GetBufferPointer());
-	}
-	md3dDevice->CreateRootSignature(
-		0,
-		CSserializedRootSig->GetBufferPointer(),
-		CSserializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(mSSAORootSignature.GetAddressOf()));
-}
-
-void DemoApp::BuildShadersAndInputLayout() {
-	shaders["standardVS"] = compileShader(L"..\\Shaders\\Default.hlsl",
-		nullptr, "VS", "vs_5_0");
-	shaders["standardPS"] = compileShader(L"..\\Shaders\\Default.hlsl",
-		nullptr, "PS", "ps_5_0");
-
-	shaders["SSAOCS"] = compileShader(L"..\\Shaders\\SSAO.hlsl",
-		nullptr, "SSAO", "cs_5_0");
-
-	inputLayout = {
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
-		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0 , 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA}
-	};
-}
-
-void DemoApp::BuildDescriptorHeaps() {
-	// TODO: Need to make these for textures, but for now not needed.
-}
-
 void DemoApp::BuildFrameResources() {
-	// TODO: Need to make a new frame resource array here.
 	for (int i = 0; i < numFrameResources; i++) {
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
 			1, (UINT)/*Num of objects*/1, (UINT)/*Num of Materials*/0));
 	}
-}
-
-void DemoApp::BuildPSOs() {
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPsoDesc;
-
-	ZeroMemory(&defaultPsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	defaultPsoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
-	defaultPsoDesc.pRootSignature = mRootSignature.Get();
-	defaultPsoDesc.VS = {
-		reinterpret_cast<BYTE*>(shaders["standardVS"]->GetBufferPointer()),
-		shaders["standardVS"]->GetBufferSize()};
-	defaultPsoDesc.PS = {
-		reinterpret_cast<BYTE*>(shaders["standardPS"]->GetBufferPointer()),
-		shaders["standardPS"]->GetBufferSize()
-	};
-	defaultPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	defaultPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	defaultPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	defaultPsoDesc.SampleMask = UINT_MAX;
-	defaultPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	defaultPsoDesc.NumRenderTargets = 3;
-	defaultPsoDesc.RTVFormats[0] = mBackBufferFormat;
-	defaultPsoDesc.RTVFormats[1] = mBackBufferFormat;
-	defaultPsoDesc.RTVFormats[2] = mBackBufferFormat;
-	defaultPsoDesc.SampleDesc.Count = 1;
-	defaultPsoDesc.SampleDesc.Quality = 0;
-	defaultPsoDesc.DSVFormat = mDepthStencilFormat;
-	if (md3dDevice->CreateGraphicsPipelineState(&defaultPsoDesc, IID_PPV_ARGS(&defaultPSO)) < 0) {
-		OutputDebugStringA("PSO setup failed");
-	}
-
-	D3D12_COMPUTE_PIPELINE_STATE_DESC ssaoPSODesc = {};
-	ssaoPSODesc.pRootSignature = mSSAORootSignature.Get();
-	ssaoPSODesc.CS = {
-		reinterpret_cast<BYTE*>(shaders["SSAOCS"]->GetBufferPointer()),
-		shaders["SSAOCS"]->GetBufferSize() };
-	ssaoPSODesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
-	if (md3dDevice->CreateComputePipelineState(&ssaoPSODesc, IID_PPV_ARGS(&ssaoPSO)) < 0) {
-		OutputDebugStringA("Compute PSO setup failed");
-	}
-
 }
 
 void DemoApp::onKeyboardInput() {
@@ -588,7 +388,6 @@ void DemoApp::onKeyboardInput() {
 	if (GetAsyncKeyState('D') & 0x8000) {
 		move.x += 0.25;
 	}
-
 
 	DirectX::XMFLOAT4 moveRes = {};
 	DirectX::XMStoreFloat4(&moveRes, DirectX::XMVector4Transform(
@@ -619,12 +418,6 @@ void DemoApp::mouseMove(WPARAM btnState, int x, int y) {
 }
 
 void DemoApp::updateCamera() {
-	// Convert Spherical to Cartesian coordinates.
-	//eyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
-	//eyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
-	//eyePos.y = mRadius * cosf(mPhi);
-
-	// Build the view matrix.
 	DirectX::XMVECTOR pos = DirectX::XMLoadFloat4(&eyePos);
 	DirectX::XMVECTOR target = DirectX::XMVectorZero();
 	target = DirectX::XMVectorAdd(DirectX::XMVector4Transform(
@@ -637,15 +430,11 @@ void DemoApp::updateCamera() {
 }
 
 void DemoApp::UpdateObjectCBs() {
-	UploadBuffer<PerObjectConstants>* objCB = mCurrFrameResource->objectCB.get();
 
 	for (Model* model : objectsToRender) {
-		DirectX::XMMATRIX world = DirectX::XMMatrixTranslation(model->pos.x, model->pos.y, model->pos.z);
-		
 		PerObjectConstants objConst;
-		//XMStoreFloat4x4(&objConst.World, XMMatrixTranspose(world));
 
-		objCB->copyData(0, objConst);
+		renderStage->deferUpdateConstantBuffer("PerObjectConstants", objConst);
 	}
 }
 
@@ -675,7 +464,5 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.TotalTime = 0.0f;
 	mainPassCB.data.DeltaTime = 0.0f;
 	
-	//UploadBuffer<PerPassConstants>* passCB = mCurrFrameResource->passCB.get();
-	//passCB->copyData(0, mainPassCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 }

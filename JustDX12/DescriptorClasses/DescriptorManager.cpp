@@ -39,7 +39,7 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.target);
 			desc.constantBufferTarget = buffer;
 			job.cbvDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress();
-			job.cbvDesc.SizeInBytes = buffer->getBufferSize();
+			job.cbvDesc.SizeInBytes = CalcConstantBufferByteSize(buffer->getBufferSize());
 		}
 		else {
 			desc.resourceTarget = resourceManager->getResource(job.target);

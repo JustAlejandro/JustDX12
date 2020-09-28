@@ -5,7 +5,6 @@
 #include <DirectXMath.h>
 #include <memory>
 #include "DX12Helper.h"
-#include "UploadBuffer.h"
 #include "ConstantBufferTypes.h"
 
 class FrameResource {
@@ -16,9 +15,6 @@ public:
 	~FrameResource();
 
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> CmdListAlloc;
-
-	std::unique_ptr<UploadBuffer<PerPassConstants>> passCB = nullptr;
-	std::unique_ptr<UploadBuffer<PerObjectConstants>> objectCB = nullptr;
 
 	UINT64 Fence = 0;
 };

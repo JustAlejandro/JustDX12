@@ -13,6 +13,8 @@ cbuffer cbSSAOSettings : register(b0)
 };
 
 Texture2D depthTex : register(t0);
+Texture2D normalTex : register(t1);
+
 RWTexture2D<float4> outTex : register(u0);
 
 #define N 256
@@ -23,6 +25,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	float4 outCol = depthTex[dispatchThreadID.xy];
 	outCol = outCol - float4(0.99, 0.0, 0.0, 0.0);
 	outCol.x *= 100.0;
+	outCol = normalTex[dispatchThreadID.xy];
 	//outCol.xyz = outCol.xyz * float3(0.5f, 0.5f, 0.5f);
 	//outCol = float4(maxRange, maxRange, 0.1, 1.0);
 	outTex[dispatchThreadID.xy] = outCol;

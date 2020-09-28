@@ -179,7 +179,6 @@
     <ClInclude Include="ConstantBufferTypes.h" />
     <ClInclude Include="DX12ConstantBuffer.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />
-    <ClInclude Include="DeferredRenderPass.h" />
     <ClInclude Include="DescriptorClasses\DescriptorManager.h" />
     <ClInclude Include="DX12App.h" />
     <ClInclude Include="DescriptorClasses\DX12Descriptor.h" />
@@ -199,7 +198,6 @@
     <ClInclude Include="ModelLoading\ModelLoader.h" />
     <ClInclude Include="Tasks\Task.h" />
     <ClInclude Include="ModelLoading\TextureLoader.h" />
-    <ClInclude Include="UploadBuffer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -38,7 +38,6 @@
     <ClCompile Include="ConstantBufferManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DeferredRenderPass.h" />
     <ClInclude Include="DX12App.h" />
     <ClInclude Include="DX12Helper.h" />
     <ClInclude Include="FrameResource.h" />
@@ -46,7 +45,6 @@
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Tasks\TaskQueueThread.h" />
     <ClInclude Include="Tasks\Task.h" />
-    <ClInclude Include="UploadBuffer.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h">
       <Filter>Pipelines</Filter>
     </ClInclude>

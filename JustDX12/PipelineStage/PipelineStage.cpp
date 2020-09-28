@@ -79,6 +79,7 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 
 	if (errorBlob != nullptr) {
 		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		throw "Couldn't init root Sig";
 	}
 
 	md3dDevice->CreateRootSignature(0, serializedRootSig->GetBufferPointer(),

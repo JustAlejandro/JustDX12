@@ -61,7 +61,6 @@ bool DX12App::initialize() {
 	}
 
 	onResize();
-	setupDeferredRenderTargets();
 
 	return true;
 }
@@ -231,101 +230,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE DX12App::CurrentBackBufferView()const {
 
 D3D12_CPU_DESCRIPTOR_HANDLE DX12App::DepthStencilView()const {
 	return mDsvHeap->GetCPUDescriptorHandleForHeapStart();
-}
-
-ID3D12Resource* DX12App::DeferredResource()const {
-	return deferredRenderPass.mAttachments[0].Get();
-}
-
-CD3DX12_GPU_DESCRIPTOR_HANDLE DX12App::DeferredResourceViewGPU()const {
-	return CD3DX12_GPU_DESCRIPTOR_HANDLE(
-		deferredRenderPass.mRTVHeap->GetGPUDescriptorHandleForHeapStart(),
-		0,
-		mCbvSrvUavDescriptorSize);
-}
-
-D3D12_CPU_DESCRIPTOR_HANDLE DX12App::DeferredResourceView()const {
-	return CD3DX12_CPU_DESCRIPTOR_HANDLE(
-		deferredRenderPass.mRTVHeap->GetCPUDescriptorHandleForHeapStart(),
-		0,
-		mRtvDescriptorSize);
-}
-
-D3D12_CPU_DESCRIPTOR_HANDLE DX12App::DeferredDSVResourceView() const {
-	return CD3DX12_CPU_DESCRIPTOR_HANDLE(
-		deferredRenderPass.mDepthHeap->GetCPUDescriptorHandleForHeapStart(),
-		0,
-		mRtvDescriptorSize);
-}
-
-void DX12App::setupDeferredRenderTargets() {
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-	rtvHeapDesc.NumDescriptors = 3;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	rtvHeapDesc.NodeMask = 0;
-	md3dDevice->CreateDescriptorHeap(
-		&rtvHeapDesc, IID_PPV_ARGS(deferredRenderPass.mRTVHeap.GetAddressOf()));
-
-
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-	dsvHeapDesc.NumDescriptors = 1;
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	dsvHeapDesc.NodeMask = 0;
-	md3dDevice->CreateDescriptorHeap(
-		&dsvHeapDesc, IID_PPV_ARGS(deferredRenderPass.mDepthHeap.GetAddressOf()));
-
-	FlushCommandQueue();
-	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
-
-	D3D12_RESOURCE_DESC color_attachment_desc;
-	color_attachment_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	color_attachment_desc.Alignment = 0;
-	color_attachment_desc.Width = mClientWidth;
-	color_attachment_desc.Height = mClientHeight;
-	color_attachment_desc.DepthOrArraySize = 1;
-	color_attachment_desc.MipLevels = 1;
-	color_attachment_desc.Format = mBackBufferFormat;
-	color_attachment_desc.SampleDesc.Count = 1;
-	color_attachment_desc.SampleDesc.Quality = 0;
-	color_attachment_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	color_attachment_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-	D3D12_CLEAR_VALUE onClear;
-	onClear.Format = mBackBufferFormat;
-	onClear.Color[0] = 0.0f;
-	onClear.Color[1] = 0.0f;
-	onClear.Color[2] = 0.0f;
-	onClear.Color[3] = 0.0f;
-	for (int i = 0; i < 3; i++) {
-		md3dDevice->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE,
-			&color_attachment_desc,
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			&onClear,
-			IID_PPV_ARGS(deferredRenderPass.mAttachments[i].GetAddressOf()));
-		deferredRenderPass.mAttachments[i]->SetName(L"Color Attachment");
-	}
-
-	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
-	rtvDesc.Format = mBackBufferFormat;
-	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-	rtvDesc.Texture2D.MipSlice = 0;
-	rtvDesc.Texture2D.PlaneSlice = 0;
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvheapHandle(deferredRenderPass.mRTVHeap->GetCPUDescriptorHandleForHeapStart());
-	for (int i = 0; i < 3; i++) {
-		md3dDevice->CreateRenderTargetView(deferredRenderPass.mAttachments[i].Get(), &rtvDesc, rtvheapHandle);
-		rtvheapHandle.Offset(1, mRtvDescriptorSize);
-	}
-
-	mCommandList->Close();
-	ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-	FlushCommandQueue();
-
 }
 
 LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {

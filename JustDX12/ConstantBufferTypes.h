@@ -3,6 +3,8 @@
 #include <DX12Helper.h>
 #include "ConstantBufferData.h"
 
+#include <iostream>
+
 class SSAOConstants : public ConstantBufferData {
 public:
 	struct SSAOConstantsStruct {
@@ -15,7 +17,7 @@ public:
 	SSAOConstantsStruct data;
 
 	virtual UINT byteSize() const override {
-		return CalcConstantBufferByteSize(sizeof(SSAOConstantsStruct));
+		return sizeof(SSAOConstantsStruct);
 	}
 	virtual std::unique_ptr<ConstantBufferData> clone() const override {
 		return std::make_unique<SSAOConstants>(*this);
@@ -23,6 +25,7 @@ public:
 	void* getData() override {
 		return &data;
 	};
+	virtual ~SSAOConstants() override {}
 };
 
 class PerObjectConstants : public ConstantBufferData {
@@ -34,7 +37,7 @@ public:
 	PerObjectConstantsStruct data;
 
 	virtual UINT byteSize() const override {
-		return CalcConstantBufferByteSize(sizeof(PerObjectConstantsStruct));
+		return sizeof(PerObjectConstantsStruct);
 	}
 	virtual std::unique_ptr<ConstantBufferData> clone() const override {
 		return std::make_unique<PerObjectConstants>(*this);
@@ -42,6 +45,7 @@ public:
 	void* getData() override {
 		return &data;
 	};
+	virtual ~PerObjectConstants() override {}
 };
 
 class PerPassConstants : public ConstantBufferData {
@@ -66,7 +70,7 @@ public:
 	PerPassConstantsStruct data;
 
 	virtual UINT byteSize() const override {
-		return CalcConstantBufferByteSize(sizeof(PerPassConstantsStruct));
+		return sizeof(PerPassConstantsStruct);
 	}
 	virtual std::unique_ptr<ConstantBufferData> clone() const override {
 		return std::make_unique<PerPassConstants>(*this);
@@ -74,4 +78,5 @@ public:
 	void* getData() override {
 		return &data;
 	}
+	virtual ~PerPassConstants() override {}
 };

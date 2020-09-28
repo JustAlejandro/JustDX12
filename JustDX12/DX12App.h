@@ -4,7 +4,6 @@
 #include <dxgi1_4.h>
 #include <d3d12.h>
 #include <d3dx12.h>
-#include "DeferredRenderPass.h"
 
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
@@ -49,14 +48,6 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()const;
 
-	ID3D12Resource* DeferredResource() const;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE DeferredResourceViewGPU() const;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE DeferredResourceView() const;
-	D3D12_CPU_DESCRIPTOR_HANDLE DeferredDSVResourceView() const;
-
-	void setupDeferredRenderTargets();
-
 protected:
 	static DX12App* app;
 
@@ -64,8 +55,6 @@ protected:
 	HWND hWindow = nullptr;
 	RECT hWindowPos = { 0 };
 	POINT hWindowCenter = { 0 };
-
-	DeferredRenderPass deferredRenderPass;
 
 	Microsoft::WRL::ComPtr<IDXGIFactory4> mdxgiFactory;
 	Microsoft::WRL::ComPtr<IDXGISwapChain> mSwapChain;
