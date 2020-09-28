@@ -37,6 +37,12 @@ void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, s
 	renderObjects.push_back(loader->loadModel(fileName, dirName));
 }
 
+RenderPipelineStage::~RenderPipelineStage() {
+	for (Model* m : renderObjects) {
+		delete m;
+	}
+}
+
 void RenderPipelineStage::BuildPSO() {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPSO;
 	ZeroMemory(&graphicsPSO, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));

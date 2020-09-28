@@ -3,6 +3,7 @@
 #include "DX12Helper.h"
 #include <d3dcompiler.h>
 #include "DX12App.h"
+#include "Settings.h"
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
@@ -40,6 +41,11 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 
 	// Wait for the upload to finish before moving on.
 	thread->waitOnFence();
+
+#ifdef CLEAR_MODEL_MEMORY
+	std::vector<Vertex>().swap(vertices);
+	std::vector<unsigned int>().swap(indices);
+#endif // CLEAR_MODEL_MEMORY
 }
 
 void Model::processNode(aiNode* node, const aiScene* scene) {

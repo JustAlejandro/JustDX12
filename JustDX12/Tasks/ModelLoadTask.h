@@ -35,6 +35,8 @@ public:
 		}
 	}
 
+	virtual ~ModelLoadTask() override = default;
+
 private:
 	Model* model;
 	TaskQueueThread* taskQueueThread;

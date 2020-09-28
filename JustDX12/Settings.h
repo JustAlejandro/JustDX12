@@ -1,6 +1,8 @@
 #pragma once
 #include <d3d12.h>
 
+#define CLEAR_MODEL_MEMORY
+
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 

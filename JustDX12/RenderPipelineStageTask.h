@@ -5,6 +5,7 @@
 class RenderPipelineStageTask : public Task {
 public:
 	virtual void execute() = 0;
+	virtual ~RenderPipelineStageTask() override = default;
 protected:
 	RenderPipelineStageTask(RenderPipelineStage* stage) { this->stage = stage; }
 	RenderPipelineStage* stage;
@@ -21,7 +22,7 @@ public:
 		this->dir = dir;
 		this->loader = loader;
 	}
-
+	virtual ~RenderPipelineStageLoadModel() override = default;
 protected:
 	std::string name;
 	std::string dir;

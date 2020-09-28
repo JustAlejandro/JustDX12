@@ -5,6 +5,7 @@
 class PipelineStageTask : public Task {
 public:
 	virtual void execute()=0;
+	virtual ~PipelineStageTask() override = default;
 protected:
 	PipelineStageTask(PipelineStage* stage) { this->stage = stage; }
 	PipelineStage* stage;
@@ -16,6 +17,7 @@ public:
 		this->desc = desc;
 	}
 	void execute() override { stage->setup(desc); }
+	virtual ~PipelineStageTaskSetup() override = default;
 protected:
 	PipeLineStageDesc desc;
 };
@@ -26,6 +28,7 @@ public:
 		this->val = val;
 	}
 	void execute() override { stage->setFence(val); };
+	virtual ~PipelineStageTaskFence() override = default;
 protected:
 	int val;
 };
@@ -37,6 +40,7 @@ public:
 		this->fence = fence;
 	}
 	void execute() override { WaitOnFenceForever(fence, val); }
+	virtual ~PipelineStageTaskWaitFence() override = default;
 protected:
 	int val;
 	Microsoft::WRL::ComPtr<ID3D12Fence> fence;
@@ -45,6 +49,7 @@ protected:
 class PipelineStageTaskRun : public PipelineStageTask {
 public:
 	PipelineStageTaskRun(PipelineStage* stage) : PipelineStageTask(stage) {}
+	virtual ~PipelineStageTaskRun() override = default;
 	void execute() override { stage->Execute(); }
 };
 
@@ -54,6 +59,7 @@ public:
 		this->name = name;
 	}
 	void execute() override { stage->updateConstantBuffer(name); }
+	virtual ~PipelineStageTaskUpdateConstantBuffer() override = default;
 private:
 	std::string name;
 };
