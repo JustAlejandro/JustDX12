@@ -1,7 +1,9 @@
 #pragma once
 #include <d3d12.h>
+#include "pix3.h"
 
-#define CLEAR_MODEL_MEMORY
+#define USE_PIX
+//#define CLEAR_MODEL_MEMORY
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080

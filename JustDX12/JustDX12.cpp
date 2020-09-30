@@ -11,6 +11,8 @@
 #include "PipelineStage/ComputePipelineStage.h"
 #include "PipelineStage\RenderPipelineStage.h"
 
+#include <random>
+
 
 std::string baseDir = "..\\Models";
 std::string inputfile = "teapot.obj";
@@ -71,6 +73,7 @@ private:
 	std::vector<Model*> objectsToRender;
 
 	PerPassConstants mainPassCB;
+	SSAOConstants ssaoConstantCB;
 
 	DirectX::XMFLOAT4 eyePos = { 0.0f,70.0f,-10.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
@@ -83,6 +86,10 @@ private:
 	float mRadius = 10.0f;
 
 	POINT lastMousePos;
+
+	std::random_device rd;
+	std::uniform_real_distribution<float> distro;
+	std::ranlux24_base gen;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
@@ -102,6 +109,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 }
 
 DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
+	gen = std::ranlux24_base(rd());
+	distro = std::uniform_real_distribution<float>(-1.0, 1.0);
+
+	for (int i = 0; i < 48; i++) {
+		ssaoConstantCB.data.rand[i].x = distro(gen);
+		ssaoConstantCB.data.rand[i].y = distro(gen);
+		ssaoConstantCB.data.rand[i].z = abs(distro(gen)) + 0.1;
+		ssaoConstantCB.data.rand[i].w = abs(distro(gen));
+	}
 }
 
 DemoApp::~DemoApp() {
@@ -129,7 +145,7 @@ bool DemoApp::initialize() {
 		perPassConstants.name = "PerPassConstDesc";
 		perPassConstants.target = "PerPassConstants";
 		perPassConstants.type = DESCRIPTOR_TYPE_CBV;
-		DescriptorJob rtvDescs[3];
+		DescriptorJob rtvDescs[5];
 		rtvDescs[0].name = "outTexDesc[0]";
 		rtvDescs[0].target = "outTexArray[0]";
 		rtvDescs[0].type = DESCRIPTOR_TYPE_RTV;
@@ -142,6 +158,15 @@ bool DemoApp::initialize() {
 		rtvDescs[2].target = "outTexArray[2]";
 		rtvDescs[2].type = DESCRIPTOR_TYPE_RTV;
 		rtvDescs[2].rtvDesc = DEFAULT_RTV_DESC();
+		rtvDescs[3].name = "outTexDesc[3]";
+		rtvDescs[3].target = "outTexArray[3]";
+		rtvDescs[3].type = DESCRIPTOR_TYPE_RTV;
+		rtvDescs[3].rtvDesc = DEFAULT_RTV_DESC();
+		rtvDescs[4].name = "outTexDesc[4]";
+		rtvDescs[4].target = "outTexArray[4]";
+		rtvDescs[4].type = DESCRIPTOR_TYPE_RTV;
+		rtvDescs[4].rtvDesc = DEFAULT_RTV_DESC();
+		rtvDescs[4].rtvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		DescriptorJob dsvDesc;
 		dsvDesc.name = "depthStencilView";
 		dsvDesc.target = "depthTex";
@@ -162,10 +187,13 @@ bool DemoApp::initialize() {
 		outTex.texHeight = SCREEN_HEIGHT;
 		outTex.texWidth = SCREEN_WIDTH;
 		outTex.types = DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_SRV;
-		ResourceJob outTexArray[3] = { outTex,outTex,outTex };
+		ResourceJob outTexArray[5] = { outTex,outTex,outTex, outTex, outTex };
 		outTexArray[0].name = "outTexArray[0]";
 		outTexArray[1].name = "outTexArray[1]";
 		outTexArray[2].name = "outTexArray[2]";
+		outTexArray[3].name = "outTexArray[3]";
+		outTexArray[4].name = "outTexArray[4]";
+		outTexArray[4].format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		ResourceJob depthTex;
 		depthTex.format = DEPTH_TEXTURE_FORMAT;
 		depthTex.name = "depthTex";
@@ -190,20 +218,27 @@ bool DemoApp::initialize() {
 		ps.shaderName = "Pixel Shader";
 		ps.type = SHADER_TYPE_PS;
 		ps.fileName = "..\\Shaders\\Default.hlsl";
-		RenderTargetDesc renderTargets[3];
+		RenderTargetDesc renderTargets[5];
 		renderTargets[0].descriptorName = "outTexDesc[0]";
 		renderTargets[0].slot = 0;
 		renderTargets[1].descriptorName = "outTexDesc[1]";
 		renderTargets[1].slot = 1;
 		renderTargets[2].descriptorName = "outTexDesc[2]";
 		renderTargets[2].slot = 2;
+		renderTargets[3].descriptorName = "outTexDesc[3]";
+		renderTargets[3].slot = 3;
+		renderTargets[4].descriptorName = "outTexDesc[4]";
+		renderTargets[4].slot = 4;
 
 		PipeLineStageDesc rasterDesc;
 		rasterDesc.constantBufferJobs = { perObjectJob, perPassJob };
-		rasterDesc.descriptorJobs = { {perObjectConstants, perPassConstants}, {rtvDescs[0], rtvDescs[1], rtvDescs[2]}, { dsvDesc } };
+		rasterDesc.descriptorJobs = { 
+			{perObjectConstants, perPassConstants}, 
+			std::vector<DescriptorJob>(std::begin(rtvDescs), std::end(rtvDescs)), 
+			{ dsvDesc } };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
-		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],depthTex };
+		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],depthTex };
 		rasterDesc.rootSigDesc = { perObjRoot, perPassRoot };
 		rasterDesc.samplerDesc = {};
 		rasterDesc.shaderFiles = { vs, ps };
@@ -229,6 +264,16 @@ bool DemoApp::initialize() {
 		normalTex.target = "renderOutputNormals";
 		normalTex.type = DESCRIPTOR_TYPE_SRV;
 		normalTex.srvDesc = DEFAULT_SRV_DESC();
+		DescriptorJob tangentTex = normalTex;
+		tangentTex.name = "tangentTex";
+		tangentTex.target = "renderOutputTangents";
+		DescriptorJob binormalTex = normalTex;
+		binormalTex.name = "binormalTex";
+		binormalTex.target = "renderOutputBinormals";
+		DescriptorJob worldTex = normalTex;
+		worldTex.name = "worldTex";
+		worldTex.target = "renderOutputPosition";
+		worldTex.srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		DescriptorJob outTexDesc;
 		outTexDesc.name = "SSAOOut";
 		outTexDesc.target = "SSAOOutTexture";
@@ -249,6 +294,12 @@ bool DemoApp::initialize() {
 		normalPDesc.type = ROOT_PARAMETER_TYPE_SRV;
 		normalPDesc.numConstants = 1;
 		normalPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		RootParamDesc tangentPDesc = normalPDesc;
+		tangentPDesc.name = "tangentTex";
+		RootParamDesc binormalPDesc = normalPDesc;
+		binormalPDesc.name = "binormalTex";
+		RootParamDesc worldPDesc = normalPDesc;
+		worldPDesc.name = "worldTex";
 		RootParamDesc uavPDesc;
 		uavPDesc.name = "SSAOOut";
 		uavPDesc.type = ROOT_PARAMETER_TYPE_UAV;
@@ -258,7 +309,6 @@ bool DemoApp::initialize() {
 		outTex.name = "SSAOOutTexture";
 		outTex.types = DESCRIPTOR_TYPE_UAV;
 		SSAOConstants* initialData = new SSAOConstants();
-		initialData->data.maxRange = 0.8;
 		ConstantBufferJob cbOut;
 		cbOut.initialData = initialData;
 		cbOut.name = "SSAOConstants";
@@ -270,15 +320,18 @@ bool DemoApp::initialize() {
 		SSAOShaders.defines = nullptr;
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { {constantsDesc, depthTex, normalTex, outTexDesc} };
-		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, normalPDesc, uavPDesc };
+		stageDesc.descriptorJobs = { {constantsDesc, depthTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
+		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
 		stageDesc.samplerDesc = {};
 		stageDesc.resourceJobs = { outTex };
 		stageDesc.shaderFiles = { SSAOShaders };
 		stageDesc.constantBufferJobs = { cbOut };
 		stageDesc.externalResources = { 
 			std::make_pair("renderOutputTex",renderStage->getResource("depthTex")),
-			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[1]")) 
+			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[1]")),
+			std::make_pair("renderOutputTangents",renderStage->getResource("outTexArray[2]")),
+			std::make_pair("renderOutputBinormals",renderStage->getResource("outTexArray[3]")),
+			std::make_pair("renderOutputPosition",renderStage->getResource("outTexArray[4]"))
 		};
 
 		computeStage = new ComputePipelineStage(md3dDevice);
@@ -335,6 +388,9 @@ void DemoApp::draw() {
 	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
 	computeStage->deferExecute();
 	int computeFenceValue = computeStage->triggerFence();
+
+	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
+
 	WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
 
 	DX12Resource* SSAOOut = computeStage->getResource("SSAOOutTexture");
@@ -464,5 +520,9 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.TotalTime = 0.0f;
 	mainPassCB.data.DeltaTime = 0.0f;
 	
+	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
+
+	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
+
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 }

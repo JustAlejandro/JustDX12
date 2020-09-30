@@ -7,7 +7,7 @@ ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> 
 void ComputePipelineStage::Execute() {
 	resetCommandList();
 
-	mCommandList->SetPipelineState(PSO.Get());
+	//PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), "SSAO");
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -16,10 +16,14 @@ void ComputePipelineStage::Execute() {
 
 	bindDescriptorsToRoot();
 
-	UINT numGroups = (UINT)ceilf(SCREEN_WIDTH / 256.0f);
-	mCommandList->Dispatch(numGroups, SCREEN_HEIGHT, 1);
+	UINT numGroupsX = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
+	UINT numGroupsY = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
+	//mCommandList->Dispatch(numGroups, SCREEN_HEIGHT, 1);
+	mCommandList->Dispatch(numGroupsX, numGroupsY, 1);
 
 	resourceManager.getResource("SSAOOutTexture")->changeState(mCommandList, D3D12_RESOURCE_STATE_COMMON);
+
+	//PIXEndEvent(mCommandList.Get());
 
 	mCommandList->Close();
 

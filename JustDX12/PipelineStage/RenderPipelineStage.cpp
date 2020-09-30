@@ -13,6 +13,9 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3
 
 void RenderPipelineStage::Execute() {
 	resetCommandList();
+
+	//PIXBeginEvent(mCommandList.GetAddressOf(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
+
 	bindDescriptorHeaps();
 	setResourceStates();
 
@@ -26,6 +29,8 @@ void RenderPipelineStage::Execute() {
 	bindRenderTarget();
 
 	drawRenderObjects();
+
+	//PIXEndEvent(mCommandList.GetAddressOf());
 
 	mCommandList->Close();
 
@@ -113,6 +118,7 @@ void RenderPipelineStage::bindRenderTarget() {
 }
 
 void RenderPipelineStage::drawRenderObjects() {
+	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
 		if (!model->loaded) continue;

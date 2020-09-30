@@ -1,4 +1,5 @@
 #include "DX12Helper.h"
+#include "Settings.h"
 
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer) {
 
@@ -74,6 +75,8 @@ void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) 
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
 
 		fence->SetEventOnCompletion(destVal, eventHandle);
+
+		PIXNotifyWakeFromFenceSignal(eventHandle);
 
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
