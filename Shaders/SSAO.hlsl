@@ -11,6 +11,7 @@ cbuffer cbSSAOSettings : register(b0)
 	int TAA;
 	int pad;
 	int pad2;
+	float4 lightPos;
 	float4 rand[48];
 };
 
@@ -36,7 +37,7 @@ int withOffset(int index)
 
 int2 clampEdges(int2 index)
 {
-	return clamp(index, int2(0, 0), resolution);
+	return clamp(index, int2(0, 0), resolution - int2(1, 1));
 }
 
 [numthreads(N,N,1)]
@@ -45,7 +46,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	depthTex.GetDimensions(resolution.x, resolution.y);
 	
 	int2 baseIndex = groupThreadID.xy + int2(N / 2, N / 2);
-	
+	/*
 	int2 rootIdx = dispatchThreadID.xy - groupThreadID.xy - int2(N/2, N/2);
 	cache[groupThreadID.x * 2][groupThreadID.y * 2] = depthTex[clampEdges(rootIdx + int2(groupThreadID.x * 2, groupThreadID.y * 2))].x;
 	cache[groupThreadID.x * 2][groupThreadID.y * 2 + 1] = depthTex[clampEdges(rootIdx + int2(groupThreadID.x * 2, groupThreadID.y * 2 + 1))].x;
@@ -53,14 +54,14 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	cache[groupThreadID.x * 2 + 1][groupThreadID.y * 2 + 1] = depthTex[clampEdges(rootIdx + int2(groupThreadID.x * 2 + 1, groupThreadID.y * 2 + 1))].x;
 	
 	GroupMemoryBarrierWithGroupSync();
-	
+	*/
 	float3 inNormal = normalize(normalTex[dispatchThreadID.xy].xyz);
 	float3 inTan = normalize(tangentTex[dispatchThreadID.xy].xyz);
 	float3 inBinormal = normalize(biNormalTex[dispatchThreadID.xy].xyz);
 	float3x3 TBN = float3x3(inTan, inBinormal, inNormal);
 	
 	float depth = cache[baseIndex.x][baseIndex.y];
-	float4 worldPos = worldTex[dispatchThreadID.xy];
+	float4 worldPos = worldTex[dispatchThreadID.xy] + float4(inNormal, 0.0);
 	
 	float outCol = 0.0f;
 	
@@ -78,6 +79,22 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 			outCol += 1.0 / 48.0;
 		}
 	}
+	float3 lightDir = normalize(lightPos.xyz - worldPos.xyz);
+	float resColor = 1.0;
+	int occludeCount = 10;
+	for (int j = 0; j < 10; j++)
+	{
+		worldPos.xyz += lightDir * 0.5;
+		float4 result = mul(worldPos, ViewProj);
+		result /= result.w;
+		result.xy = result.xy * 0.5 + 0.5;
+		result.y = result.y * -1.0 + 1.0;
+		if (depthTex[clampEdges((int2) (result.xy * resolution))].x < result.z)
+		{
+			occludeCount--;
+		}
+	}
+	outCol *= (occludeCount / 10.0);
 	outTex[dispatchThreadID.xy] = float4(outCol, outCol, outCol, 1.0f);
 }
 

@@ -13,6 +13,7 @@ public:
 		int TAA = 0;
 		int pad = 0;
 		int pad2 = 0;
+		DirectX::XMFLOAT4 lightPos = {};
 		DirectX::XMFLOAT4 rand[48] = {};
 	};
 

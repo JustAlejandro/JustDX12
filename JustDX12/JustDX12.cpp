@@ -115,7 +115,7 @@ DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
 	for (int i = 0; i < 48; i++) {
 		ssaoConstantCB.data.rand[i].x = distro(gen);
 		ssaoConstantCB.data.rand[i].y = distro(gen);
-		ssaoConstantCB.data.rand[i].z = abs(distro(gen)) + 0.1;
+		ssaoConstantCB.data.rand[i].z = abs(distro(gen)) + 0.2;
 		ssaoConstantCB.data.rand[i].w = abs(distro(gen));
 	}
 }
@@ -444,6 +444,11 @@ void DemoApp::onKeyboardInput() {
 	if (GetAsyncKeyState('D') & 0x8000) {
 		move.x += 0.25;
 	}
+	if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
+		move.x = 4.0 * move.x;
+		move.y = 4.0 * move.y;
+		move.z = 4.0 * move.z;
+	}
 
 	DirectX::XMFLOAT4 moveRes = {};
 	DirectX::XMStoreFloat4(&moveRes, DirectX::XMVector4Transform(
@@ -520,6 +525,7 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.TotalTime = 0.0f;
 	mainPassCB.data.DeltaTime = 0.0f;
 	
+	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 500.0) * 600, 200.0, 0.0, 1.0);
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
