@@ -525,6 +525,8 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.TotalTime = 0.0f;
 	mainPassCB.data.DeltaTime = 0.0f;
 	
+	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
+	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
 	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 500.0) * 600, 200.0, 0.0, 1.0);
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 

@@ -18,7 +18,6 @@ void ComputePipelineStage::Execute() {
 
 	UINT numGroupsX = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
 	UINT numGroupsY = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
-	//mCommandList->Dispatch(numGroups, SCREEN_HEIGHT, 1);
 	mCommandList->Dispatch(numGroupsX, numGroupsY, 1);
 
 	resourceManager.getResource("SSAOOutTexture")->changeState(mCommandList, D3D12_RESOURCE_STATE_COMMON);
