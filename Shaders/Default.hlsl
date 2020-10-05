@@ -21,6 +21,10 @@ cbuffer cbPass : register(b1)
 	float DeltaTime;
 }
 
+Texture2D gDiffuseMap : register(t0);
+SamplerState gsamLinear : register(s0);
+SamplerState anisoWrap : register(s4);
+
 struct VertexIn
 {
 	float3 PosL : POSITION;
@@ -68,7 +72,7 @@ VertexOut VS(VertexIn vin)
 PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
-	p.color = float4(pin.NormalW, 1.0f);
+	p.color = gDiffuseMap.Sample(anisoWrap, pin.TexC);
 	p.normal = float4(pin.NormalW, 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	p.binormal = float4(pin.BiNormalW, 0.0);

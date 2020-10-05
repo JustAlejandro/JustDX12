@@ -20,6 +20,8 @@ protected:
 public:
 	static DX12App* getApp();
 
+	static Microsoft::WRL::ComPtr<ID3D12Device> getDevice();
+
 	float getAspectRatio()const;
 
 	int run();

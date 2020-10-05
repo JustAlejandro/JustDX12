@@ -32,9 +32,11 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 	CD3DX12_GPU_DESCRIPTOR_HANDLE hGPUDescriptor(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	UINT descriptorSize = getDescriptorOffsetForType(heapDesc.Type);
 	for (DescriptorJob& job : descriptorJobs) {
-		DX12Descriptor& desc = descriptors[std::make_pair(job.name, job.type)];
+		DX12Descriptor& desc = descriptors[std::make_pair(job.name + std::to_string(job.usageIndex), job.type)];
 		desc.cpuHandle = hCPUDescriptor;
 		desc.gpuHandle = hGPUDescriptor;
+		desc.usage = job.usage;
+		desc.usageIndex = job.usageIndex;
 		if (job.type == DESCRIPTOR_TYPE_CBV) {
 			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.target);
 			desc.constantBufferTarget = buffer;
@@ -56,6 +58,9 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 }
 
 DX12Descriptor* DescriptorManager::getDescriptor(std::string name, DESCRIPTOR_TYPE type) {
+	if (descriptors.find(std::make_pair(name, type)) == descriptors.end()) {
+		return nullptr;
+	}
 	return &descriptors.at(std::make_pair(name, type));
 }
 

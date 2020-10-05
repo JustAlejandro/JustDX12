@@ -67,7 +67,7 @@ public:
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
 	DX12Resource* getResource(std::string name);
 
-	void setup(PipeLineStageDesc stageDesc);
+	virtual void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;
 
 	DX12Resource* getOut() {
@@ -86,12 +86,14 @@ protected:
 
 	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
 	std::string getCompileTargetFromType(SHADER_TYPE type);
-	DESCRIPTOR_TYPE getDescriptorTypeFromRootParameterType(ROOT_PARAMETER_TYPE type);
+	ROOT_PARAMETER_TYPE getRootParamTypeFromRangeType(D3D12_DESCRIPTOR_RANGE_TYPE range);
+	DESCRIPTOR_TYPE getDescriptorTypeFromRootParameterDesc(RootParamDesc desc);
 	void resetCommandList();
 	void bindDescriptorHeaps();
-	virtual void bindDescriptorsToRoot()=0;
+	virtual void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0)=0;
 	void setResourceStates();
 protected:
+	PipeLineStageDesc stageDesc;
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;

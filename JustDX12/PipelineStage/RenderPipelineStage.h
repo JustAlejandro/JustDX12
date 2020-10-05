@@ -1,6 +1,8 @@
 #pragma once
 #include "PipelineStage\PipelineStage.h"
+#include <array>
 class Model;
+class Mesh;
 class ModelLoader;
 
 
@@ -12,11 +14,17 @@ public:
 	~RenderPipelineStage();
 protected:
 	void BuildPSO() override;
-	void bindDescriptorsToRoot() override;
+	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0) override;
 	void bindRenderTarget();
 	void drawRenderObjects();
+	void importMeshTextures(Mesh* m, int usageIndex);
+	void buildMeshTexturesDescriptors(Mesh* m, int usageIndex);
+	void setupRenderObjects();
+
+	void addDescriptorJob(DescriptorJob j);
 
 	std::vector<Model*> renderObjects;
+	bool allRenderObjectsSetup = false;
 
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT scissorRect;

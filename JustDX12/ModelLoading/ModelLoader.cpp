@@ -2,7 +2,7 @@
 #include "ModelLoading\Model.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)
-	: TaskQueueThread(d3dDevice) {
+	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
 
 }
 

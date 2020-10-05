@@ -49,10 +49,10 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	BuildRootSignature(stageDesc);
 	BuildResources(stageDesc.resourceJobs);
 	BuildConstantBuffers(stageDesc.constantBufferJobs);
-	BuildDescriptors(stageDesc.descriptorJobs);
 	BuildShaders(stageDesc.shaderFiles);
 	BuildInputLayout();
 	BuildPSO();
+	this->stageDesc = stageDesc;
 }
 
 void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
@@ -65,11 +65,13 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 		initRootParameterFromType(rootParameters[i], stageDesc.rootSigDesc[i], shaderRegisters, tables[i]);
 	}
 
+	auto samplers = GetStaticSamplers();
+
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
 		stageDesc.rootSigDesc.size(),
 		rootParameters.data(),
-		0,
-		nullptr,
+		(UINT)samplers.size(),
+		samplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
@@ -147,8 +149,13 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 		param.InitAsDescriptorTable(1, &table);
 		break;
 	case ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
-		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE]++);
-		param.InitAsDescriptorTable(1, &table);
+		{
+			int& startIndex = registers.at(getRootParamTypeFromRangeType(desc.rangeType));
+			table.Init(desc.rangeType, desc.numConstants, startIndex);
+			param.InitAsDescriptorTable(1, &table);
+			// Here's where we'd init the other descriptor table types if we had them, but for now, 1 type per entry
+			startIndex += desc.numConstants;
+		}		
 		break;
 	default:
 		break;
@@ -169,7 +176,26 @@ std::string PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
 	}
 }
 
-DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterType(ROOT_PARAMETER_TYPE type) {
+ROOT_PARAMETER_TYPE PipelineStage::getRootParamTypeFromRangeType(D3D12_DESCRIPTOR_RANGE_TYPE range) {
+	switch (range) {
+	case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
+		return ROOT_PARAMETER_TYPE_SRV;
+	case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
+		return ROOT_PARAMETER_TYPE_UAV;
+	case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
+		return ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
+	case D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER:
+		throw "Unhandled";
+	default:
+		throw "unhandled";
+	}
+}
+
+DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterDesc(RootParamDesc desc) {
+	ROOT_PARAMETER_TYPE type = desc.type;
+	if (type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
+		type = getRootParamTypeFromRangeType(desc.rangeType);
+	}
 	switch (type) {
 	case ROOT_PARAMETER_TYPE_CONSTANTS:
 		throw "Can't do constants";
@@ -179,8 +205,6 @@ DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterType(ROOT_PARAM
 		return DESCRIPTOR_TYPE_SRV;
 	case ROOT_PARAMETER_TYPE_UAV:
 		return DESCRIPTOR_TYPE_UAV;
-	case ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
-		throw "Can't do descriptor_table";
 	default:
 		throw "Invalid Type Given";
 	}

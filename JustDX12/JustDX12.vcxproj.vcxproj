@@ -198,6 +198,8 @@
     <ClInclude Include="ModelLoading\ModelLoader.h" />
     <ClInclude Include="Tasks\Task.h" />
     <ClInclude Include="ModelLoading\TextureLoader.h" />
+    <ClInclude Include="Texture.h" />
+    <ClInclude Include="TextureLoadTask.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

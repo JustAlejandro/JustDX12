@@ -26,7 +26,8 @@ public:
 	ID3D12Resource* get();
 	DXGI_FORMAT getFormat();
 
-private:
+protected:
+	DX12Resource() = default;
 	DESCRIPTOR_TYPE type;
 	DXGI_FORMAT format;
 	ComPtr<ID3D12Resource> resource = nullptr;

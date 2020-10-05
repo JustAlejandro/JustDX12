@@ -18,6 +18,8 @@ struct DescriptorJob {
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc;
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
 	};
+	int usageIndex = 0;
+	DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS;
 };
 
 struct hash_pair {
@@ -36,9 +38,9 @@ public:
 	std::vector<ID3D12DescriptorHeap*> getAllBindableHeaps();
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();
 	std::vector<DX12Descriptor*>* getAllDescriptorsOfType(DESCRIPTOR_TYPE type);
+	D3D12_DESCRIPTOR_HEAP_TYPE heapTypeFromDescriptorType(DESCRIPTOR_TYPE type);
 
 private:
-	D3D12_DESCRIPTOR_HEAP_TYPE heapTypeFromDescriptorType(DESCRIPTOR_TYPE type);
 	D3D12_DESCRIPTOR_HEAP_FLAGS shaderVisibleFromHeapType(D3D12_DESCRIPTOR_HEAP_TYPE type);
 	void createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job);
 	UINT getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE type);

@@ -18,6 +18,10 @@ DX12App* DX12App::getApp() {
 	return app;
 }
 
+Microsoft::WRL::ComPtr<ID3D12Device> DX12App::getDevice() {
+	return getApp()->md3dDevice;
+}
+
 DX12App::DX12App(HINSTANCE hInstance) : hAppInst(hInstance) {
 	mBackBufferFormat = COLOR_TEXTURE_FORMAT;
 	mDepthStencilFormat = DEPTH_TEXTURE_DSV_FORMAT;

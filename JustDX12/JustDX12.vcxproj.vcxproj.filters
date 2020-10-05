@@ -88,6 +88,12 @@
       <Filter>Resources</Filter>
     </ClInclude>
     <ClInclude Include="ConstantBufferManager.h" />
+    <ClInclude Include="TextureLoadTask.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

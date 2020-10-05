@@ -4,6 +4,7 @@
 #include <d3dcompiler.h>
 #include "DX12App.h"
 #include "Settings.h"
+#include "TextureLoader.h"
 
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
@@ -44,7 +45,9 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 
 #ifdef CLEAR_MODEL_MEMORY
 	std::vector<Vertex>().swap(vertices);
+	vertices.shrink_to_fit();
 	std::vector<unsigned int>().swap(indices);
+	indices.shrink_to_fit();
 #endif // CLEAR_MODEL_MEMORY
 }
 
@@ -62,7 +65,7 @@ void Model::processNode(aiNode* node, const aiScene* scene) {
 }
 
 Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
-	Mesh meshStorage = { 0 };
+	Mesh meshStorage;
 	meshStorage.baseVertexLocation = vertices.size();
 	meshStorage.startIndexLocation = indices.size();
 	for (int i = 0; i < mesh->mNumVertices; i++) {
@@ -97,13 +100,13 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 
 	if (mesh->mMaterialIndex >= 0) {
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-		std::vector<Texture> diffuseTexs = loadMaterialTextures(material,
+		// TODO: make texture array distinguish between types...
+		// Probably just make a map from the typename to the array...
+		meshStorage.textures["texture_diffuse"] = loadMaterialTextures(material,
 			aiTextureType_DIFFUSE, "texture_diffuse");
-		textures.insert(textures.end(), diffuseTexs.begin(), diffuseTexs.end());
-		std::vector<Texture> normalTexs = loadMaterialTextures(material,
+		meshStorage.textures["texture_normal"] = loadMaterialTextures(material,
 			aiTextureType_HEIGHT, "texture_normal");
-		textures.insert(textures.end(), normalTexs.begin(), normalTexs.end());
-		std::vector<Texture> specTexs = loadMaterialTextures(material,
+		meshStorage.textures["texture_alpha"] = loadMaterialTextures(material,
 			aiTextureType_OPACITY, "texture_alpha");
 		if (material->GetTextureCount(aiTextureType_DIFFUSE))
 			meshStorage.typeFlags |= MODEL_FORMAT_DIFFUSE_TEX;
@@ -116,9 +119,18 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	return meshStorage;
 }
 
-std::vector<Texture> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName) {
-	//TODO: Texture Load to GPU, maybe do defferred loading, who knows.
-	return std::vector<Texture>();
+std::vector<DX12Texture*> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName) {
+	TextureLoader& textureLoader = TextureLoader::getInstance();
+	std::vector<DX12Texture*> textures;
+
+	for (int i = 0; i < mat->GetTextureCount(type); i++) {
+		aiString aiPath;
+		mat->GetTexture(type, i, &aiPath);
+		std::string path = aiPath.C_Str();
+
+		textures.push_back(textureLoader.deferLoad(path));
+	}
+	return textures;
 }
 
 D3D12_VERTEX_BUFFER_VIEW Model::vertexBufferView() const {

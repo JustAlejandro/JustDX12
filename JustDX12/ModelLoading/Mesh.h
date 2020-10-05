@@ -6,6 +6,8 @@
 #include <d3d12.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include "Texture.h"
 
 struct Vertex {
 	DirectX::XMFLOAT3 pos;
@@ -15,20 +17,31 @@ struct Vertex {
 	DirectX::XMFLOAT2 texC;
 };
 
-struct Texture {
-	std::string Name;
-
-	std::string Filename;
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
-};
-
 struct Mesh {
-public:
 	UINT typeFlags = 0;
 	UINT indexCount = 0;
 	UINT startIndexLocation = 0;
 	INT baseVertexLocation = 0;
+	std::unordered_map<std::string, std::vector<DX12Texture*>> textures;
+
+	bool allTexturesLoaded() {
+		if (texturesLoaded) return true;
+
+		for (const auto& textureArray : textures) {
+			for (const auto& texture : textureArray.second) {
+				if (texture->status == TEX_STATUS_NOT_LOADED) {
+					return false;
+				}
+			}
+		}
+		texturesLoaded = true;
+		return texturesLoaded;
+	}
+
+	bool texturesBound = false;
+
+private:
+	// Trying to make repeated checks faster
+	bool texturesLoaded = false;
 };
 

@@ -12,6 +12,11 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3
 }
 
 void RenderPipelineStage::Execute() {
+	if (!allRenderObjectsSetup) {
+		setupRenderObjects();
+		return;
+	}
+
 	resetCommandList();
 
 	//PIXBeginEvent(mCommandList.GetAddressOf(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
@@ -24,7 +29,7 @@ void RenderPipelineStage::Execute() {
 
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 	
-	bindDescriptorsToRoot();
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS);
 
 	bindRenderTarget();
 
@@ -67,9 +72,7 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	graphicsPSO.NumRenderTargets = renderTargetDescs.size();
 	for (int i = 0; i < renderTargetDescs.size(); i++) {
-		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(
-				renderTargetDescs[i].descriptorName, 
-				DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
+		graphicsPSO.RTVFormats[i] = COLOR_TEXTURE_FORMAT;
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
@@ -80,23 +83,31 @@ void RenderPipelineStage::BuildPSO() {
 	}
 }
 
-void RenderPipelineStage::bindDescriptorsToRoot() {
+void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {
 	for (int i = 0; i < rootParameterDescs.size(); i++) {
-		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterType(rootParameterDescs[i].type);
+		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[i]);
+		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[i].name + std::to_string(usageIndex), descriptorType);
+		if (descriptor == nullptr) {
+			continue;
+		}
+		if (usage != descriptor->usage) {
+			// This descriptor will be binded later if it's needed.
+			continue;
+		}
 		switch (descriptorType) {
 		case DESCRIPTOR_TYPE_NONE:
-			throw "Not sure what this is";
+			OutputDebugStringA("Not sure what this is");
 		case DESCRIPTOR_TYPE_SRV:
 			mCommandList->SetGraphicsRootDescriptorTable(i,
-				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+				descriptor->gpuHandle);
 			break;
 		case DESCRIPTOR_TYPE_UAV:
 			mCommandList->SetGraphicsRootDescriptorTable(i,
-				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+				descriptor->gpuHandle);
 			break;
 		case DESCRIPTOR_TYPE_CBV:
 			mCommandList->SetGraphicsRootDescriptorTable(i,
-				descriptorManager.getDescriptor(rootParameterDescs[i].name, descriptorType)->gpuHandle);
+				descriptor->gpuHandle);
 			break;
 		default:
 			throw "Don't know what to do here.";
@@ -111,27 +122,100 @@ void RenderPipelineStage::bindRenderTarget() {
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
 		1.0f, 0, 0, nullptr);
 
+	float clear[4] = { 0.0f,0.0f,0.0f,0.0f };
+	mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName + "0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
+		clear, 0, nullptr);
+
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
-		&descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName, DESCRIPTOR_TYPE_RTV)->cpuHandle,
+		&descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName + "0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
 		&descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle);
 }
 
 void RenderPipelineStage::drawRenderObjects() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
+	int meshIndex = 0;
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
-		if (!model->loaded) continue;
+
+		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
 
 		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
 		mCommandList->IASetIndexBuffer(&model->indexBufferView());
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		//Here's where we need some constant buffer setups...
+		for (Mesh& m : model->meshes) {
+			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 
-		for (const Mesh& m : model->meshes) {
 			mCommandList->DrawIndexedInstanced(m.indexCount,
 				1, m.startIndexLocation, m.baseVertexLocation, 0);
+
+			meshIndex++;
+		}
+	}
+}
+
+void RenderPipelineStage::importMeshTextures(Mesh* m, int usageIndex) {
+	for (auto textureArray : m->textures) {
+		for (auto texture : textureArray.second) {
+			// Assuming only 1 texture per type...
+			resourceManager.importResource(textureArray.first + std::to_string(usageIndex), texture);
+		}
+	}
+}
+
+void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) {
+	if ((m->typeFlags & MODEL_FORMAT_DIFFUSE_TEX) == 0) {
+		// Can't bind a texture if it doesn't exist.
+		m->texturesBound = true;
+		return;
+	}
+	DescriptorJob j;
+	j.name = "texture_diffuse";
+	j.target = "texture_diffuse" + std::to_string(usageIndex);
+	j.type = DESCRIPTOR_TYPE_SRV;
+	j.usage = DESCRIPTOR_USAGE_PER_MESH;
+	j.usageIndex = usageIndex;
+	j.srvDesc.Format = m->textures.at("texture_diffuse")[0]->MetaData.Format;
+	j.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	j.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	j.srvDesc.Texture2D.MipLevels = 1;
+	j.srvDesc.Texture2D.MostDetailedMip = 0;
+	j.srvDesc.Texture2D.PlaneSlice = 0;
+	j.srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	// Here's where we'd put more textures, but for now, this will be it.
+	addDescriptorJob(j);
+
+	// Flag them all as bound.
+	m->texturesBound = true;
+}
+
+void RenderPipelineStage::setupRenderObjects() {
+	int index = 0;
+	for (auto& renderObj : renderObjects) {
+		if (!renderObj->loaded) {
+			return;
+		}
+		for (auto& mesh : renderObj->meshes) {
+			if (!mesh.allTexturesLoaded()) {
+				return;
+			}
+			if (!mesh.texturesBound) {
+				importMeshTextures(&mesh, index);
+				buildMeshTexturesDescriptors(&mesh, index);
+				return;
+			}
+			index++;
+		}
+	}
+	BuildDescriptors(stageDesc.descriptorJobs);
+	allRenderObjectsSetup = true;
+}
+
+void RenderPipelineStage::addDescriptorJob(DescriptorJob j) {
+	for (auto& jobs : stageDesc.descriptorJobs) {
+		if (descriptorManager.heapTypeFromDescriptorType(jobs[0].type) == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
+			jobs.push_back(j);
 		}
 	}
 }

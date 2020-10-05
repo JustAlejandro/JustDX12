@@ -26,12 +26,8 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device,
 	subResourceData.RowPitch = byteSize;
 	subResourceData.SlicePitch = subResourceData.RowPitch;
 
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST));
 	UpdateSubresources<1>(cmdList, defaultBuffer.Get(), uploadBuffer.Get(), 0, 0, 1, &subResourceData);
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
-		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
-
+	
 	return defaultBuffer;
 }
 
@@ -68,6 +64,13 @@ DirectX::XMFLOAT4X4 Identity() {
 UINT CalcConstantBufferByteSize(UINT byteSize) {
 	// Constant buffers have to be multiples of 256 byte size
 	return (byteSize + 255) & ~255;
+}
+
+UINT CalcBufferByteSize(UINT byteSize, UINT alignment) {
+	if ((alignment == 0) || (alignment & alignment - 1)) {
+		throw "Non power of 2 alignment";
+	}
+	return (byteSize + alignment) & ~alignment;
 }
 
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) {

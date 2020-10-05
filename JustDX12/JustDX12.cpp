@@ -166,7 +166,6 @@ bool DemoApp::initialize() {
 		rtvDescs[4].target = "outTexArray[4]";
 		rtvDescs[4].type = DESCRIPTOR_TYPE_RTV;
 		rtvDescs[4].rtvDesc = DEFAULT_RTV_DESC();
-		rtvDescs[4].rtvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		DescriptorJob dsvDesc;
 		dsvDesc.name = "depthStencilView";
 		dsvDesc.target = "depthTex";
@@ -177,6 +176,11 @@ bool DemoApp::initialize() {
 		perObjRoot.numConstants = 1;
 		perObjRoot.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
 		perObjRoot.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		RootParamDesc perObjTexRoot;
+		perObjTexRoot.name = "texture_diffuse";
+		perObjTexRoot.numConstants = 1;
+		perObjTexRoot.type = ROOT_PARAMETER_TYPE_SRV;
+		perObjTexRoot.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		RootParamDesc perPassRoot;
 		perPassRoot.name = "PerPassConstDesc";
 		perPassRoot.numConstants = 1;
@@ -193,7 +197,6 @@ bool DemoApp::initialize() {
 		outTexArray[2].name = "outTexArray[2]";
 		outTexArray[3].name = "outTexArray[3]";
 		outTexArray[4].name = "outTexArray[4]";
-		outTexArray[4].format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		ResourceJob depthTex;
 		depthTex.format = DEPTH_TEXTURE_FORMAT;
 		depthTex.name = "depthTex";
@@ -239,7 +242,7 @@ bool DemoApp::initialize() {
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
 		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],depthTex };
-		rasterDesc.rootSigDesc = { perObjRoot, perPassRoot };
+		rasterDesc.rootSigDesc = { perObjRoot, perObjTexRoot, perPassRoot };
 		rasterDesc.samplerDesc = {};
 		rasterDesc.shaderFiles = { vs, ps };
 
@@ -264,6 +267,9 @@ bool DemoApp::initialize() {
 		normalTex.target = "renderOutputNormals";
 		normalTex.type = DESCRIPTOR_TYPE_SRV;
 		normalTex.srvDesc = DEFAULT_SRV_DESC();
+		DescriptorJob colorTex = normalTex;
+		colorTex.name = "colorTex";
+		colorTex.target = "renderOutputColor";
 		DescriptorJob tangentTex = normalTex;
 		tangentTex.name = "tangentTex";
 		tangentTex.target = "renderOutputTangents";
@@ -273,7 +279,6 @@ bool DemoApp::initialize() {
 		DescriptorJob worldTex = normalTex;
 		worldTex.name = "worldTex";
 		worldTex.target = "renderOutputPosition";
-		worldTex.srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		DescriptorJob outTexDesc;
 		outTexDesc.name = "SSAOOut";
 		outTexDesc.target = "SSAOOutTexture";
@@ -294,6 +299,8 @@ bool DemoApp::initialize() {
 		normalPDesc.type = ROOT_PARAMETER_TYPE_SRV;
 		normalPDesc.numConstants = 1;
 		normalPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		RootParamDesc colorPDesc = normalPDesc;
+		colorPDesc.name = "colorTex";
 		RootParamDesc tangentPDesc = normalPDesc;
 		tangentPDesc.name = "tangentTex";
 		RootParamDesc binormalPDesc = normalPDesc;
@@ -320,14 +327,15 @@ bool DemoApp::initialize() {
 		SSAOShaders.defines = nullptr;
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { {constantsDesc, depthTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
-		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
+		stageDesc.descriptorJobs = { {constantsDesc, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
+		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, colorPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
 		stageDesc.samplerDesc = {};
 		stageDesc.resourceJobs = { outTex };
 		stageDesc.shaderFiles = { SSAOShaders };
 		stageDesc.constantBufferJobs = { cbOut };
 		stageDesc.externalResources = { 
 			std::make_pair("renderOutputTex",renderStage->getResource("depthTex")),
+			std::make_pair("renderOutputColor",renderStage->getResource("outTexArray[0]")),
 			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[1]")),
 			std::make_pair("renderOutputTangents",renderStage->getResource("outTexArray[2]")),
 			std::make_pair("renderOutputBinormals",renderStage->getResource("outTexArray[3]")),
