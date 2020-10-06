@@ -70,7 +70,7 @@ UINT CalcBufferByteSize(UINT byteSize, UINT alignment) {
 	if ((alignment == 0) || (alignment & alignment - 1)) {
 		throw "Non power of 2 alignment";
 	}
-	return (byteSize + alignment) & ~alignment;
+	return (byteSize + (alignment-1)) & ~(alignment-1);
 }
 
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) {

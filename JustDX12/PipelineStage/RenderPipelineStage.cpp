@@ -179,7 +179,7 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) 
 	j.srvDesc.Format = m->textures.at("texture_diffuse")[0]->MetaData.Format;
 	j.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	j.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	j.srvDesc.Texture2D.MipLevels = 1;
+	j.srvDesc.Texture2D.MipLevels = -1;
 	j.srvDesc.Texture2D.MostDetailedMip = 0;
 	j.srvDesc.Texture2D.PlaneSlice = 0;
 	j.srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;

@@ -40,14 +40,13 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
     // No 3d/1d tex for the moment
     assert(texMetaData.dimension != D3D12_RESOURCE_DIMENSION_TEXTURE3D);
     assert(texMetaData.dimension != D3D12_RESOURCE_DIMENSION_TEXTURE1D);
-    DXGI_FORMAT texFormat = texMetaData.format;
 
-    tex->MetaData.Format = texFormat;
+    tex->MetaData.Format = texMetaData.format;
     tex->MetaData.Width = texMetaData.width;
     tex->MetaData.Height = texMetaData.height;
     tex->MetaData.Flags = D3D12_RESOURCE_FLAG_NONE;
     tex->MetaData.DepthOrArraySize = texMetaData.arraySize;
-    tex->MetaData.MipLevels = texMetaData.mipLevels;
+    tex->MetaData.MipLevels = (UINT16)texMetaData.mipLevels;
     tex->MetaData.SampleDesc.Count = 1;
     tex->MetaData.SampleDesc.Quality = 0;
     tex->MetaData.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -119,7 +118,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
         source.pResource = tex->UploadHeap.Get();
         source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
         source.PlacedFootprint = layouts[subResourceIndex];
-        source.PlacedFootprint.Offset = 0;
+        source.PlacedFootprint.Offset = layouts[subResourceIndex].Offset;
 
         mCommandList->CopyTextureRegion(&dest, 0, 0, 0,
             &source, nullptr);
