@@ -34,7 +34,7 @@ class DescriptorManager {
 public:
 	DescriptorManager(ComPtr<ID3D12Device> device);
 	void makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager);
-	DX12Descriptor* getDescriptor(std::string name, DESCRIPTOR_TYPE type);
+	DX12Descriptor* getDescriptor(const std::string& name, const DESCRIPTOR_TYPE& type);
 	std::vector<ID3D12DescriptorHeap*> getAllBindableHeaps();
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();
 	std::vector<DX12Descriptor*>* getAllDescriptorsOfType(DESCRIPTOR_TYPE type);

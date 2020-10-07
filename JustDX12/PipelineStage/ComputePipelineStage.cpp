@@ -52,26 +52,23 @@ void ComputePipelineStage::BuildPSO() {
 }
 
 void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {
-	for (int i = 0; i < rootParameterDescs.size(); i++) {
-		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[i]);
-		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[i].name + std::to_string(usageIndex), descriptorType);
-		if (usage != descriptor->usage) {
-			// This descriptor will be binded later if it's needed.
-			continue;
-		}
+	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
+		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
+		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
+
 		switch (descriptorType) {
 		case DESCRIPTOR_TYPE_NONE:
 			throw "Not sure what this is";
 		case DESCRIPTOR_TYPE_SRV:
-			mCommandList->SetComputeRootDescriptorTable(i, 
+			mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
 				descriptor->gpuHandle);
 			break;
 		case DESCRIPTOR_TYPE_UAV:
-			mCommandList->SetComputeRootDescriptorTable(i,
+			mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
 				descriptor->gpuHandle);
 			break;
 		case DESCRIPTOR_TYPE_CBV:
-			mCommandList->SetComputeRootDescriptorTable(i,
+			mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
 				descriptor->gpuHandle);
 			break;
 		default:

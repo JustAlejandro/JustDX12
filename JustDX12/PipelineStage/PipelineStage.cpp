@@ -86,7 +86,10 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 
 	md3dDevice->CreateRootSignature(0, serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf()));
-	rootParameterDescs = stageDesc.rootSigDesc;
+
+	for (RootParamDesc& desc : stageDesc.rootSigDesc) {
+		rootParameterDescs[desc.usagePattern].push_back(desc);
+	}
 }
 
 void PipelineStage::BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs) {

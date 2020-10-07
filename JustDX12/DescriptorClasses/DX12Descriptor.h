@@ -9,9 +9,11 @@ class DX12ConstantBuffer;
 class DX12Texture;
 
 enum DESCRIPTOR_USAGE {
-	DESCRIPTOR_USAGE_PER_PASS = 0,
-	DESCRIPTOR_USAGE_PER_OBJECT = 1,
-	DESCRIPTOR_USAGE_PER_MESH = 2
+	DESCRIPTOR_USAGE_ALL = 0,
+	DESCRIPTOR_USAGE_PER_PASS = 1,
+	DESCRIPTOR_USAGE_PER_OBJECT = 2,
+	DESCRIPTOR_USAGE_PER_MESH = 3,
+	DESCRIPTOR_USAGE_MAX = 4
 };
 
 struct DX12Descriptor {
@@ -23,7 +25,7 @@ struct DX12Descriptor {
 		DX12Texture* textureTarget;
 	};
 	int usageIndex = 0;
-	DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS;
+	DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_ALL;
 	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
 };
 

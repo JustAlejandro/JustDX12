@@ -28,6 +28,7 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 			desc.resourceTarget = resourceManager->getResource(job.target);
 		}
 
+		desc.descriptorHeap = heap.heap.Get();
 		createDescriptorView(desc, job);
 		descriptorsByType[job.type].push_back(&desc);
 
@@ -35,11 +36,12 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 	}
 }
 
-DX12Descriptor* DescriptorManager::getDescriptor(std::string name, DESCRIPTOR_TYPE type) {
-	if (descriptors.find(std::make_pair(name, type)) == descriptors.end()) {
+DX12Descriptor* DescriptorManager::getDescriptor(const std::string& name, const DESCRIPTOR_TYPE& type) {
+	auto out = descriptors.find(std::make_pair(name, type));
+	if (out == descriptors.end()) {
 		return nullptr;
 	}
-	return &descriptors.at(std::make_pair(name, type));
+	return &out->second;
 }
 
 std::vector<ID3D12DescriptorHeap*> DescriptorManager::getAllBindableHeaps() {

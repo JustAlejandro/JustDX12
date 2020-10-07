@@ -25,6 +25,8 @@ enum SHADER_TYPE {
 struct RootParamDesc {
 	std::string name;
 	ROOT_PARAMETER_TYPE type;
+	DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL;
+	int slot = 0;
 	int numConstants = 1;
 	D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 };
@@ -101,7 +103,7 @@ protected:
 	std::unordered_map<SHADER_TYPE, Microsoft::WRL::ComPtr<ID3DBlob>> shadersByType;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
 
-	std::vector<RootParamDesc> rootParameterDescs;
+	std::vector<RootParamDesc> rootParameterDescs[DESCRIPTOR_USAGE_MAX];
 	std::vector<RenderTargetDesc> renderTargetDescs;
 
 	DX12Resource* output = nullptr;

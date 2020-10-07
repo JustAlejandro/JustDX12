@@ -84,29 +84,27 @@ void RenderPipelineStage::BuildPSO() {
 }
 
 void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {
-	for (int i = 0; i < rootParameterDescs.size(); i++) {
-		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[i]);
-		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[i].name + std::to_string(usageIndex), descriptorType);
+	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
+		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
+		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
 		if (descriptor == nullptr) {
-			continue;
-		}
-		if (usage != descriptor->usage) {
-			// This descriptor will be binded later if it's needed.
+			// For now just ignoring because if a texture doesn't exist we'll just assume it'll be fine.
+			// Different PSOs for different texturing would fix this.
 			continue;
 		}
 		switch (descriptorType) {
 		case DESCRIPTOR_TYPE_NONE:
 			OutputDebugStringA("Not sure what this is");
 		case DESCRIPTOR_TYPE_SRV:
-			mCommandList->SetGraphicsRootDescriptorTable(i,
+			mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
 				descriptor->gpuHandle);
 			break;
 		case DESCRIPTOR_TYPE_UAV:
-			mCommandList->SetGraphicsRootDescriptorTable(i,
+			mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
 				descriptor->gpuHandle);
 			break;
 		case DESCRIPTOR_TYPE_CBV:
-			mCommandList->SetGraphicsRootDescriptorTable(i,
+			mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
 				descriptor->gpuHandle);
 			break;
 		default:
@@ -122,9 +120,11 @@ void RenderPipelineStage::bindRenderTarget() {
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
 		1.0f, 0, 0, nullptr);
 
+#ifdef DEBUG
 	float clear[4] = { 0.0f,0.0f,0.0f,0.0f };
 	mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName + "0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		clear, 0, nullptr);
+#endif // DEBUG
 
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
 		&descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName + "0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
