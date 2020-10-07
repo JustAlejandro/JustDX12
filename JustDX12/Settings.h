@@ -19,6 +19,12 @@ extern UINT gRtvDescriptorSize;
 extern UINT gDsvDescriptorSize;
 extern UINT gCbvSrvUavDescriptorSize;
 
+const UINT maxDescriptorHeapSize[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = {
+	100000,
+	100,
+	100,
+	100 };
+
 inline D3D12_VIEWPORT DEFAULT_VIEW_PORT() {
 	D3D12_VIEWPORT defaultViewPort;
 	defaultViewPort.TopLeftX = 0;

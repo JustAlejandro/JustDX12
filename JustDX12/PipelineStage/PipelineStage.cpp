@@ -89,10 +89,8 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 	rootParameterDescs = stageDesc.rootSigDesc;
 }
 
-void PipelineStage::BuildDescriptors(std::vector<std::vector<DescriptorJob>>& descriptorJobs) {
-	for (std::vector<DescriptorJob>& jobVec : descriptorJobs) {
-		descriptorManager.makeDescriptorHeap(jobVec, &resourceManager, &constantBufferManager);
-	}
+void PipelineStage::BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs) {
+	descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager);
 }
 
 void PipelineStage::BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs) {

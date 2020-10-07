@@ -213,9 +213,5 @@ void RenderPipelineStage::setupRenderObjects() {
 }
 
 void RenderPipelineStage::addDescriptorJob(DescriptorJob j) {
-	for (auto& jobs : stageDesc.descriptorJobs) {
-		if (descriptorManager.heapTypeFromDescriptorType(jobs[0].type) == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
-			jobs.push_back(j);
-		}
-	}
+	stageDesc.descriptorJobs.push_back(j);
 }

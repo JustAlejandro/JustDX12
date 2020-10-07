@@ -49,7 +49,7 @@ struct ShaderDesc {
 struct PipeLineStageDesc {
 	std::vector<RootParamDesc> rootSigDesc;
 	std::vector<SamplerDesc> samplerDesc;
-	std::vector<std::vector<DescriptorJob>> descriptorJobs;
+	std::vector<DescriptorJob> descriptorJobs;
 	std::vector<ResourceJob> resourceJobs;
 	std::vector<ConstantBufferJob> constantBufferJobs;
 	std::vector<ShaderDesc> shaderFiles;
@@ -77,7 +77,7 @@ public:
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
 	void BuildRootSignature(PipeLineStageDesc stageDesc);
-	void BuildDescriptors(std::vector<std::vector<DescriptorJob>>& descriptorJobs);
+	void BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs);
 	void BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs);
 	void BuildResources(std::vector<ResourceJob>& resourceJobs);
 	void BuildShaders(std::vector<ShaderDesc> shaderDescs);

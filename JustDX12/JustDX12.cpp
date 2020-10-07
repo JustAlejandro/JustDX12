@@ -235,10 +235,8 @@ bool DemoApp::initialize() {
 
 		PipeLineStageDesc rasterDesc;
 		rasterDesc.constantBufferJobs = { perObjectJob, perPassJob };
-		rasterDesc.descriptorJobs = { 
-			{perObjectConstants, perPassConstants}, 
-			std::vector<DescriptorJob>(std::begin(rtvDescs), std::end(rtvDescs)), 
-			{ dsvDesc } };
+		rasterDesc.descriptorJobs = { perObjectConstants, perPassConstants,
+			rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], dsvDesc };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
 		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],depthTex };
@@ -535,7 +533,7 @@ void DemoApp::UpdateMainPassCB() {
 	
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
 	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
-	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 500.0) * 600, 200.0, 0.0, 1.0);
+	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 250.0) * 600, 200.0, 0.0, 1.0);
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);

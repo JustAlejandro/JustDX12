@@ -5,38 +5,19 @@
 
 DescriptorManager::DescriptorManager(ComPtr<ID3D12Device> device) {
 	this->device = device;
+	makeDescriptorHeaps();
 }
 
-std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager) {
-	DESCRIPTOR_TYPE descriptorType = DESCRIPTOR_TYPE_NONE;
-	for (const DescriptorJob& job : descriptorJobs) {
-		descriptorType |= job.type;
-	}
-	
-	std::vector<DX12Descriptor*> generatedDescriptors;
-	generatedDescriptors.reserve(descriptorJobs.size());
-
-	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-	heapDesc.NumDescriptors = descriptorJobs.size();
-	heapDesc.Type = heapTypeFromDescriptorType(descriptorType);
-	heapDesc.Flags = shaderVisibleFromHeapType(heapDesc.Type);
-	
-	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
-	if (device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap)) < 0) {
-		OutputDebugStringA("Heap creation FAILED");
-		throw "HEAP FAILED";
-	}
-	descriptorHeaps.push_back(std::make_pair(descriptorType, descriptorHeap));
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hCPUDescriptor(descriptorHeap->GetCPUDescriptorHandleForHeapStart());
-	CD3DX12_GPU_DESCRIPTOR_HANDLE hGPUDescriptor(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
-	UINT descriptorSize = getDescriptorOffsetForType(heapDesc.Type);
+void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager) {
 	for (DescriptorJob& job : descriptorJobs) {
 		DX12Descriptor& desc = descriptors[std::make_pair(job.name + std::to_string(job.usageIndex), job.type)];
-		desc.cpuHandle = hCPUDescriptor;
-		desc.gpuHandle = hGPUDescriptor;
+		DX12DescriptorHeap& heap = heaps[heapTypeFromDescriptorType(job.type)];
+
+		desc.cpuHandle = heap.endCPUHandle;
+		desc.gpuHandle = heap.endGPUHandle;
 		desc.usage = job.usage;
 		desc.usageIndex = job.usageIndex;
+
 		if (job.type == DESCRIPTOR_TYPE_CBV) {
 			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.target);
 			desc.constantBufferTarget = buffer;
@@ -48,13 +29,10 @@ std::vector<DX12Descriptor*> DescriptorManager::makeDescriptorHeap(std::vector<D
 		}
 
 		createDescriptorView(desc, job);
-		
-		hCPUDescriptor.Offset(1, descriptorSize);
-		hGPUDescriptor.Offset(1, descriptorSize);
 		descriptorsByType[job.type].push_back(&desc);
-		generatedDescriptors.emplace_back(&desc);
+
+		heap.shiftHandles();
 	}
-	return generatedDescriptors;
 }
 
 DX12Descriptor* DescriptorManager::getDescriptor(std::string name, DESCRIPTOR_TYPE type) {
@@ -65,13 +43,8 @@ DX12Descriptor* DescriptorManager::getDescriptor(std::string name, DESCRIPTOR_TY
 }
 
 std::vector<ID3D12DescriptorHeap*> DescriptorManager::getAllBindableHeaps() {
-	std::vector<ID3D12DescriptorHeap*> allHeaps;
-	for (std::pair<DESCRIPTOR_TYPE,ComPtr<ID3D12DescriptorHeap>>& heap : descriptorHeaps) {
-		if ((heap.first & (DESCRIPTOR_TYPE_CBV | DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_UAV)) > 0) {
-			allHeaps.push_back(heap.second.Get());
-		}
-	}
-	return allHeaps;
+	return { heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].heap.Get(),
+			 heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].heap.Get() };
 }
 
 std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::requiredResourceStates() {
@@ -128,6 +101,30 @@ void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, Descrip
 	default:
 		OutputDebugStringA(("Couldn't create DescriptorView of type: " + std::to_string(job.type)).c_str());
 		break;
+	}
+}
+
+void DescriptorManager::makeDescriptorHeaps() {
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+
+	for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
+		D3D12_DESCRIPTOR_HEAP_TYPE type = static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i);
+		heapDesc.NumDescriptors = maxDescriptorHeapSize[type];
+		heapDesc.Type = type;
+		heapDesc.Flags = shaderVisibleFromHeapType(type);
+		HRESULT result = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&heaps[i].heap));
+		if (result != S_OK) {
+			OutputDebugStringA("Heap Creation Failed");
+			throw "HEAP CREATION FAILED";
+		}
+
+		heaps[i].size = heapDesc.NumDescriptors;
+		heaps[i].type = type;
+		heaps[i].offset = getDescriptorOffsetForType(type);
+		heaps[i].startCPUHandle = heaps[i].heap->GetCPUDescriptorHandleForHeapStart();
+		heaps[i].startGPUHandle = heaps[i].heap->GetGPUDescriptorHandleForHeapStart();
+		heaps[i].endCPUHandle = heaps[i].startCPUHandle;
+		heaps[i].endGPUHandle = heaps[i].startGPUHandle;
 	}
 }
 
