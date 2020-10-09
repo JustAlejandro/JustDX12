@@ -99,7 +99,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
                 UINT8* sourceSubMemory = subImg->pixels;
 
                 for (int height = 0; height < subResourceHeight; height++) {
-                    memcpy(destSubMemory, sourceSubMemory, min(subResourcePitch, subImg->rowPitch));
+                    memcpy(destSubMemory, sourceSubMemory, std::min(subResourcePitch, subImg->rowPitch));
                     
                     destSubMemory += subResourcePitch;
                     sourceSubMemory += subImg->rowPitch;

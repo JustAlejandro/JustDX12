@@ -2,8 +2,7 @@
 #include "Tasks/PipelineStageTask.h"
 #include <cassert>
 #include "DX12Helper.h"
-#include <AtlBase.h>
-#include <atlconv.h>
+
 using namespace Microsoft::WRL;
 
 PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)

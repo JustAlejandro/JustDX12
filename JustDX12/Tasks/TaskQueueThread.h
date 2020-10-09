@@ -3,6 +3,7 @@
 #include <queue>
 #include <thread>
 #include <condition_variable>
+#define NOMINMAX
 #include <wrl.h>
 #include <d3d12.h>
 

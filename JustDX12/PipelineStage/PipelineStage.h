@@ -1,4 +1,5 @@
 #pragma once
+#define NOMINMAX
 #include <wrl.h>
 #include <d3d12.h>
 #include "Tasks\TaskQueueThread.h"
