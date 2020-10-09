@@ -9,12 +9,12 @@ class SSAOConstants : public ConstantBufferData {
 public:
 	struct SSAOConstantsStruct {
 		DirectX::XMFLOAT4X4 viewProj = Identity();
-		int rayCount = 48;
+		int rayCount = 10;
 		int TAA = 0;
 		float range = 0.0f;
 		float rangeXnear = 0.0f;
 		DirectX::XMFLOAT4 lightPos = {};
-		DirectX::XMFLOAT4 rand[48] = {};
+		DirectX::XMFLOAT4 rand[10] = {};
 	};
 
 	SSAOConstantsStruct data;

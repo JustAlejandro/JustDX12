@@ -112,7 +112,7 @@ DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
 	gen = std::ranlux24_base(rd());
 	distro = std::uniform_real_distribution<float>(-1.0, 1.0);
 
-	for (int i = 0; i < 48; i++) {
+	for (int i = 0; i < 10; i++) {
 		ssaoConstantCB.data.rand[i].x = distro(gen);
 		ssaoConstantCB.data.rand[i].y = distro(gen);
 		ssaoConstantCB.data.rand[i].z = abs(distro(gen)) + 0.2;

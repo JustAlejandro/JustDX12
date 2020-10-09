@@ -5,7 +5,7 @@
         "commandLine": "",
         "environment": [
         ],
-        "executable": "D:\\OneDrive - The University of Texas at Austin\\DX12_Learn\\JustDX12\\x64\\Release\\JustDX12.exe",
+        "executable": "C:\\OneDrive\\OneDrive - The University of Texas at Austin\\DX12_Learn\\JustDX12\\x64\\Release\\JustDX12.exe",
         "inject": false,
         "numQueuedFrames": 0,
         "options": {
@@ -22,6 +22,6 @@
             "verifyBufferAccess": false
         },
         "queuedFrameCap": 0,
-        "workingDir": "D:/OneDrive - The University of Texas at Austin/DX12_Learn/JustDX12/JustDX12"
+        "workingDir": "C:/OneDrive/OneDrive - The University of Texas at Austin/DX12_Learn/JustDX12/JustDX12"
     }
 }
