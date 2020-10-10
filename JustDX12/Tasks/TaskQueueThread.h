@@ -18,7 +18,7 @@ public:
 
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCommandQueue;
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> mCommandList;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList5> mCommandList;
 
 	void waitOnFence();
 	int getFenceValue();

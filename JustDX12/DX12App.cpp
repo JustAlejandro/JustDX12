@@ -131,7 +131,7 @@ bool DX12App::initDX12() {
 	if (hardware < 0) {
 		OutputDebugStringA("FAILED TO CREATE DX12 DEVICE WITH LEVEL 12.1\nDefaulting to WARP Adapter...");
 		
-		ComPtr<IDXGIAdapter> warp;
+		ComPtr<IDXGIAdapter4> warp;
 		if (mdxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&warp)) < 0) {
 			OutputDebugStringA("COULDN'T FIND WARP ADAPTER\n");
 			return false;

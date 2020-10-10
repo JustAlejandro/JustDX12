@@ -27,6 +27,8 @@ void RenderPipelineStage::Execute() {
 	mCommandList->RSSetViewports(1, &viewport);
 	mCommandList->RSSetScissorRects(1, &scissorRect);
 
+	mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_4X4, nullptr);
+
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 	
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS);

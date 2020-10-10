@@ -50,7 +50,7 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device> device, DESCRIPTOR_TYPES types, 
 		IID_PPV_ARGS(&resource));
 }
 
-void DX12Resource::changeState(ComPtr<ID3D12GraphicsCommandList> cmdList, D3D12_RESOURCE_STATES destState) {
+void DX12Resource::changeState(ComPtr<ID3D12GraphicsCommandList5> cmdList, D3D12_RESOURCE_STATES destState) {
 	if (curState == destState) return;
 
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(),
