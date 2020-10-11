@@ -6,18 +6,16 @@ ResourceManager::ResourceManager(ComPtr<ID3D12Device> device) {
 }
 
 DX12Resource* ResourceManager::getResource(std::string name) {
-	try {
-		return &resources.at(name);
-	}
-	catch (const std::out_of_range&) {
-		try {
-			return externalResources.at(name);
+	auto resource = resources.find(name);
+	if (resource == resources.end()) {
+		auto externalResource = externalResources.find(name);
+		if (externalResource == externalResources.end()) {
+			OutputDebugStringA(("Couldn't find Resource Named: " + name + "\n").c_str());
+			throw "NO RESOURCE FOUND ERROR";
 		}
-		catch (const std::out_of_range&) {
-			OutputDebugStringA(("Couldn't find Resource named: " + name + "\n").c_str());
-			throw "No Resource Found ERROR";
-		}
+		return externalResource->second;
 	}
+	return &resource->second;
 }
 
 DX12Resource* ResourceManager::importResource(std::string name, DX12Resource* externalResource) {

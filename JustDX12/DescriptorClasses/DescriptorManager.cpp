@@ -163,7 +163,7 @@ UINT DescriptorManager::getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE ty
 	case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
 		return gCbvSrvUavDescriptorSize;
 	case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
-		OutputDebugStringA("Can't support Samplers Yet...");
+		return gSamplerDescriptorSize;
 		break;
 	case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
 		return gRtvDescriptorSize;

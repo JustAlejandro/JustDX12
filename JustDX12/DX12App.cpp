@@ -152,6 +152,7 @@ bool DX12App::initDX12() {
 	gDsvDescriptorSize = mDsvDescriptorSize;
 	mCbvSrvUavDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	gCbvSrvUavDescriptorSize = mCbvSrvUavDescriptorSize;
+	gSamplerDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
 	createCommandObjects();
 	createSwapChain();

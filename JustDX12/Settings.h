@@ -18,6 +18,7 @@
 extern UINT gRtvDescriptorSize;
 extern UINT gDsvDescriptorSize;
 extern UINT gCbvSrvUavDescriptorSize;
+extern UINT gSamplerDescriptorSize;
 
 const UINT maxDescriptorHeapSize[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = {
 	100000,
