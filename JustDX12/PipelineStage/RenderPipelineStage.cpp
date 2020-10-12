@@ -159,6 +159,8 @@ void RenderPipelineStage::drawRenderObjects() {
 				continue;
 			}
 
+			mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), nullptr);
+
 			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 
 			mCommandList->DrawIndexedInstanced(m.indexCount,

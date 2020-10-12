@@ -596,4 +596,5 @@ void DemoApp::UpdateMainPassCB() {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);
 		renderStage->frustrum.Transform(renderStage->frustrum, invView);
 	}
+	renderStage->eyePos = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
 }

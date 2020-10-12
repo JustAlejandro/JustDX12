@@ -3,6 +3,9 @@
 #include "pix3.h"
 #include <array>
 #include <d3dx12.h>
+#include <DirectXMath.h>
+#include <DirectXCollision.h>
+#include <math.h>
 
 #define USE_PIX
 #define CLEAR_MODEL_MEMORY
@@ -25,6 +28,20 @@ const UINT maxDescriptorHeapSize[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = {
 	100,
 	100,
 	100 };
+
+#define SHADING_RATE_COUNT 3
+const FLOAT shadingRateDistance[] = {
+	250.0f,
+	500.0f,
+	1000.0f
+};
+
+const D3D12_SHADING_RATE shadingRates[] = {
+	D3D12_SHADING_RATE_1X1,
+	D3D12_SHADING_RATE_2X1,
+	D3D12_SHADING_RATE_2X2,
+	D3D12_SHADING_RATE_4X4
+};
 
 inline D3D12_VIEWPORT DEFAULT_VIEW_PORT() {
 	D3D12_VIEWPORT defaultViewPort;
@@ -91,6 +108,22 @@ inline D3D12_CLEAR_VALUE DEFAULT_CLEAR_VALUE_DEPTH_STENCIL() {
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
 	return optClear;
+}
+
+inline D3D12_SHADING_RATE getShadingRateFromDistance(const DirectX::XMFLOAT3& pos, const DirectX::BoundingBox& bb) {
+	if (bb.Contains(DirectX::XMLoadFloat3(&pos))) {
+		//return shadingRates[0];
+	}
+	FLOAT distance = 0.0;
+	DirectX::XMVECTOR displaceVec = DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&pos), DirectX::XMLoadFloat3(&bb.Center));
+	DirectX::XMStoreFloat(&distance, DirectX::XMVector3Dot(displaceVec, displaceVec));
+	distance = sqrt(distance);
+	for (int i = 0; i < SHADING_RATE_COUNT; i++) {
+		if (distance < shadingRateDistance[i]) {
+			return shadingRates[i];
+		}
+	}
+	return shadingRates[SHADING_RATE_COUNT];
 }
 
 inline std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers() {

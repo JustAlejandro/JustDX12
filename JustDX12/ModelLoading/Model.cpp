@@ -77,9 +77,9 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	meshStorage.minPoint = { std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max() };
-	meshStorage.maxPoint = { std::numeric_limits<FLOAT>::min(),
-							 std::numeric_limits<FLOAT>::min(),
-							 std::numeric_limits<FLOAT>::min() };
+	meshStorage.maxPoint = { std::numeric_limits<FLOAT>::lowest(),
+							 std::numeric_limits<FLOAT>::lowest(),
+							 std::numeric_limits<FLOAT>::lowest() };
 	meshStorage.baseVertexLocation = vertices.size();
 	meshStorage.startIndexLocation = indices.size();
 	for (int i = 0; i < mesh->mNumVertices; i++) {
