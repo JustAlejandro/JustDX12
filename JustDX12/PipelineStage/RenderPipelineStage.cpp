@@ -4,11 +4,13 @@
 #include "RenderPipelineStageTask.h"
 #include <string>
 #include "Settings.h"
+#include <DirectXCollision.h>
 
 RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
 	: PipelineStage(d3dDevice) {
 	this->viewport = viewport;
 	this->scissorRect = scissorRect;
+	frustrumCull = true;
 }
 
 void RenderPipelineStage::Execute() {
@@ -27,7 +29,7 @@ void RenderPipelineStage::Execute() {
 	mCommandList->RSSetViewports(1, &viewport);
 	mCommandList->RSSetScissorRects(1, &scissorRect);
 
-	mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_4X4, nullptr);
+	//mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_4X4, nullptr);
 
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 	
@@ -140,6 +142,11 @@ void RenderPipelineStage::drawRenderObjects() {
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
 
+		if (frustrumCull && (frustrum.Contains(model->boundingBox) == DirectX::ContainmentType::DISJOINT)) {
+			meshIndex += model->meshes.size();
+			continue;
+		}
+
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
 
 		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
@@ -147,6 +154,11 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		for (Mesh& m : model->meshes) {
+			if (frustrumCull && (frustrum.Contains(m.boundingBox) == DirectX::ContainmentType::DISJOINT)) {
+				meshIndex++;
+				continue;
+			}
+
 			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 
 			mCommandList->DrawIndexedInstanced(m.indexCount,

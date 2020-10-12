@@ -12,10 +12,18 @@ Model::Model(std::string name, std::string dir) {
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
+	minPoint = { std::numeric_limits<FLOAT>::max(),
+				 std::numeric_limits<FLOAT>::max(),
+				 std::numeric_limits<FLOAT>::max() };
+	maxPoint = { std::numeric_limits<FLOAT>::min(),
+				 std::numeric_limits<FLOAT>::min(),
+				 std::numeric_limits<FLOAT>::min() };
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	processNode(node, scene);
+
+	boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
 
 	vertexByteStride = sizeof(Vertex);
 	indexFormat = DXGI_FORMAT_R32_UINT;
@@ -66,6 +74,12 @@ void Model::processNode(aiNode* node, const aiScene* scene) {
 
 Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	Mesh meshStorage;
+	meshStorage.minPoint = { std::numeric_limits<FLOAT>::max(),
+							 std::numeric_limits<FLOAT>::max(),
+							 std::numeric_limits<FLOAT>::max() };
+	meshStorage.maxPoint = { std::numeric_limits<FLOAT>::min(),
+							 std::numeric_limits<FLOAT>::min(),
+							 std::numeric_limits<FLOAT>::min() };
 	meshStorage.baseVertexLocation = vertices.size();
 	meshStorage.startIndexLocation = indices.size();
 	for (int i = 0; i < mesh->mNumVertices; i++) {
@@ -88,6 +102,10 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		else {
 			vertex.texC = { 0.0f, 0.0f };
 		}
+
+		updateBoundingBoxMinMax(meshStorage.minPoint, meshStorage.maxPoint, vertex.pos);
+		updateBoundingBoxMinMax(minPoint, maxPoint, vertex.pos);
+
 		vertices.push_back(vertex);
 	}
 
@@ -116,6 +134,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 			meshStorage.typeFlags |= MODEL_FORMAT_OPACITY;
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
+	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
 	return meshStorage;
 }
 

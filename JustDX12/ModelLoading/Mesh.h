@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include "Texture.h"
+#include <DirectXCollision.h>
 
 struct Vertex {
 	DirectX::XMFLOAT3 pos;
@@ -22,6 +23,11 @@ struct Mesh {
 	UINT indexCount = 0;
 	UINT startIndexLocation = 0;
 	INT baseVertexLocation = 0;
+
+	DirectX::BoundingBox boundingBox;
+	DirectX::XMFLOAT3 maxPoint;
+	DirectX::XMFLOAT3 minPoint;
+
 	std::unordered_map<std::string, std::vector<DX12Texture*>> textures;
 
 	bool allTexturesLoaded() {

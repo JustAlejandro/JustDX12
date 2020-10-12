@@ -59,6 +59,8 @@ private:
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
 
+	bool freezeCull = false;
+
 	ComputePipelineStage* computeStage = nullptr;
 	RenderPipelineStage* renderStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
@@ -497,6 +499,15 @@ void DemoApp::onKeyboardInput() {
 		move.y = 4.0 * move.y;
 		move.z = 4.0 * move.z;
 	}
+	renderStage->frustrumCull = true;
+	if (GetAsyncKeyState('F') & 0x8000) {
+		renderStage->frustrumCull = false;
+	}
+
+	freezeCull = false;
+	if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+		freezeCull = true;
+	}
 
 	DirectX::XMFLOAT4 moveRes = {};
 	DirectX::XMStoreFloat4(&moveRes, DirectX::XMVector4Transform(
@@ -581,4 +592,8 @@ void DemoApp::UpdateMainPassCB() {
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
+	if (!freezeCull) {
+		renderStage->frustrum = DirectX::BoundingFrustum(proj);
+		renderStage->frustrum.Transform(renderStage->frustrum, invView);
+	}
 }

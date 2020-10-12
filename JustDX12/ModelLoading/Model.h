@@ -4,6 +4,8 @@
 #include "Tasks\TaskQueueThread.h"
 #include <string>
 #include <assimp\scene.h>
+#include <DirectXCollision.h>
+#include <limits>
 
 enum ModelFlags {
 	MODEL_FORMAT_POSITON = 1 << 0,
@@ -32,6 +34,10 @@ public:
 	unsigned int vertexBufferByteSize;
 	unsigned int indexBufferByteSize;
 	DXGI_FORMAT indexFormat;
+
+	DirectX::BoundingBox boundingBox;
+	DirectX::XMFLOAT3 maxPoint;
+	DirectX::XMFLOAT3 minPoint;
 
 	Microsoft::WRL::ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3DBlob> indexBufferCPU = nullptr;

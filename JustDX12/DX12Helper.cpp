@@ -1,5 +1,6 @@
 #include "DX12Helper.h"
 #include "Settings.h"
+#include <cmath>
 
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList5* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer) {
 
@@ -84,4 +85,19 @@ void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) 
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
+}
+
+void updateBoundingBoxMinMax(DirectX::XMFLOAT3& minPoint, DirectX::XMFLOAT3& maxPoint, const DirectX::XMFLOAT3& pos) {
+	maxPoint.x = std::fmax(maxPoint.x, pos.x);
+	maxPoint.y = std::fmax(maxPoint.y, pos.y);
+	maxPoint.z = std::fmax(maxPoint.z, pos.z);
+	minPoint.x = std::fmin(minPoint.x, pos.x);
+	minPoint.y = std::fmin(minPoint.y, pos.y);
+	minPoint.z = std::fmin(minPoint.z, pos.z);
+}
+
+DirectX::BoundingBox boundingBoxFromMinMax(const DirectX::XMFLOAT3& min, const DirectX::XMFLOAT3& max) {
+	DirectX::BoundingBox box;
+	DirectX::BoundingBox::CreateFromPoints(box, DirectX::XMLoadFloat3(&min), DirectX::XMLoadFloat3(&max));
+	return box;
 }

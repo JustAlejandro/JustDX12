@@ -1,6 +1,7 @@
 #pragma once
 #include "PipelineStage\PipelineStage.h"
 #include <array>
+#include <DirectXCollision.h>
 class Model;
 class Mesh;
 class ModelLoader;
@@ -12,6 +13,9 @@ public:
 	void Execute() override;
 	void LoadModel(ModelLoader* loader, std::string fileName, std::string dirName);
 	~RenderPipelineStage();
+
+	DirectX::BoundingFrustum frustrum;
+	bool frustrumCull;
 protected:
 	void BuildPSO() override;
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0) override;

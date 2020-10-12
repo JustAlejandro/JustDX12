@@ -7,6 +7,7 @@
 #include <d3dcompiler.h>
 #include <string>
 #include <DirectXMath.h>
+#include <DirectXCollision.h>
 
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
 	ID3D12Device* device,
@@ -28,3 +29,7 @@ UINT CalcConstantBufferByteSize(UINT byteSize);
 UINT CalcBufferByteSize(UINT byteSize, UINT alignment);
 
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal);
+
+void updateBoundingBoxMinMax(DirectX::XMFLOAT3& minPoint, DirectX::XMFLOAT3& maxPoint, const DirectX::XMFLOAT3& pos);
+
+DirectX::BoundingBox boundingBoxFromMinMax(const DirectX::XMFLOAT3& min, const DirectX::XMFLOAT3& max);
