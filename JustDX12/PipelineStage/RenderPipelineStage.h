@@ -17,6 +17,7 @@ public:
 	DirectX::BoundingFrustum frustrum;
 	bool frustrumCull;
 	DirectX::XMFLOAT3 eyePos;
+	bool VRS;
 protected:
 	void BuildPSO() override;
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0) override;

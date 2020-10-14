@@ -73,10 +73,10 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	
 	float3 lightDir = normalize(lightPos.xyz - worldPos.xyz);
 	float resColor = 1.0;
-	int occludeCount = 10;
-	for (int j = 0; j < 10; j++)
+	int occludeCount = 20;
+	for (int j = 0; j < 20; j++)
 	{
-		worldPos.xyz += lightDir * 0.5;
+		worldPos.xyz += lightDir * 0.1;
 		float4 result = mul(worldPos, ViewProj);
 		result /= result.w;
 		result.xy = result.xy * 0.5 + 0.5;
@@ -86,7 +86,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 			occludeCount--;
 		}
 	}
-	outCol *= (occludeCount / 10.0);
+	outCol *= (occludeCount / 20.0);
 	outCol -= 0.3;
 	outTex[dispatchThreadID.xy] = colorTex[dispatchThreadID.xy] * float4(outCol, outCol, outCol, 1.0f);
 }

@@ -63,12 +63,10 @@ void RenderPipelineStage::BuildPSO() {
 
 	graphicsPSO.InputLayout = { inputLayout.data(),(UINT)inputLayout.size() };
 	graphicsPSO.pRootSignature = rootSignature.Get();
-	graphicsPSO.VS = {
-		reinterpret_cast<BYTE*>(shadersByType[SHADER_TYPE_VS]->GetBufferPointer()),
-		shadersByType[SHADER_TYPE_VS]->GetBufferSize() };
-	graphicsPSO.PS = {
-		reinterpret_cast<BYTE*>(shadersByType[SHADER_TYPE_PS]->GetBufferPointer()),
-		shadersByType[SHADER_TYPE_PS]->GetBufferSize() };
+	graphicsPSO.VS.pShaderBytecode = shadersByType[SHADER_TYPE_VS]->GetBufferPointer();
+	graphicsPSO.VS.BytecodeLength = shadersByType[SHADER_TYPE_VS]->GetBufferSize();
+	graphicsPSO.PS.pShaderBytecode = shadersByType[SHADER_TYPE_PS]->GetBufferPointer();
+	graphicsPSO.PS.BytecodeLength = shadersByType[SHADER_TYPE_PS]->GetBufferSize();
 	graphicsPSO.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	graphicsPSO.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	graphicsPSO.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -81,7 +79,7 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
 	graphicsPSO.DSVFormat = DEPTH_TEXTURE_DSV_FORMAT;
-	if (md3dDevice->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)) < 0) {
+	if (FAILED(md3dDevice->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)))) {
 		OutputDebugStringA("PSO Setup Failed");
 		throw "PSO FAIL";
 	}
@@ -159,7 +157,10 @@ void RenderPipelineStage::drawRenderObjects() {
 				continue;
 			}
 
-			mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), nullptr);
+			if (VRS) {
+				D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_PASSTHROUGH };
+				mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), combiners);
+			}
 
 			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 

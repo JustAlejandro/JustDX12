@@ -8,6 +8,8 @@
 #include <string>
 #include <DirectXMath.h>
 #include <DirectXCollision.h>
+#include <dxcapi.h>
+#include <vector>
 
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
 	ID3D12Device* device,
@@ -16,11 +18,11 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
 	UINT64 byteSize,
 	Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer);
 
-Microsoft::WRL::ComPtr<ID3DBlob> compileShader(
+Microsoft::WRL::ComPtr<IDxcBlob> compileShader(
 	const std::wstring& filename,
-	const D3D_SHADER_MACRO* defines,
-	const std::string& entryPoint,
-	const std::string& target);
+	const std::vector<DxcDefine>& defines,
+	const std::wstring& entryPoint,
+	const std::wstring& target);
 
 DirectX::XMFLOAT4X4 Identity();
 

@@ -60,6 +60,8 @@ private:
 	int mCurrFrameResourceIndex = 0;
 
 	bool freezeCull = false;
+	bool VRS = true;
+	bool renderVRS = false;
 
 	ComputePipelineStage* computeStage = nullptr;
 	RenderPipelineStage* renderStage = nullptr;
@@ -233,15 +235,17 @@ bool DemoApp::initialize() {
 		ConstantBufferJob perPassJob;
 		perPassJob.initialData = new PerPassConstants();
 		perPassJob.name = "PerPassConstants";
+		std::vector<DxcDefine> defines = { {L"VRS", NULL},
+			{L"VRS_4X4", NULL } };
 		ShaderDesc vs;
 		vs.methodName = "VS";
-		vs.defines = nullptr;
 		vs.shaderName = "Vertex Shader";
+		vs.defines = defines;
 		vs.type = SHADER_TYPE_VS;
 		vs.fileName = "..\\Shaders\\Default.hlsl";
 		ShaderDesc ps;
 		ps.methodName = "PS";
-		ps.defines = nullptr;
+		ps.defines = defines;
 		ps.shaderName = "Pixel Shader";
 		ps.type = SHADER_TYPE_PS;
 		ps.fileName = "..\\Shaders\\Default.hlsl";
@@ -366,7 +370,6 @@ bool DemoApp::initialize() {
 		SSAOShaders.methodName = "SSAO";
 		SSAOShaders.shaderName = "SSAO";
 		SSAOShaders.type = SHADER_TYPE_CS;
-		SSAOShaders.defines = nullptr;
 
 		PipeLineStageDesc stageDesc;
 		stageDesc.descriptorJobs = { {constantsDesc, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
@@ -503,10 +506,16 @@ void DemoApp::onKeyboardInput() {
 	if (GetAsyncKeyState('F') & 0x8000) {
 		renderStage->frustrumCull = false;
 	}
-
 	freezeCull = false;
 	if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
 		freezeCull = true;
+	}
+	VRS = true;
+	if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
+		VRS = false;
+	}
+	if (GetAsyncKeyState('T') & 0x8000) {
+		renderVRS = !renderVRS;
 	}
 
 	DirectX::XMFLOAT4 moveRes = {};
@@ -583,6 +592,7 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.FarZ = 5000.0f;
 	mainPassCB.data.TotalTime = 0.0f;
 	mainPassCB.data.DeltaTime = 0.0f;
+	mainPassCB.data.renderVRS = renderVRS;
 	
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
 	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
@@ -597,4 +607,5 @@ void DemoApp::UpdateMainPassCB() {
 		renderStage->frustrum.Transform(renderStage->frustrum, invView);
 	}
 	renderStage->eyePos = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
+	renderStage->VRS = VRS;
 }

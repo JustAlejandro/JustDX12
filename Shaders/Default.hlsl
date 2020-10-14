@@ -19,6 +19,10 @@ cbuffer cbPass : register(b1)
 	float FarZ;
 	float TotalTime;
 	float DeltaTime;
+	float VrsShort;
+	float VrsMedium;
+	float VrsLong;
+	int renderVRS;
 }
 
 Texture2D gDiffuseMap : register(t0);
@@ -42,6 +46,7 @@ struct VertexOut
 	float3 TangentW : TANGENT;
 	float3 BiNormalW : BINORMAL;
 	float2 TexC : TEXCOORD;
+	uint shadingRate : SV_ShadingRate;
 };
 
 struct PixelOut {
@@ -65,14 +70,46 @@ VertexOut VS(VertexIn vin)
 	vout.PosH = mul(float4(vout.PosW, 1.0f), ViewProj);
     
 	vout.TexC = vin.TexC;
-    
+	
+	vout.shadingRate = 0xa;
+	float4 viewPos = mul(float4(vout.PosW, 1.0), View);
+	float dist = dot(viewPos.xyz, viewPos.xyz);
+	if (dist < VrsShort * VrsShort) {
+		vout.shadingRate = 0x0;	
+		return vout;
+	}
+	if (dist < VrsMedium * VrsMedium) {
+		vout.shadingRate = 0x4;	
+		return vout;
+	}
+	#ifdef VRS_4X4
+	if (dist < VrsLong * VrsLong) {
+		vout.shadingRate = 0xa;	
+		return vout;
+	}
+	#endif
+	vout.shadingRate = 0x0;
 	return vout;
 }
 
 PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
-	p.color = gDiffuseMap.Sample(anisoWrap, pin.TexC);
+	if (renderVRS) {
+		switch (pin.shadingRate) {
+			case 0:
+				p.color = float4(1.0,0.0,0.0,1.0);
+				break;
+			case 0x4:
+				p.color = float4(1.0,1.0,0.0,1.0);
+				break;
+			default:
+				p.color = float4(0.0,1.0,0.0,1.0);
+		}
+	}
+	else {
+		p.color = gDiffuseMap.Sample(anisoWrap, pin.TexC);
+	}
 	p.normal = float4(pin.NormalW, 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	p.binormal = float4(pin.BiNormalW, 0.0);

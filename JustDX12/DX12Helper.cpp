@@ -1,6 +1,9 @@
 #include "DX12Helper.h"
 #include "Settings.h"
 #include <cmath>
+#include <d3d12shader.h>
+#include <dxcapi.h>
+#include <vector>
 
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList5* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer) {
 
@@ -32,24 +35,63 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device,
 	return defaultBuffer;
 }
 
-Microsoft::WRL::ComPtr<ID3DBlob> compileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entryPoint, const std::string& target) {
-	UINT compileFlags = 0;
+Microsoft::WRL::ComPtr<IDxcBlob> compileShader(const std::wstring& filename, const std::vector<DxcDefine>& defines, const std::wstring& entryPoint, const std::wstring& target) {
+	std::vector<LPCWSTR> arguements;
 #if defined(DEBUG) || defined(_DEBUG)
-	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+	arguements.push_back(L"-Zi");
+	arguements.push_back(L"-Od");
+	arguements.push_back(L"-Qembed_debug");
 #endif
-	Microsoft::WRL::ComPtr<ID3DBlob> byteCode = nullptr;
-	Microsoft::WRL::ComPtr<ID3DBlob> errors;
-	HRESULT hr = D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		entryPoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors);
-
-	if (errors != nullptr) {
-		OutputDebugStringA((char*)errors->GetBufferPointer());
+	Microsoft::WRL::ComPtr<IDxcLibrary> library;
+	HRESULT hr = DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library));
+	if (FAILED(hr)) {
+		PostQuitMessage(0);
 	}
-	if (hr < 0) {
+
+	Microsoft::WRL::ComPtr<IDxcCompiler> compiler;
+	hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
+	if (FAILED(hr)) {
+		PostQuitMessage(0);
+	}
+
+	UINT32 codePage = CP_UTF8;
+	Microsoft::WRL::ComPtr<IDxcBlobEncoding> sourceBlob;
+	hr = library->CreateBlobFromFile(filename.c_str(), &codePage, &sourceBlob);
+	if (FAILED(hr)) {
+		PostQuitMessage(0);
+	}
+
+	Microsoft::WRL::ComPtr<IDxcOperationResult> result;
+
+	hr = compiler->Compile(
+		sourceBlob.Get(),
+		filename.c_str(),
+		entryPoint.c_str(),
+		target.c_str(),
+		arguements.data(), arguements.size(),
+		defines.data(), defines.size(),
+		NULL,
+		&result);
+	
+	if (SUCCEEDED(hr)) {
+		result->GetStatus(&hr);
+	}
+	if (FAILED(hr)) {
+		if (result) {
+			Microsoft::WRL::ComPtr<IDxcBlobEncoding> errorsBlob;
+			hr = result->GetErrorBuffer(&errorsBlob);
+			if (SUCCEEDED(hr) && errorsBlob) {
+				OutputDebugStringA((char*)errorsBlob->GetBufferPointer());
+			}
+		}
 		MessageBox(nullptr, L"SHADER COMPILE FAILED", L"OOPS", MB_OK);
 		PostQuitMessage(0);
 	}
-	return byteCode;
+
+	Microsoft::WRL::ComPtr<IDxcBlob> code;
+	result->GetResult(&code);
+
+	return code;
 }
 
 DirectX::XMFLOAT4X4 Identity() {

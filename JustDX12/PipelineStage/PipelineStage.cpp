@@ -112,7 +112,8 @@ void PipelineStage::BuildShaders(std::vector<ShaderDesc> shaderDescs) {
 	for (ShaderDesc& shaderDesc : shaderDescs) {
 		std::string shaderFileString = ("..\\Shaders\\" + shaderDesc.fileName);
 		shaders[shaderDesc.shaderName] = compileShader(std::wstring(shaderFileString.begin(), shaderFileString.end()),
-			shaderDesc.defines, shaderDesc.methodName, getCompileTargetFromType(shaderDesc.type));
+			shaderDesc.defines, std::wstring(shaderDesc.methodName.begin(), shaderDesc.methodName.end()),
+			getCompileTargetFromType(shaderDesc.type));
 		shadersByType[shaderDesc.type] = shaders[shaderDesc.shaderName];
 	}
 }
@@ -162,16 +163,16 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 	}
 }
 
-std::string PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
+std::wstring PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
 	switch (type) {
 	case SHADER_TYPE_VS:
-		return "vs_5_0";
+		return L"vs_6_4";
 	case SHADER_TYPE_PS:
-		return "ps_5_0";
+		return L"ps_6_4";
 	case SHADER_TYPE_CS:
-		return "cs_5_0";
+		return L"cs_6_4";
 	default:
-		return "";
+		return L"";
 		break;
 	}
 }

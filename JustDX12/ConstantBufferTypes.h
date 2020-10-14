@@ -2,6 +2,7 @@
 #include <DirectXMath.h>
 #include <DX12Helper.h>
 #include "ConstantBufferData.h"
+#include <Settings.h>
 
 #include <iostream>
 
@@ -68,6 +69,10 @@ public:
 		float FarZ = 0.0f;
 		float TotalTime = 0.0f;
 		float DeltaTime = 0.0f;
+		float VrsShort = shadingRateDistance[0];
+		float VrsMedium = shadingRateDistance[1];
+		float VrsLong = shadingRateDistance[2];
+		int renderVRS = 1;
 	};
 
 	PerPassConstantsStruct data;

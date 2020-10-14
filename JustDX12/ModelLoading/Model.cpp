@@ -6,7 +6,7 @@
 #include "Settings.h"
 #include "TextureLoader.h"
 
-#pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
 Model::Model(std::string name, std::string dir) {
 	loaded = false;

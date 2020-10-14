@@ -6,6 +6,7 @@
 #include "DescriptorClasses\DescriptorManager.h"
 #include "ResourceClasses\ResourceManager.h"
 #include "ConstantBufferManager.h"
+#include <dxcapi.h>
 #include <vector>
 
 enum ROOT_PARAMETER_TYPE {
@@ -46,7 +47,7 @@ struct ShaderDesc {
 	std::string shaderName;
 	std::string methodName;
 	SHADER_TYPE type;
-	D3D_SHADER_MACRO* defines;
+	std::vector<DxcDefine> defines;
 };
 
 struct PipeLineStageDesc {
@@ -88,7 +89,7 @@ protected:
 	virtual void BuildPSO();
 
 	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
-	std::string getCompileTargetFromType(SHADER_TYPE type);
+	std::wstring getCompileTargetFromType(SHADER_TYPE type);
 	ROOT_PARAMETER_TYPE getRootParamTypeFromRangeType(D3D12_DESCRIPTOR_RANGE_TYPE range);
 	DESCRIPTOR_TYPE getDescriptorTypeFromRootParameterDesc(RootParamDesc desc);
 	void resetCommandList();
@@ -100,8 +101,8 @@ protected:
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
-	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> shaders;
-	std::unordered_map<SHADER_TYPE, Microsoft::WRL::ComPtr<ID3DBlob>> shadersByType;
+	std::unordered_map<std::string, Microsoft::WRL::ComPtr<IDxcBlob>> shaders;
+	std::unordered_map<SHADER_TYPE, Microsoft::WRL::ComPtr<IDxcBlob>> shadersByType;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
 
 	std::vector<RootParamDesc> rootParameterDescs[DESCRIPTOR_USAGE_MAX];

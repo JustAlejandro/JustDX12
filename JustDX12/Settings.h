@@ -112,7 +112,7 @@ inline D3D12_CLEAR_VALUE DEFAULT_CLEAR_VALUE_DEPTH_STENCIL() {
 
 inline D3D12_SHADING_RATE getShadingRateFromDistance(const DirectX::XMFLOAT3& pos, const DirectX::BoundingBox& bb) {
 	if (bb.Contains(DirectX::XMLoadFloat3(&pos))) {
-		//return shadingRates[0];
+		return shadingRates[0];
 	}
 	FLOAT distance = 0.0;
 	DirectX::XMVECTOR displaceVec = DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&pos), DirectX::XMLoadFloat3(&bb.Center));
