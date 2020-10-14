@@ -31,9 +31,9 @@ const UINT maxDescriptorHeapSize[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = {
 
 #define SHADING_RATE_COUNT 3
 const FLOAT shadingRateDistance[] = {
-	250.0f,
 	500.0f,
-	1000.0f
+	1000.0f,
+	2000.0f
 };
 
 const D3D12_SHADING_RATE shadingRates[] = {

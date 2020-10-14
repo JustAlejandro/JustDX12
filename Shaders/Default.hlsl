@@ -82,11 +82,13 @@ VertexOut VS(VertexIn vin)
 		vout.shadingRate = 0x4;	
 		return vout;
 	}
-	#ifdef VRS_4X4
 	if (dist < VrsLong * VrsLong) {
-		vout.shadingRate = 0xa;	
+		vout.shadingRate = 0x5;
 		return vout;
 	}
+	#ifdef VRS_4X4
+		vout.shadingRate = 0xa;	
+		return vout;
 	#endif
 	vout.shadingRate = 0x0;
 	return vout;
@@ -97,10 +99,13 @@ PixelOut PS(VertexOut pin)
 	PixelOut p;
 	if (renderVRS) {
 		switch (pin.shadingRate) {
-			case 0:
+			case 0x0:
 				p.color = float4(1.0,0.0,0.0,1.0);
 				break;
 			case 0x4:
+				p.color = float4(1.0,0.5,0.0,1.0);
+				break;
+			case 0x5:
 				p.color = float4(1.0,1.0,0.0,1.0);
 				break;
 			default:
