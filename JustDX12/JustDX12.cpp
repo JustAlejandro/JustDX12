@@ -301,6 +301,7 @@ bool DemoApp::initialize() {
 		cDesc.groupCount[2] = 1;
 		computeStage = new ComputePipelineStage(md3dDevice, cDesc);
 		computeStage->deferSetup(stageDesc);
+		WaitOnFenceForever(computeStage->getFence(), computeStage->triggerFence());
 	}
 
 	{
@@ -335,7 +336,9 @@ bool DemoApp::initialize() {
 		uavPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
 		uavPDesc.slot = 1;
 		std::vector<DXDefine> defines = {
-			{L"N", L"8" } };
+			{L"N", L"8" },
+			{L"TILE_SIZE", std::to_wstring(vrsSupport.ShadingRateImageTileSize)},
+			{L"EXTRA_SAMPLES", L"0"} };
 		ShaderDesc VrsShader = { "..\\Shaders\\VRSCompute.hlsl", "VRS Compute", 
 			"VRSOut", SHADER_TYPE_CS, defines };
 		
@@ -344,7 +347,7 @@ bool DemoApp::initialize() {
 		stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
 		stageDesc.shaderFiles = { VrsShader };
 		stageDesc.externalResources = {
-			std::make_pair("renderOutputTex", renderStage->getResource("outTexArray[0]")),
+			std::make_pair("renderOutputTex", computeStage->getResource("SSAOOutTexture")),
 			std::make_pair("VrsOutTexture", renderStage->getResource("VRS"))
 		};
 		ComputePipelineDesc cDesc;
