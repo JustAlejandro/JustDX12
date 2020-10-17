@@ -47,7 +47,7 @@ struct ShaderDesc {
 	std::string shaderName;
 	std::string methodName;
 	SHADER_TYPE type;
-	std::vector<DxcDefine> defines;
+	std::vector<DXDefine> defines;
 };
 
 struct PipeLineStageDesc {

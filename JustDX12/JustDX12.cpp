@@ -186,7 +186,10 @@ bool DemoApp::initialize() {
 		ResourceJob outTex = { "example", DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_SRV,
 			COLOR_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
 		ResourceJob outTexArray[5] = { outTex,outTex,outTex, outTex, outTex };
+		// Attachment 0 (color) is used by the SSAO to write the final output (not great)
+		// and VRS compute, so it needs a simul access flag.
 		outTexArray[0].name = "outTexArray[0]";
+		outTexArray[0].types |= DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS;
 		outTexArray[1].name = "outTexArray[1]";
 		outTexArray[2].name = "outTexArray[2]";
 		outTexArray[3].name = "outTexArray[3]";
@@ -195,11 +198,11 @@ bool DemoApp::initialize() {
 			DEPTH_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
 		ConstantBufferJob perObjectJob = { "PerObjectConstants", new PerObjectConstants() };
 		ConstantBufferJob perPassJob = { "PerPassConstants", new PerPassConstants() };
-		std::vector<DxcDefine> defines = { 
-			{L"VRS", NULL},
-			{L"VRS_4X4", NULL } };
-		ShaderDesc vs = { "..\\Shaders\\Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines };
-		ShaderDesc ps = { "..\\Shaders\\Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines };
+		std::vector<DXDefine> defines = { 
+			{L"VRS", L""},
+			{L"VRS_4X4", L""} };
+		ShaderDesc vs = { "Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines };
+		ShaderDesc ps = { "Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines };
 		RenderTargetDesc renderTargets[5];
 		renderTargets[0] = { "outTexDesc[0]", 0 };
 		renderTargets[1] = { "outTexDesc[1]", 0 };
@@ -275,7 +278,7 @@ bool DemoApp::initialize() {
 		outTex.name = "SSAOOutTexture";
 		outTex.types = DESCRIPTOR_TYPE_UAV;
 		ConstantBufferJob cbOut = { "SSAOConstants", new SSAOConstants() };
-		ShaderDesc SSAOShaders = { "..\\Shaders\\SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {} };
+		ShaderDesc SSAOShaders = { "SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {} };
 
 		PipeLineStageDesc stageDesc;
 		stageDesc.descriptorJobs = { {constantsDesc, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
@@ -306,7 +309,7 @@ bool DemoApp::initialize() {
 		depthTex.target = "renderOutputTex";
 		depthTex.type = DESCRIPTOR_TYPE_SRV;
 		depthTex.srvDesc = DEFAULT_SRV_DESC();
-		depthTex.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
+		depthTex.srvDesc.Format = COLOR_TEXTURE_FORMAT;
 		depthTex.usage = DESCRIPTOR_USAGE_PER_PASS;
 		depthTex.usageIndex = 0;
 		DescriptorJob outTexDesc;
@@ -331,22 +334,26 @@ bool DemoApp::initialize() {
 		uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 		uavPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
 		uavPDesc.slot = 1;
-		ShaderDesc VrsShader = { "..\\Shaders\\VRSCompute.hlsl", "VRS Compute", "VRSOut", SHADER_TYPE_CS, {} };
+		std::vector<DXDefine> defines = {
+			{L"N", L"8" } };
+		ShaderDesc VrsShader = { "..\\Shaders\\VRSCompute.hlsl", "VRS Compute", 
+			"VRSOut", SHADER_TYPE_CS, defines };
 		
 		PipeLineStageDesc stageDesc;
 		stageDesc.descriptorJobs = { depthTex, outTexDesc };
 		stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
 		stageDesc.shaderFiles = { VrsShader };
 		stageDesc.externalResources = {
-			std::make_pair("renderOutputTex", renderStage->getResource("depthTex"))
+			std::make_pair("renderOutputTex", renderStage->getResource("outTexArray[0]")),
+			std::make_pair("VrsOutTexture", renderStage->getResource("VRS"))
 		};
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = (SCREEN_HEIGHT + vrsSupport.ShadingRateImageTileSize - 1) / vrsSupport.ShadingRateImageTileSize;
-		cDesc.groupCount[1] = (SCREEN_WIDTH + vrsSupport.ShadingRateImageTileSize - 1) / vrsSupport.ShadingRateImageTileSize;
+		cDesc.groupCount[0] = (SCREEN_WIDTH + (vrsSupport.ShadingRateImageTileSize*8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
+		cDesc.groupCount[1] = (SCREEN_HEIGHT + (vrsSupport.ShadingRateImageTileSize*8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
 		cDesc.groupCount[2] = 1;
 		
 		vrsComputeStage = new ComputePipelineStage(md3dDevice, cDesc);
-		//vrsComputeStage->deferSetup(stageDesc);
+		vrsComputeStage->deferSetup(stageDesc);
 	}
 	modelLoader = new ModelLoader(md3dDevice);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
@@ -399,10 +406,14 @@ void DemoApp::draw() {
 	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
 	computeStage->deferExecute();
 	int computeFenceValue = computeStage->triggerFence();
+	vrsComputeStage->deferWaitOnFence(computeStage->getFence(), computeFenceValue);
+	vrsComputeStage->deferExecute();
+	int vrsComputeFenceValue = vrsComputeStage->triggerFence();
 
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
 
-	WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
+	//WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
+	WaitOnFenceForever(vrsComputeStage->getFence(), vrsComputeFenceValue);
 
 	DX12Resource* SSAOOut = computeStage->getResource("SSAOOutTexture");
 	SSAOOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);

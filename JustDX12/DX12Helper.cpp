@@ -143,3 +143,11 @@ DirectX::BoundingBox boundingBoxFromMinMax(const DirectX::XMFLOAT3& min, const D
 	DirectX::BoundingBox::CreateFromPoints(box, DirectX::XMLoadFloat3(&min), DirectX::XMLoadFloat3(&max));
 	return box;
 }
+
+std::vector<DxcDefine> DXDefine::DXDefineToDxcDefine(const std::vector<DXDefine>& defines) {
+	std::vector<DxcDefine> dxcDefines;
+	for (const auto& def : defines) {
+		dxcDefines.push_back({ def.name.c_str(), def.value.c_str() });
+	}
+	return dxcDefines;
+}

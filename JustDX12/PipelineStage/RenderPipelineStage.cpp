@@ -138,6 +138,7 @@ void RenderPipelineStage::drawRenderObjects() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	int meshIndex = 0;
 	if (VRS) {
+		resourceManager.getResource("VRS")->changeState(mCommandList, D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {

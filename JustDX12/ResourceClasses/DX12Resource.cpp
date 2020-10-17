@@ -36,6 +36,9 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device> device, DESCRIPTOR_TYPES types, 
 	if (types & DESCRIPTOR_TYPE_UAV) {
 		flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	}
+	if (types & DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS) {
+		flags |= D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+	}
 
 	texDesc.Flags = flags;
 

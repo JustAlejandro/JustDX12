@@ -111,8 +111,9 @@ void PipelineStage::BuildResources(std::vector<ResourceJob>& resourceJobs) {
 void PipelineStage::BuildShaders(std::vector<ShaderDesc> shaderDescs) {
 	for (ShaderDesc& shaderDesc : shaderDescs) {
 		std::string shaderFileString = ("..\\Shaders\\" + shaderDesc.fileName);
+		std::vector<DxcDefine> defines = DXDefine::DXDefineToDxcDefine(shaderDesc.defines);
 		shaders[shaderDesc.shaderName] = compileShader(std::wstring(shaderFileString.begin(), shaderFileString.end()),
-			shaderDesc.defines, std::wstring(shaderDesc.methodName.begin(), shaderDesc.methodName.end()),
+			defines, std::wstring(shaderDesc.methodName.begin(), shaderDesc.methodName.end()),
 			getCompileTargetFromType(shaderDesc.type));
 		shadersByType[shaderDesc.type] = shaders[shaderDesc.shaderName];
 	}

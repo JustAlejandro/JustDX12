@@ -18,7 +18,6 @@ void ComputePipelineStage::Execute() {
 
 	mCommandList->Dispatch(computeStageDesc.groupCount[0], computeStageDesc.groupCount[1], computeStageDesc.groupCount[2]);
 
-	resourceManager.getResource("SSAOOutTexture")->changeState(mCommandList, D3D12_RESOURCE_STATE_COMMON);
 
 	//PIXEndEvent(mCommandList.Get());
 

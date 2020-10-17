@@ -11,6 +11,12 @@
 #include <dxcapi.h>
 #include <vector>
 
+struct DXDefine {
+	std::wstring name;
+	std::wstring value;
+	static std::vector<DxcDefine> DXDefineToDxcDefine(const std::vector<DXDefine>& defines);
+};
+
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
 	ID3D12Device* device,
 	ID3D12GraphicsCommandList5* cmdList,
