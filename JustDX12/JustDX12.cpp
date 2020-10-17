@@ -66,6 +66,7 @@ private:
 	ComputePipelineStage* computeStage = nullptr;
 	ComputePipelineStage* vrsComputeStage = nullptr;
 	RenderPipelineStage* renderStage = nullptr;
+	RenderPipelineStage* mergeStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
 	TextureLoader* textureLoader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
@@ -252,6 +253,7 @@ bool DemoApp::initialize() {
 		outTexDesc.target = "SSAOOutTexture";
 		outTexDesc.type = DESCRIPTOR_TYPE_UAV;
 		outTexDesc.uavDesc = DEFAULT_UAV_DESC();
+		outTexDesc.uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
 		outTexDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		outTexDesc.usageIndex = 0;
 		RootParamDesc cbvPDesc = { "SSAOConstantsDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
@@ -277,6 +279,7 @@ bool DemoApp::initialize() {
 		ResourceJob outTex;
 		outTex.name = "SSAOOutTexture";
 		outTex.types = DESCRIPTOR_TYPE_UAV;
+		outTex.format = DXGI_FORMAT_R32_FLOAT;
 		ConstantBufferJob cbOut = { "SSAOConstants", new SSAOConstants() };
 		ShaderDesc SSAOShaders = { "SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {} };
 
@@ -305,12 +308,82 @@ bool DemoApp::initialize() {
 	}
 
 	{
+		DescriptorJob perPassConstants = { "MergeConstDesc", "MergeConstants",
+			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_PASS };
+		DescriptorJob outDepthTex = { "outputDepth", "outputDepthTex" , DESCRIPTOR_TYPE_DSV,
+			{}, 0, DESCRIPTOR_USAGE_ALL };
+		outDepthTex.dsvDesc = DEFAULT_DSV_DESC();
+		DescriptorJob ssaoTex;
+		ssaoTex.name = "SSAOTexDesc";
+		ssaoTex.target = "SSAOTex";
+		ssaoTex.srvDesc = DEFAULT_SRV_DESC();
+		ssaoTex.srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		ssaoTex.type = DESCRIPTOR_TYPE_SRV;
+		DescriptorJob colorTex;
+		colorTex.name = "colorTexDesc";
+		colorTex.target = "colorTex";
+		colorTex.srvDesc = DEFAULT_SRV_DESC();
+		colorTex.type = DESCRIPTOR_TYPE_SRV;
+		DescriptorJob normalTex = colorTex;
+		normalTex.name = "normalTexDesc";
+		normalTex.target = "normalTex";
+		DescriptorJob tangentTex = colorTex;
+		tangentTex.name = "tangentTexDesc";
+		tangentTex.target = "tangentTex";
+		DescriptorJob biNormalTex = colorTex;
+		biNormalTex.name = "biNormalTexDesc";
+		biNormalTex.target = "biNormalTex";
+		DescriptorJob worldTex = colorTex;
+		worldTex.name = "worldTexDesc";
+		worldTex.target = "worldTex";
+		DescriptorJob mergedTex;
+		mergedTex.name = "mergedTexDesc";
+		mergedTex.target = "mergedTex";
+		mergedTex.type = DESCRIPTOR_TYPE_RTV;
+		mergedTex.rtvDesc = DEFAULT_RTV_DESC();
+		std::vector<RootParamDesc> params;
+		params.push_back({ "MergeConstDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
+			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_ALL });
+		// Trying to bind all textures at once to be efficient.
+		params.push_back({ "SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6, DESCRIPTOR_USAGE_ALL });
+		RenderTargetDesc mergedTarget = { "mergedTexDesc", 0 };
+		ConstantBufferJob mergedCB = { "MergeConstants", new MergeConstants() };
+		ResourceJob mergedTexRes = { "mergedTex", DESCRIPTOR_TYPE_RTV };
+		ResourceJob outDepthTexRes = { "outputDepthTex", DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT };
+		ShaderDesc mergeShaderVS = { "Merge.hlsl", "Merge Shader VS", "MergeVS", SHADER_TYPE_VS, {} };
+		ShaderDesc mergeShaderPS = { "Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, {} };
+
+		PipeLineStageDesc stageDesc;
+		stageDesc.descriptorJobs = { perPassConstants, outDepthTex, ssaoTex, colorTex, 
+			normalTex, tangentTex, biNormalTex, worldTex, mergedTex };
+		stageDesc.constantBufferJobs = { mergedCB };
+		stageDesc.renderTargets = { mergedTarget };
+		stageDesc.resourceJobs = { mergedTexRes, outDepthTexRes };
+		stageDesc.rootSigDesc = params;
+		stageDesc.shaderFiles = { mergeShaderVS, mergeShaderPS };
+		stageDesc.externalResources = {
+			{"SSAOTex", computeStage->getResource("SSAOOutTexture")},
+			{"colorTex", renderStage->getResource("outTexArray[0]")},
+			{"normalTex", renderStage->getResource("outTexArray[1]")},
+			{"tangentTex", renderStage->getResource("outTexArray[2]")},
+			{"biNormalTex", renderStage->getResource("outTexArray[3]")},
+			{"worldTex", renderStage->getResource("outTexArray[4]")},
+			{"VRS", renderStage->getResource("VRS")} };
+
+		RenderPipelineDesc mergeRDesc;
+		mergeStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		mergeStage->deferSetup(stageDesc);
+		WaitOnFenceForever(mergeStage->getFence(), mergeStage->triggerFence());
+		mergeStage->frustrumCull = false;
+	}
+
+	{
 		DescriptorJob depthTex;
 		depthTex.name = "inputDepth";
 		depthTex.target = "renderOutputTex";
 		depthTex.type = DESCRIPTOR_TYPE_SRV;
 		depthTex.srvDesc = DEFAULT_SRV_DESC();
-		depthTex.srvDesc.Format = COLOR_TEXTURE_FORMAT;
 		depthTex.usage = DESCRIPTOR_USAGE_PER_PASS;
 		depthTex.usageIndex = 0;
 		DescriptorJob outTexDesc;
@@ -347,7 +420,7 @@ bool DemoApp::initialize() {
 		stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
 		stageDesc.shaderFiles = { VrsShader };
 		stageDesc.externalResources = {
-			std::make_pair("renderOutputTex", computeStage->getResource("SSAOOutTexture")),
+			std::make_pair("renderOutputTex", mergeStage->getResource("mergedTex")),
 			std::make_pair("VrsOutTexture", renderStage->getResource("VRS"))
 		};
 		ComputePipelineDesc cDesc;
@@ -359,6 +432,7 @@ bool DemoApp::initialize() {
 		vrsComputeStage->deferSetup(stageDesc);
 	}
 	modelLoader = new ModelLoader(md3dDevice);
+	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -409,7 +483,10 @@ void DemoApp::draw() {
 	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
 	computeStage->deferExecute();
 	int computeFenceValue = computeStage->triggerFence();
-	vrsComputeStage->deferWaitOnFence(computeStage->getFence(), computeFenceValue);
+	mergeStage->deferWaitOnFence(computeStage->getFence(), computeFenceValue);
+	mergeStage->deferExecute();
+	int mergeFenceValue = mergeStage->triggerFence();
+	vrsComputeStage->deferWaitOnFence(mergeStage->getFence(), mergeFenceValue);
 	vrsComputeStage->deferExecute();
 	int vrsComputeFenceValue = vrsComputeStage->triggerFence();
 
@@ -418,9 +495,9 @@ void DemoApp::draw() {
 	//WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
 	WaitOnFenceForever(vrsComputeStage->getFence(), vrsComputeFenceValue);
 
-	DX12Resource* SSAOOut = computeStage->getResource("SSAOOutTexture");
-	SSAOOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
-	mCommandList->CopyResource(CurrentBackBuffer(), SSAOOut->get());
+	DX12Resource* megeOut = mergeStage->getResource("mergedTex");
+	megeOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	mCommandList->CopyResource(CurrentBackBuffer(), megeOut->get());
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));
@@ -580,4 +657,5 @@ void DemoApp::UpdateMainPassCB() {
 	}
 	renderStage->eyePos = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
 	renderStage->VRS = VRS;
+	mergeStage->VRS = VRS;
 }

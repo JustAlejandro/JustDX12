@@ -22,7 +22,7 @@ Texture2D tangentTex : register(t3);
 Texture2D biNormalTex : register(t4);
 Texture2D worldTex : register(t5);
 
-RWTexture2D<float4> outTex : register(u0);
+RWTexture2D<float> outTex : register(u0);
 
 #define N 8
 
@@ -87,8 +87,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 		}
 	}
 	outCol *= (occludeCount / 20.0);
-	outCol -= 0.3;
-	outTex[dispatchThreadID.xy] = colorTex[dispatchThreadID.xy] * float4(outCol, outCol, outCol, 1.0f);
+	outTex[dispatchThreadID.xy] = outCol;
 }
 
 /*

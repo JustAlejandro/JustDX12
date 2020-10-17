@@ -14,6 +14,7 @@ void ComputePipelineStage::Execute() {
 
 	mCommandList->SetComputeRootSignature(rootSignature.Get());
 
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL);
 	bindDescriptorsToRoot();
 
 	mCommandList->Dispatch(computeStageDesc.groupCount[0], computeStageDesc.groupCount[1], computeStageDesc.groupCount[2]);

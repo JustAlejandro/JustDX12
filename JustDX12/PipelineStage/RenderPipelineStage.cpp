@@ -32,7 +32,8 @@ void RenderPipelineStage::Execute() {
 	//mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_4X4, nullptr);
 
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
-	
+
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL);
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS);
 
 	bindRenderTarget();
@@ -162,7 +163,7 @@ void RenderPipelineStage::drawRenderObjects() {
 			}
 
 			if (VRS) {
-				D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_MAX };
+				D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_MIN };
 				mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), combiners);
 			}
 

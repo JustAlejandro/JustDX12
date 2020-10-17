@@ -17,15 +17,15 @@ void VRSOut(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Di
 		}		
 	}
 	luminanceTotal /= ((TILE_SIZE+EXTRA_SAMPLES)*(TILE_SIZE+EXTRA_SAMPLES));
-	if (luminanceTotal > 0.2) {
+	if (luminanceTotal > 0.4) {
 		vrsOut[dispatchThreadID.xy] = 0x0;	
 		return;
 	}
-	if (luminanceTotal > 0.1) {
+	if (luminanceTotal > 0.2) {
 		vrsOut[dispatchThreadID.xy] = 0x4;	
 		return;
 	}
-	if (luminanceTotal > 0.05) {
+	if (luminanceTotal > 0.1) {
 		vrsOut[dispatchThreadID.xy] = 0x5;	
 		return;
 	}

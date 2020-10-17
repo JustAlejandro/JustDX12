@@ -52,6 +52,15 @@ public:
 	virtual ~PerObjectConstants() override {}
 };
 
+struct Light {
+	DirectX::XMFLOAT3 pos;
+	float strength = 1.0f;
+	DirectX::XMFLOAT3 dir;
+	int padding = 0;
+	DirectX::XMFLOAT3 color = { 1.0f, 1.0f, 1.0f };
+	float fov = 0.0f;
+};
+
 class PerPassConstants : public ConstantBufferData {
 public:
 	struct PerPassConstantsStruct {
@@ -87,4 +96,28 @@ public:
 		return &data;
 	}
 	virtual ~PerPassConstants() override {}
+};
+
+class MergeConstants : public ConstantBufferData {
+public:
+	struct MergeConstantsStruct {
+		int numPointLights = 0;
+		int numDirectionalLights = 0;
+		int numSpotLights = 0;
+		int padding = 0;
+		Light lights[MAX_LIGHTS];
+	};
+
+	MergeConstantsStruct data;
+
+	virtual UINT byteSize() const override {
+		return sizeof(MergeConstantsStruct);
+	}
+	virtual std::unique_ptr<ConstantBufferData> clone() const override {
+		return std::make_unique<MergeConstants>(*this);
+	}
+	void* getData() override {
+		return &data;
+	}
+	virtual ~MergeConstants() override {};
 };
