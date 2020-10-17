@@ -25,6 +25,7 @@ DX12Resource* ResourceManager::importResource(std::string name, DX12Resource* ex
 
 DX12Resource* ResourceManager::makeFromExisting(std::string name, DESCRIPTOR_TYPES types, ID3D12Resource* res, D3D12_RESOURCE_STATES state) {
 	resources.try_emplace(name, types, res, state);
+	resources.at(name).get()->SetName(std::wstring(name.begin(), name.end()).c_str());
 	return &resources.at(name);
 }
 
@@ -34,7 +35,9 @@ DX12Resource* ResourceManager::makeResource(ResourceJob job) {
 		return nullptr;
 	}
 	resources.try_emplace(job.name, device, job.types, job.format, job.texHeight, job.texWidth);
-	return getResource(job.name);
+	DX12Resource* resource = getResource(job.name);
+	resource->get()->SetName(std::wstring(job.name.begin(), job.name.end()).c_str());
+	return resource;
 }
 
 DX12Resource* ResourceManager::makeResource(std::string name, DESCRIPTOR_TYPES types, DXGI_FORMAT format, UINT texHeight, UINT texWidth) {
@@ -43,5 +46,7 @@ DX12Resource* ResourceManager::makeResource(std::string name, DESCRIPTOR_TYPES t
 		return nullptr;
 	}
 	resources.try_emplace(name, device, types, format, texHeight, texWidth);
-	return getResource(name);
+	DX12Resource* resource = getResource(name);
+	resource->get()->SetName(std::wstring(name.begin(), name.end()).c_str());
+	return resource;
 }

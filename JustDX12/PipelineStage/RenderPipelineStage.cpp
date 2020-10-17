@@ -6,8 +6,8 @@
 #include "Settings.h"
 #include <DirectXCollision.h>
 
-RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
-	: PipelineStage(d3dDevice) {
+RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
+	: PipelineStage(d3dDevice), renderStageDesc(renderDesc) {
 	this->viewport = viewport;
 	this->scissorRect = scissorRect;
 	frustrumCull = true;
@@ -137,6 +137,9 @@ void RenderPipelineStage::bindRenderTarget() {
 void RenderPipelineStage::drawRenderObjects() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	int meshIndex = 0;
+	if (VRS) {
+		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
+	}
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
 
@@ -158,7 +161,7 @@ void RenderPipelineStage::drawRenderObjects() {
 			}
 
 			if (VRS) {
-				D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_PASSTHROUGH };
+				D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_OVERRIDE };
 				mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), combiners);
 			}
 

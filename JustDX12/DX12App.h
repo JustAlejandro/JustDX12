@@ -29,6 +29,8 @@ public:
 	virtual bool initialize();
 	LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+	const D3D12_FEATURE_DATA_D3D12_OPTIONS6& getVrsOptions();
+
 protected:
 	void createScreenRtvDsvDescriptorHeaps();
 	virtual void update() = 0;
@@ -89,5 +91,7 @@ protected:
 	DXGI_FORMAT mDepthStencilFormat;
 	int mClientWidth;
 	int mClientHeight;
+
+	D3D12_FEATURE_DATA_D3D12_OPTIONS6 vrsSupport;
 };
 

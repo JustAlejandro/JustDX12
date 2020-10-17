@@ -1,7 +1,7 @@
 #include "PipelineStage\ComputePipelineStage.h"
 
-ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)
-	: PipelineStage(d3dDevice) {
+ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, ComputePipelineDesc computeDesc)
+	: PipelineStage(d3dDevice), computeStageDesc(computeDesc) {
 }
 
 void ComputePipelineStage::Execute() {
@@ -16,9 +16,7 @@ void ComputePipelineStage::Execute() {
 
 	bindDescriptorsToRoot();
 
-	UINT numGroupsX = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
-	UINT numGroupsY = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
-	mCommandList->Dispatch(numGroupsX, numGroupsY, 1);
+	mCommandList->Dispatch(computeStageDesc.groupCount[0], computeStageDesc.groupCount[1], computeStageDesc.groupCount[2]);
 
 	resourceManager.getResource("SSAOOutTexture")->changeState(mCommandList, D3D12_RESOURCE_STATE_COMMON);
 

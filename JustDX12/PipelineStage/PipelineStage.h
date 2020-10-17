@@ -27,10 +27,10 @@ enum SHADER_TYPE {
 struct RootParamDesc {
 	std::string name;
 	ROOT_PARAMETER_TYPE type;
-	DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL;
 	int slot = 0;
-	int numConstants = 1;
 	D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	int numConstants = 1;
+	DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL;
 };
 
 struct SamplerDesc {
@@ -73,10 +73,6 @@ public:
 
 	virtual void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;
-
-	DX12Resource* getOut() {
-		return resourceManager.getResource("SSAOOutTexture");
-	}
 
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);

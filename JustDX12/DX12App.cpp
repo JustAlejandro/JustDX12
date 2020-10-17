@@ -66,6 +66,11 @@ bool DX12App::initialize() {
 
 	onResize();
 
+	md3dDevice->CheckFeatureSupport(
+		D3D12_FEATURE_D3D12_OPTIONS6,
+		&vrsSupport,
+		sizeof(vrsSupport));
+
 	return true;
 }
 
@@ -265,6 +270,10 @@ LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+const D3D12_FEATURE_DATA_D3D12_OPTIONS6& DX12App::getVrsOptions() {
+	return vrsSupport;
 }
 
 void DX12App::createScreenRtvDsvDescriptorHeaps() {
