@@ -80,6 +80,7 @@ private:
 
 	PerPassConstants mainPassCB;
 	SSAOConstants ssaoConstantCB;
+	MergeConstants mergeConstantCB;
 
 	DirectX::XMFLOAT4 eyePos = { 0.0f,70.0f,-10.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
@@ -351,8 +352,11 @@ bool DemoApp::initialize() {
 		ConstantBufferJob mergedCB = { "MergeConstants", new MergeConstants() };
 		ResourceJob mergedTexRes = { "mergedTex", DESCRIPTOR_TYPE_RTV };
 		ResourceJob outDepthTexRes = { "outputDepthTex", DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT };
-		ShaderDesc mergeShaderVS = { "Merge.hlsl", "Merge Shader VS", "MergeVS", SHADER_TYPE_VS, {} };
-		ShaderDesc mergeShaderPS = { "Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, {} };
+		std::vector<DXDefine> defines = {
+			{L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)}
+		};
+		ShaderDesc mergeShaderVS = { "Merge.hlsl", "Merge Shader VS", "MergeVS", SHADER_TYPE_VS, defines };
+		ShaderDesc mergeShaderPS = { "Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, defines };
 
 		PipeLineStageDesc stageDesc;
 		stageDesc.descriptorJobs = { perPassConstants, outDepthTex, ssaoTex, colorTex, 
@@ -645,11 +649,16 @@ void DemoApp::UpdateMainPassCB() {
 	
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
 	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
-	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 250.0) * 600, 200.0, 0.0, 1.0);
+	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 250.0) * 600, 100.0, 0.0, 1.0);
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
+	mergeConstantCB.data.numPointLights = 1;
+	mergeConstantCB.data.lights[0].strength = 500.0;
+	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mCurrentFence / 250.0) * 600, 100.0, 0.0);
+
+	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 	if (!freezeCull) {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);

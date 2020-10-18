@@ -1,4 +1,15 @@
 
+
+struct Light
+{
+	float3 pos;
+	float strength;
+	float3 dir;
+	int padding;
+	float3 color;
+	float fov;
+};
+
 struct VertexIn
 {
 	float3 PosL : POSITION;
@@ -16,6 +27,15 @@ struct VertexOut
 
 struct PixelOut {
 	float4 color : SV_Target0;
+};
+
+cbuffer cbMerge : register(b0)
+{
+	int numPointLights;
+	int numDirectionalLights;
+	int numSpotLights;
+	float padding;
+	Light lights[MAX_LIGHTS];
 };
 
 Texture2D ssaoTex : register(t0);
@@ -38,6 +58,15 @@ VertexOut MergeVS(VertexIn vin)
 PixelOut MergePS(VertexOut vout) 
 {
 	PixelOut pout;
-	pout.color = float4(colorTex.Sample(gsamPoint, vout.TexC).xyz * ssaoTex.Sample(gsamPoint, vout.TexC).x, 1.0f);
+	float3 col = colorTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 diffuse = 0.0f;
+	float3 worldPos = worldTex.Sample(gsamPoint, vout.TexC).xyz;
+	for (int i = 0; i < numPointLights; i++) {
+		float3 lightDir = lights[i].pos - worldPos;
+		float attenuation = clamp(1.0 - dot(lightDir,lightDir) / (lights[i].strength * lights[i].strength), 0.0, 1.0);
+		diffuse += lights[i].color * (attenuation * max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0));	
+	}
+	diffuse = clamp(diffuse + 0.2, 0.0f, 1.0f);
+	pout.color = float4(ssaoTex.Sample(gsamPoint, vout.TexC).x * (diffuse * colorTex.Sample(gsamPoint, vout.TexC).xyz), 1.0f);
 	return pout;
 }
