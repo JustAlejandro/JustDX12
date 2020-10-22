@@ -58,6 +58,7 @@ struct PipeLineStageDesc {
 	std::vector<ConstantBufferJob> constantBufferJobs;
 	std::vector<ShaderDesc> shaderFiles;
 	std::vector<std::pair<std::string, DX12Resource*>> externalResources;
+	std::vector<std::pair<std::string, std::string>> textureFiles;
 	std::vector<RenderTargetDesc> renderTargets;
 };
 
@@ -76,6 +77,7 @@ public:
 
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
+	void LoadTextures(std::vector<std::pair<std::string, std::string>> textureFiles);
 	void BuildRootSignature(PipeLineStageDesc stageDesc);
 	void BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs);
 	void BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs);

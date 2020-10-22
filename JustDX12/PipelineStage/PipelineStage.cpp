@@ -2,11 +2,19 @@
 #include "Tasks/PipelineStageTask.h"
 #include <cassert>
 #include "DX12Helper.h"
+#include "ModelLoading\TextureLoader.h"
 
 using namespace Microsoft::WRL;
 
 PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)
 	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
+}
+
+void PipelineStage::LoadTextures(std::vector<std::pair<std::string,std::string>> textureFiles) {
+	TextureLoader& tloader = TextureLoader::getInstance();
+	for (const auto& file : textureFiles) {
+		 resourceManager.importResource(file.first, tloader.deferLoad(file.second, "..\\Models\\"));
+	}
 }
 
 void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
@@ -41,6 +49,8 @@ DX12Resource* PipelineStage::getResource(std::string name) {
 }
 
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
+	//This causes a race condition, if the TextureLoader doesn't finish before the setup() ends.
+	LoadTextures(stageDesc.textureFiles);
 	for (std::pair<std::string, DX12Resource*>& res : stageDesc.externalResources) {
 		resourceManager.importResource(res.first, res.second);
 	}

@@ -222,6 +222,11 @@ bool DemoApp::initialize() {
 		rasterDesc.rootSigDesc = { perObjRoot, perMeshTexRoot, perPassRoot };
 		rasterDesc.samplerDesc = {};
 		rasterDesc.shaderFiles = { vs, ps };
+		rasterDesc.textureFiles = {
+			{"default_normal", "default_bump.dds"},
+			{"default_spec", "default_spec.dds"},
+			{"default_diff", "default_diff.dds"}
+		};
 
 		RenderPipelineDesc rDesc;
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
@@ -374,6 +379,11 @@ bool DemoApp::initialize() {
 			{"biNormalTex", renderStage->getResource("outTexArray[3]")},
 			{"worldTex", renderStage->getResource("outTexArray[4]")},
 			{"VRS", renderStage->getResource("VRS")} };
+		stageDesc.textureFiles = {
+			{"default_normal", "default_bump.dds"},
+			{"default_spec", "default_spec.dds"},
+			{"default_diff", "default_diff.dds"}
+		};
 
 		RenderPipelineDesc mergeRDesc;
 		mergeStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);

@@ -124,12 +124,16 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 			aiTextureType_DIFFUSE, "texture_diffuse");
 		meshStorage.textures["texture_normal"] = loadMaterialTextures(material,
 			aiTextureType_HEIGHT, "texture_normal");
+		meshStorage.textures["texture_specular"] = loadMaterialTextures(material,
+			aiTextureType_SPECULAR, "texture_specular");
 		meshStorage.textures["texture_alpha"] = loadMaterialTextures(material,
 			aiTextureType_OPACITY, "texture_alpha");
 		if (material->GetTextureCount(aiTextureType_DIFFUSE))
 			meshStorage.typeFlags |= MODEL_FORMAT_DIFFUSE_TEX;
 		if (material->GetTextureCount(aiTextureType_HEIGHT))
-			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL;
+			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL_TEX;
+		if (material->GetTextureCount(aiTextureType_SPECULAR))
+			meshStorage.typeFlags |= MODEL_FORMAT_SPECULAR;
 		if (material->GetTextureCount(aiTextureType_OPACITY))
 			meshStorage.typeFlags |= MODEL_FORMAT_OPACITY;
 	}
