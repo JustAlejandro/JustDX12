@@ -101,6 +101,8 @@ public:
 class MergeConstants : public ConstantBufferData {
 public:
 	struct MergeConstantsStruct {
+		DirectX::XMFLOAT3 viewPos;
+		int ipadding;
 		int numPointLights = 0;
 		int numDirectionalLights = 0;
 		int numSpotLights = 0;

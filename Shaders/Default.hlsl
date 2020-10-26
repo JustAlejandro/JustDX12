@@ -26,6 +26,8 @@ cbuffer cbPass : register(b1)
 }
 
 Texture2D gDiffuseMap : register(t0);
+Texture2D gSpecularMap : register(t1);
+Texture2D gNormalMap : register(t2);
 SamplerState gsamLinear : register(s0);
 SamplerState anisoWrap : register(s4);
 
@@ -51,10 +53,11 @@ struct VertexOut
 
 struct PixelOut {
 	float4 color : SV_Target0;
-	float4 normal : SV_Target1;
-	float4 tangent : SV_Target2;
-	float4 binormal : SV_Target3;
-	float4 world : SV_Target4;
+	float4 specular : SV_Target1;
+	float4 normal : SV_Target2;
+	float4 tangent : SV_Target3;
+	float4 binormal : SV_Target4;
+	float4 world : SV_Target5;
 };
 
 VertexOut VS(VertexIn vin)
@@ -115,7 +118,13 @@ PixelOut PS(VertexOut pin)
 	else {
 		p.color = gDiffuseMap.Sample(anisoWrap, pin.TexC);
 	}
-	p.normal = float4(pin.NormalW, 1.0f);
+	
+	
+	float3 inNormal = normalize(gNormalMap.Sample(anisoWrap, pin.TexC).xyz);
+	float3x3 TBN = float3x3(pin.TangentW, pin.BiNormalW, pin.NormalW);
+	
+	p.specular = float4((float3)gSpecularMap.Sample(anisoWrap, pin.TexC).x, 1.0f);
+	p.normal = float4(normalize(mul(inNormal,TBN)), 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	p.binormal = float4(pin.BiNormalW, 0.0);
 	p.world = float4(pin.PosW, 1.0f);

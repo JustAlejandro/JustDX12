@@ -187,18 +187,34 @@ void RenderPipelineStage::importMeshTextures(Mesh* m, int usageIndex) {
 }
 
 void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) {
-	if ((m->typeFlags & MODEL_FORMAT_DIFFUSE_TEX) == 0) {
+	std::string diffuse = "default_diff";
+	DX12Resource* diffuseTex = resourceManager.getResource(diffuse);
+	std::string specular = "default_spec";
+	DX12Resource* specularTex = resourceManager.getResource(specular);
+	std::string normal = "default_normal";
+	DX12Resource* normalTex = resourceManager.getResource(normal);
+
+	if ((m->typeFlags & MODEL_FORMAT_DIFFUSE_TEX) != 0) {
 		// Can't bind a texture if it doesn't exist.
-		m->texturesBound = true;
-		return;
+		diffuse = "texture_diffuse" + std::to_string(usageIndex);
+		diffuseTex = m->textures.at("texture_diffuse")[0];
 	}
+	if ((m->typeFlags & MODEL_FORMAT_SPECULAR) != 0) {
+		specular = "texture_specular" + std::to_string(usageIndex);
+		specularTex = m->textures.at("texture_specular")[0];
+	}
+	if ((m->typeFlags & MODEL_FORMAT_NORMAL_TEX) != 0) {
+		normal = "texture_normal" + std::to_string(usageIndex);
+		normalTex = m->textures.at("texture_normal")[0];
+	}
+
 	DescriptorJob j;
 	j.name = "texture_diffuse";
-	j.target = "texture_diffuse" + std::to_string(usageIndex);
+	j.target = diffuse;// "texture_diffuse" + std::to_string(usageIndex);
 	j.type = DESCRIPTOR_TYPE_SRV;
 	j.usage = DESCRIPTOR_USAGE_PER_MESH;
 	j.usageIndex = usageIndex;
-	j.srvDesc.Format = m->textures.at("texture_diffuse")[0]->MetaData.Format;
+	j.srvDesc.Format = diffuseTex->getFormat();
 	j.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	j.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	j.srvDesc.Texture2D.MipLevels = -1;
@@ -206,6 +222,14 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) 
 	j.srvDesc.Texture2D.PlaneSlice = 0;
 	j.srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 	// Here's where we'd put more textures, but for now, this will be it.
+	addDescriptorJob(j);
+	j.name = "texture_specular";
+	j.target = specular;
+	j.srvDesc.Format = specularTex->getFormat();
+	addDescriptorJob(j);
+	j.name = "texture_normal";
+	j.target = normal;
+	j.srvDesc.Format = normalTex->getFormat();
 	addDescriptorJob(j);
 
 	// Flag them all as bound.

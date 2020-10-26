@@ -11,6 +11,7 @@ public:
 
 	void execute() override { loader->loadTexture(target); }
 
+	virtual ~TextureLoadTask() override = default;
 private:
 	TextureLoader* loader;
 	DX12Texture* target;

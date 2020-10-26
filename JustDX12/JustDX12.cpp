@@ -150,7 +150,7 @@ bool DemoApp::initialize() {
 		DescriptorJob perPassConstants = { "PerPassConstDesc", "PerPassConstants",
 			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_PASS };
 
-		DescriptorJob rtvDescs[5];
+		DescriptorJob rtvDescs[6];
 		rtvDescs[0].name = "outTexDesc[0]";
 		rtvDescs[0].target = "outTexArray[0]";
 		rtvDescs[0].type = DESCRIPTOR_TYPE_RTV;
@@ -169,6 +169,9 @@ bool DemoApp::initialize() {
 		rtvDescs[4] = rtvDescs[0];
 		rtvDescs[4].name = "outTexDesc[4]";
 		rtvDescs[4].target = "outTexArray[4]";
+		rtvDescs[5] = rtvDescs[0];
+		rtvDescs[5].name = "outTexDesc[5]";
+		rtvDescs[5].target = "outTexArray[5]";
 		DescriptorJob dsvDesc;
 		dsvDesc.name = "depthStencilView";
 		dsvDesc.target = "depthTex";
@@ -179,7 +182,7 @@ bool DemoApp::initialize() {
 		RootParamDesc perObjRoot = { "PerObjectConstDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT };
 		RootParamDesc perMeshTexRoot = { "texture_diffuse", ROOT_PARAMETER_TYPE_SRV,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESH };
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, DESCRIPTOR_USAGE_PER_MESH };
 		RootParamDesc perPassRoot = { "PerPassConstDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		ResourceJob vrsTex = { "VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT,
@@ -187,7 +190,7 @@ bool DemoApp::initialize() {
 			(SCREEN_WIDTH+vrsSupport.ShadingRateImageTileSize-1) / vrsSupport.ShadingRateImageTileSize };
 		ResourceJob outTex = { "example", DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_SRV,
 			COLOR_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
-		ResourceJob outTexArray[5] = { outTex,outTex,outTex, outTex, outTex };
+		ResourceJob outTexArray[6] = { outTex,outTex,outTex, outTex, outTex, outTex };
 		// Attachment 0 (color) is used by the SSAO to write the final output (not great)
 		// and VRS compute, so it needs a simul access flag.
 		outTexArray[0].name = "outTexArray[0]";
@@ -196,6 +199,7 @@ bool DemoApp::initialize() {
 		outTexArray[2].name = "outTexArray[2]";
 		outTexArray[3].name = "outTexArray[3]";
 		outTexArray[4].name = "outTexArray[4]";
+		outTexArray[5].name = "outTexArray[5]";
 		ResourceJob depthTex = { "depthTex", DESCRIPTOR_TYPE_DSV | DESCRIPTOR_TYPE_SRV,
 			DEPTH_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
 		ConstantBufferJob perObjectJob = { "PerObjectConstants", new PerObjectConstants() };
@@ -205,20 +209,21 @@ bool DemoApp::initialize() {
 			{L"VRS_4X4", L""} };
 		ShaderDesc vs = { "Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines };
 		ShaderDesc ps = { "Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines };
-		RenderTargetDesc renderTargets[5];
+		RenderTargetDesc renderTargets[6];
 		renderTargets[0] = { "outTexDesc[0]", 0 };
 		renderTargets[1] = { "outTexDesc[1]", 0 };
 		renderTargets[2] = { "outTexDesc[2]", 0 };
 		renderTargets[3] = { "outTexDesc[3]", 0 };
 		renderTargets[4] = { "outTexDesc[4]", 0 };
+		renderTargets[5] = { "outTexDesc[5]", 0 };
 
 		PipeLineStageDesc rasterDesc;
 		rasterDesc.constantBufferJobs = { perObjectJob, perPassJob };
 		rasterDesc.descriptorJobs = { perObjectConstants, perPassConstants,
-			rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], dsvDesc };
+			rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
-		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],depthTex,vrsTex };
+		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],outTexArray[5],depthTex,vrsTex };
 		rasterDesc.rootSigDesc = { perObjRoot, perMeshTexRoot, perPassRoot };
 		rasterDesc.samplerDesc = {};
 		rasterDesc.shaderFiles = { vs, ps };
@@ -299,10 +304,11 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources = { 
 			std::make_pair("renderOutputTex",renderStage->getResource("depthTex")),
 			std::make_pair("renderOutputColor",renderStage->getResource("outTexArray[0]")),
-			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[1]")),
-			std::make_pair("renderOutputTangents",renderStage->getResource("outTexArray[2]")),
-			std::make_pair("renderOutputBinormals",renderStage->getResource("outTexArray[3]")),
-			std::make_pair("renderOutputPosition",renderStage->getResource("outTexArray[4]"))
+			std::make_pair("renderOutputSpec",renderStage->getResource("outTexArray[1]")),
+			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[2]")),
+			std::make_pair("renderOutputTangents",renderStage->getResource("outTexArray[3]")),
+			std::make_pair("renderOutputBinormals",renderStage->getResource("outTexArray[4]")),
+			std::make_pair("renderOutputPosition",renderStage->getResource("outTexArray[5]"))
 		};
 		ComputePipelineDesc cDesc;
 		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
@@ -330,6 +336,9 @@ bool DemoApp::initialize() {
 		colorTex.target = "colorTex";
 		colorTex.srvDesc = DEFAULT_SRV_DESC();
 		colorTex.type = DESCRIPTOR_TYPE_SRV;
+		DescriptorJob specTex = colorTex;
+		specTex.name = "specTexDesc";
+		specTex.target = "specularTex";
 		DescriptorJob normalTex = colorTex;
 		normalTex.name = "normalTexDesc";
 		normalTex.target = "normalTex";
@@ -352,7 +361,7 @@ bool DemoApp::initialize() {
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_ALL });
 		// Trying to bind all textures at once to be efficient.
 		params.push_back({ "SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6, DESCRIPTOR_USAGE_ALL });
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7, DESCRIPTOR_USAGE_ALL });
 		RenderTargetDesc mergedTarget = { "mergedTexDesc", 0 };
 		ConstantBufferJob mergedCB = { "MergeConstants", new MergeConstants() };
 		ResourceJob mergedTexRes = { "mergedTex", DESCRIPTOR_TYPE_RTV };
@@ -364,7 +373,7 @@ bool DemoApp::initialize() {
 		ShaderDesc mergeShaderPS = { "Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, defines };
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { perPassConstants, outDepthTex, ssaoTex, colorTex, 
+		stageDesc.descriptorJobs = { perPassConstants, outDepthTex, ssaoTex, colorTex, specTex,
 			normalTex, tangentTex, biNormalTex, worldTex, mergedTex };
 		stageDesc.constantBufferJobs = { mergedCB };
 		stageDesc.renderTargets = { mergedTarget };
@@ -374,10 +383,11 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources = {
 			{"SSAOTex", computeStage->getResource("SSAOOutTexture")},
 			{"colorTex", renderStage->getResource("outTexArray[0]")},
-			{"normalTex", renderStage->getResource("outTexArray[1]")},
-			{"tangentTex", renderStage->getResource("outTexArray[2]")},
-			{"biNormalTex", renderStage->getResource("outTexArray[3]")},
-			{"worldTex", renderStage->getResource("outTexArray[4]")},
+			{"specularTex", renderStage->getResource("outTexArray[1]")},
+			{"normalTex", renderStage->getResource("outTexArray[2]")},
+			{"tangentTex", renderStage->getResource("outTexArray[3]")},
+			{"biNormalTex", renderStage->getResource("outTexArray[4]")},
+			{"worldTex", renderStage->getResource("outTexArray[5]")},
 			{"VRS", renderStage->getResource("VRS")} };
 		stageDesc.textureFiles = {
 			{"default_normal", "default_bump.dds"},
@@ -664,6 +674,7 @@ void DemoApp::UpdateMainPassCB() {
 
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
+	mergeConstantCB.data.viewPos = mainPassCB.data.EyePosW;
 	mergeConstantCB.data.numPointLights = 1;
 	mergeConstantCB.data.lights[0].strength = 500.0;
 	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mCurrentFence / 250.0) * 600, 100.0, 0.0);
