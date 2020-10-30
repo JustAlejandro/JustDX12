@@ -531,17 +531,13 @@ void DemoApp::draw() {
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
 
-	renderStage->deferExecute();
-	int renderFenceValue = renderStage->triggerFence();
+	int renderFenceValue = renderStage->deferExecute();
 	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
-	computeStage->deferExecute();
-	int computeFenceValue = computeStage->triggerFence();
+	int computeFenceValue =  computeStage->deferExecute();
 	mergeStage->deferWaitOnFence(computeStage->getFence(), computeFenceValue);
-	mergeStage->deferExecute();
-	int mergeFenceValue = mergeStage->triggerFence();
+	int mergeFenceValue = mergeStage->deferExecute();
 	vrsComputeStage->deferWaitOnFence(mergeStage->getFence(), mergeFenceValue);
-	vrsComputeStage->deferExecute();
-	int vrsComputeFenceValue = vrsComputeStage->triggerFence();
+	int vrsComputeFenceValue = vrsComputeStage->deferExecute();
 
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
 

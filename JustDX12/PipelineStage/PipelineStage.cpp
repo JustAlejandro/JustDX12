@@ -21,8 +21,9 @@ void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
 	enqueue(new	PipelineStageTaskSetup(this, stageDesc));
 }
 
-void PipelineStage::deferExecute() {
+int PipelineStage::deferExecute() {
 	enqueue(new PipelineStageTaskRun(this));
+	return triggerFence();
 }
 
 void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data) {

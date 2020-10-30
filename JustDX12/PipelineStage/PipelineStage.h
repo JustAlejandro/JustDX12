@@ -65,7 +65,7 @@ struct PipeLineStageDesc {
 class PipelineStage : public TaskQueueThread {
 public:
 	void deferSetup(PipeLineStageDesc stageDesc);
-	void deferExecute();
+	int deferExecute();
 	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data);
 	void updateConstantBuffer(std::string name);
 	int triggerFence();
