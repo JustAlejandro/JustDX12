@@ -3,6 +3,9 @@
 #include <cassert>
 #include <d3dx12.h>
 #include "Settings.h"
+#include "imgui_impl_win32.h"
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 using Microsoft::WRL::ComPtr;
 
@@ -243,6 +246,14 @@ D3D12_CPU_DESCRIPTOR_HANDLE DX12App::DepthStencilView()const {
 }
 
 LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam);
+	if (!lockMouse) {
+		ShowCursor(true);
+		return true;
+	}
+
+	ShowCursor(false);
+
 	switch (msg) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -293,6 +304,14 @@ void DX12App::createScreenRtvDsvDescriptorHeaps() {
 	dsvHeapDesc.NodeMask = 0;
 	md3dDevice->CreateDescriptorHeap(
 		&dsvHeapDesc, IID_PPV_ARGS(mDsvHeap.GetAddressOf()));
+
+	D3D12_DESCRIPTOR_HEAP_DESC imguiHeapDesc;
+	imguiHeapDesc.NumDescriptors = 1;
+	imguiHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	imguiHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	imguiHeapDesc.NodeMask = 0;
+	md3dDevice->CreateDescriptorHeap(
+		&imguiHeapDesc, IID_PPV_ARGS(mImguiHeap.GetAddressOf()));
 }
 
 void DX12App::onResize() {

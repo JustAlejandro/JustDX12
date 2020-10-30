@@ -10,6 +10,9 @@
 #include <DirectXColors.h>
 #include "PipelineStage/ComputePipelineStage.h"
 #include "PipelineStage\RenderPipelineStage.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx12.h"
 
 #include <random>
 
@@ -62,6 +65,7 @@ private:
 	bool freezeCull = false;
 	bool VRS = true;
 	bool renderVRS = false;
+	bool imguiDemo = true;
 
 	ComputePipelineStage* computeStage = nullptr;
 	ComputePipelineStage* vrsComputeStage = nullptr;
@@ -137,6 +141,9 @@ DemoApp::~DemoApp() {
 	for (int i = 0; i < objectsToRender.size(); i++) {
 		delete objectsToRender[i];
 	}
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 }
 
 bool DemoApp::initialize() {
@@ -469,6 +476,16 @@ bool DemoApp::initialize() {
 
 	FlushCommandQueue();
 
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplWin32_Init(hWindow);
+	ImGui_ImplDX12_Init(md3dDevice.Get(), 2, COLOR_TEXTURE_FORMAT, mImguiHeap.Get(),
+		mImguiHeap->GetCPUDescriptorHandleForHeapStart(), mImguiHeap->GetGPUDescriptorHandleForHeapStart());
+	ImGui_ImplDX12_CreateDeviceObjects();
+
 	return true;
 }
 
@@ -493,6 +510,18 @@ void DemoApp::update() {
 }
 
 void DemoApp::draw() {
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+	if (imguiDemo) {
+		ImGui::Begin("Another Window", &imguiDemo);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+		//ImGui::Text("Hello from another window!");
+		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		if (ImGui::Button("Close Me"))
+			imguiDemo = false;
+		ImGui::End();
+	}
+
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
 	cmdListAlloc->Reset();
@@ -524,7 +553,17 @@ void DemoApp::draw() {
 	mCommandList->CopyResource(CurrentBackBuffer(), megeOut->get());
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));
+		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	mCommandList->SetDescriptorHeaps(1, mImguiHeap.GetAddressOf());
+
+	mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, nullptr);
+
+	ImGui::Render();
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
+
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 	
 	mCommandList->Close();
 
@@ -589,6 +628,10 @@ void DemoApp::onKeyboardInput() {
 	}
 	if (GetAsyncKeyState('T') & 0x8000) {
 		renderVRS = !renderVRS;
+	}
+	lockMouse = true;
+	if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) {
+		lockMouse = false;
 	}
 
 	DirectX::XMFLOAT4 moveRes = {};

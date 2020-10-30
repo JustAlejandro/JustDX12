@@ -66,14 +66,14 @@ PixelOut MergePS(VertexOut vout)
 	float3 spec = 0.0f;
 	float3 worldPos = worldTex.Sample(gsamPoint, vout.TexC).xyz;
 	for (int i = 0; i < numPointLights; i++) {
-		float3 lightDir = lights[i].pos - worldPos;
+		float3 lightDir = normalize(lights[i].pos - worldPos);
 		float3 reflectDir = reflect(-lightDir, normalTex.Sample(gsamPoint, vout.TexC).xyz);
 		float attenuation = clamp(1.0 - dot(lightDir,lightDir) / (lights[i].strength * lights[i].strength), 0.0, 1.0);
 		diffuse += lights[i].color * attenuation 
 			* max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0);	
 		spec += lights[i].color * attenuation
-			* specTex.Sample(gsamPoint, vout.TexC).xyz
-			* pow(max(dot(reflectDir, viewPos - worldPos), 0.0f), 32.0);
+			* specTex.Sample(gsamPoint, vout.TexC).x
+			* pow(max(dot(reflectDir, normalize(viewPos - worldPos)), 0.0f), 32.0);
 	}
 	diffuse = clamp(diffuse + 0.2, 0.0f, 1.0f);
 	spec = clamp(spec, 0.0f, 1.0f);
