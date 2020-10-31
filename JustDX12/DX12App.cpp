@@ -152,6 +152,13 @@ bool DX12App::initDX12() {
 		}
 	}
 
+	BOOL allowTearing = FALSE;
+	HRESULT tearingRes = mdxgiFactory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing));
+	if (tearingRes < 0 || !allowTearing) {
+		OutputDebugStringA("Device doesn't support DXGI_FEATURE_PRESENT_ALLOW_TEARING.");
+		return false;
+	}
+
 	md3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence));
 
 	mRtvDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -207,7 +214,7 @@ void DX12App::createSwapChain() {
 	sd.OutputWindow = hWindow;
 	sd.Windowed = true;
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
 	mdxgiFactory->CreateSwapChain(
 		mCommandQueue.Get(),
@@ -334,7 +341,7 @@ void DX12App::onResize() {
 		SwapChainBufferCount,
 		mClientWidth, mClientHeight,
 		mBackBufferFormat,
-		DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+		DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
 
 	mCurrBackBuffer = 0;
 

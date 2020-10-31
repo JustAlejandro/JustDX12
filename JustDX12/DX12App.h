@@ -61,7 +61,7 @@ protected:
 	RECT hWindowPos = { 0 };
 	POINT hWindowCenter = { 0 };
 
-	Microsoft::WRL::ComPtr<IDXGIFactory4> mdxgiFactory;
+	Microsoft::WRL::ComPtr<IDXGIFactory6> mdxgiFactory;
 	Microsoft::WRL::ComPtr<IDXGISwapChain> mSwapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device> md3dDevice;
 

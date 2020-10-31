@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include "ModelLoading\ModelLoader.h"
 #include "ModelLoading\TextureLoader.h"
 #include "ModelLoading\Model.h"
@@ -566,7 +567,7 @@ void DemoApp::draw() {
 	ID3D12CommandList* cmdList[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
 
-	mSwapChain->Present(0, 0);
+	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
 	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
 
 	mCurrFrameResource->Fence = ++mCurrentFence;
@@ -652,7 +653,7 @@ void DemoApp::mouseButtonUp(WPARAM btnState, int x, int y) {
 
 void DemoApp::mouseMove(WPARAM btnState, int x, int y) {
 	float dx = float(x - (SCREEN_WIDTH / 2));
-	float dy = float(y - (SCREEN_HEIGHT / 2) + 12);
+	float dy = float(y - (SCREEN_HEIGHT / 2) + 17);
 
 	lookAngle[0] = (lookAngle[0] + DirectX::XMConvertToRadians(0.25f * dy));
 	lookAngle[1] = (lookAngle[1] + DirectX::XMConvertToRadians(0.25f * dx));
