@@ -10,8 +10,8 @@
 #define USE_PIX
 #define CLEAR_MODEL_MEMORY
 
-#define SCREEN_WIDTH 1920
-#define SCREEN_HEIGHT 1080
+#define SCREEN_WIDTH 2560
+#define SCREEN_HEIGHT 1440
 
 #define MAX_LIGHTS 10
 

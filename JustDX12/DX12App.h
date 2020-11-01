@@ -55,6 +55,7 @@ protected:
 protected:
 	static DX12App* app;
 	bool lockMouse = true;
+	bool lockMouseDirty = true;
 
 	HINSTANCE hAppInst = nullptr;
 	HWND hWindow = nullptr;

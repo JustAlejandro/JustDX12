@@ -36,6 +36,7 @@
     </ClCompile>
     <ClCompile Include="DX12ConstantBuffer.cpp" />
     <ClCompile Include="ConstantBufferManager.cpp" />
+    <ClCompile Include="KeyboardWrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -94,6 +95,7 @@
     <ClInclude Include="Texture.h">
       <Filter>Resources</Filter>
     </ClInclude>
+    <ClInclude Include="KeyboardWrapper.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

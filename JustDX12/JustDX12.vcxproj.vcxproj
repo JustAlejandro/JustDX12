@@ -158,6 +158,7 @@
   <ItemGroup>
     <ClCompile Include="ConstantBufferManager.cpp" />
     <ClCompile Include="DX12ConstantBuffer.cpp" />
+    <ClCompile Include="KeyboardWrapper.cpp" />
     <ClCompile Include="PipelineStage\ComputePipelineStage.cpp" />
     <ClCompile Include="DescriptorClasses\DescriptorManager.cpp" />
     <ClCompile Include="DX12App.cpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="ConstantBufferManager.h" />
     <ClInclude Include="ConstantBufferTypes.h" />
     <ClInclude Include="DX12ConstantBuffer.h" />
+    <ClInclude Include="KeyboardWrapper.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />
     <ClInclude Include="DescriptorClasses\DescriptorManager.h" />
     <ClInclude Include="DX12App.h" />

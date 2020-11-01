@@ -14,6 +14,7 @@
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
+#include "KeyboardWrapper.h"
 
 #include <random>
 
@@ -63,10 +64,11 @@ private:
 	FrameResource* mCurrFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
 
+	bool showImgui = true;
 	bool freezeCull = false;
 	bool VRS = true;
 	bool renderVRS = false;
-	bool imguiDemo = true;
+	std::deque<float> frametime;
 
 	ComputePipelineStage* computeStage = nullptr;
 	ComputePipelineStage* vrsComputeStage = nullptr;
@@ -74,6 +76,7 @@ private:
 	RenderPipelineStage* mergeStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
 	TextureLoader* textureLoader = nullptr;
+	KeyboardWrapper keyboard;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mSSAORootSignature = nullptr;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> shaders;
@@ -491,7 +494,6 @@ bool DemoApp::initialize() {
 }
 
 void DemoApp::update() {
-	//MessageBox(nullptr, L"Ladies and Gentlemen", L"We got em.", MB_OK);
 	onKeyboardInput();
 	updateCamera();
 
@@ -514,14 +516,24 @@ void DemoApp::draw() {
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-	if (imguiDemo) {
-		ImGui::Begin("Another Window", &imguiDemo);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-		//ImGui::Text("Hello from another window!");
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-		if (ImGui::Button("Close Me"))
-			imguiDemo = false;
-		ImGui::End();
-	}
+	ImGui::Begin("Info Window", &showImgui);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+	frametime.push_back(ImGui::GetIO().DeltaTime * 1000);
+	if (frametime.size() > 1000) frametime.pop_front();
+	std::vector<float> frametimeVec(frametime.begin(), frametime.end());
+	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 0.0f, 14.0f, ImVec2(ImGui::GetWindowWidth(), 300));
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
+	ImGui::Checkbox("Freeze Culling", &freezeCull);
+	ImGui::Checkbox("VRS", &VRS);
+	ImGui::Checkbox("Render VRS", &renderVRS);
+	ImGui::BeginTabBar("VRS Ranges");
+	ImGui::BeginTabItem("VRS Ranges");
+	ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
+	ImGui::SliderFloat("VRS Medium", &mainPassCB.data.VrsMedium, 0.0f, 2000.0f);
+	ImGui::SliderFloat("VRS Long", &mainPassCB.data.VrsLong, 0.0f, 2000.0f);
+	ImGui::EndTabItem();
+	ImGui::EndTabBar();
+	ImGui::End();
 
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
@@ -590,54 +602,42 @@ void DemoApp::BuildFrameResources() {
 }
 
 void DemoApp::onKeyboardInput() {
+	keyboard.update();
+
 	DirectX::XMFLOAT4 move = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	DirectX::XMMATRIX look = DirectX::XMMatrixRotationRollPitchYaw(lookAngle[0], lookAngle[1], lookAngle[2]);
 
-	if (GetAsyncKeyState('W') & 0x8000) {
-		move.z += 0.25;
+	if (keyboard.getKeyStatus('W') & KEY_STATUS_PRESSED) {
+		move.z += 100.0f;
 	}
-	if (GetAsyncKeyState('S') & 0x8000) {
-		move.z -= 0.25;
+	if (keyboard.getKeyStatus('S') & KEY_STATUS_PRESSED) {
+		move.z -= 100.0f;
 	}
-	if (GetAsyncKeyState('A') & 0x8000) {
-		move.x -= 0.25;
+	if (keyboard.getKeyStatus('A') & KEY_STATUS_PRESSED) {
+		move.x -= 100.0f;
 	}
-	if (GetAsyncKeyState('D') & 0x8000) {
-		move.x += 0.25;
+	if (keyboard.getKeyStatus('D') & KEY_STATUS_PRESSED) {
+		move.x += 100.0f;
 	}
-	if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
-		move.x = 4.0 * move.x;
-		move.y = 4.0 * move.y;
-		move.z = 4.0 * move.z;
+	if (keyboard.getKeyStatus(VK_LSHIFT) & KEY_STATUS_PRESSED) {
+		move.x = 4.0f * move.x;
+		move.y = 4.0f * move.y;
+		move.z = 4.0f * move.z;
 	}
-	renderStage->frustrumCull = true;
-	if (GetAsyncKeyState('F') & 0x8000) {
-		renderStage->frustrumCull = false;
-	}
-	freezeCull = false;
-	if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
-		freezeCull = true;
-	}
-	VRS = true;
-	if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
-		VRS = false;
-	}
-	if (GetAsyncKeyState('T') & 0x8000) {
-		renderVRS = !renderVRS;
-	}
-	lockMouse = true;
-	if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) {
-		lockMouse = false;
+	if (keyboard.getKeyStatus(VK_LCONTROL) & KEY_STATUS_JUST_PRESSED) {
+		lockMouse = !lockMouse;
+		lockMouseDirty = true;
 	}
 
 	DirectX::XMFLOAT4 moveRes = {};
 	DirectX::XMStoreFloat4(&moveRes, DirectX::XMVector4Transform(
 		DirectX::XMVectorSet(move.x, move.y, move.z, move.w), look));
 	
-	eyePos.x += moveRes.x;
+	float timeElapsed = ImGui::GetIO().DeltaTime;
+	eyePos.x += moveRes.x * timeElapsed;
 	eyePos.y += moveRes.y * 0.0f;
-	eyePos.z += moveRes.z;
+	eyePos.z += moveRes.z * timeElapsed;
 }
 
 void DemoApp::mouseButtonDown(WPARAM btnState, int x, int y) {
@@ -703,8 +703,8 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
 	mainPassCB.data.NearZ = 1.0f;
 	mainPassCB.data.FarZ = 5000.0f;
-	mainPassCB.data.TotalTime = 0.0f;
-	mainPassCB.data.DeltaTime = 0.0f;
+	mainPassCB.data.DeltaTime = ImGui::GetIO().DeltaTime;
+	mainPassCB.data.TotalTime += mainPassCB.data.DeltaTime;
 	mainPassCB.data.renderVRS = renderVRS;
 	
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
@@ -716,7 +716,7 @@ void DemoApp::UpdateMainPassCB() {
 
 	mergeConstantCB.data.viewPos = mainPassCB.data.EyePosW;
 	mergeConstantCB.data.numPointLights = 1;
-	mergeConstantCB.data.lights[0].strength = 500.0;
+	mergeConstantCB.data.lights[0].strength = 1500.0;
 	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mCurrentFence / 250.0) * 600, 100.0, 0.0);
 
 	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);

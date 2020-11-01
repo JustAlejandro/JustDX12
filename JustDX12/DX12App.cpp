@@ -111,7 +111,6 @@ bool DX12App::initWindow() {
 	ShowWindow(hWindow, SW_SHOW);
 	UpdateWindow(hWindow);
 
-	ShowCursor(false);
 	GetWindowRect(hWindow, &hWindowPos);
 	ClipCursor(&hWindowPos);
 	hWindowCenter.x = (hWindowPos.left + hWindowPos.right) / 2;
@@ -255,12 +254,16 @@ D3D12_CPU_DESCRIPTOR_HANDLE DX12App::DepthStencilView()const {
 LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam);
 	if (!lockMouse) {
-		ShowCursor(true);
+		if (lockMouseDirty) {
+			lockMouseDirty = false;
+			ShowCursor(true);
+		}
 		return true;
 	}
-
-	ShowCursor(false);
-
+	if (lockMouseDirty) {
+		lockMouseDirty = false;
+		ShowCursor(false);
+	}
 	switch (msg) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
