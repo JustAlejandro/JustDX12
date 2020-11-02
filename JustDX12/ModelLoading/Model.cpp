@@ -91,8 +91,10 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		if (mesh->HasNormals()) {
 			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL;
 			vertex.norm = { mesh->mNormals[i].x, mesh->mNormals[i].y,mesh->mNormals[i].z };
-			vertex.tan = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
-			vertex.biTan = { mesh->mBitangents[i].x,mesh->mBitangents[i].y,mesh->mBitangents[i].z };
+			if (mesh->HasTangentsAndBitangents()) {
+				vertex.tan = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+				vertex.biTan = { mesh->mBitangents[i].x,mesh->mBitangents[i].y,mesh->mBitangents[i].z };
+			}
 		}
 		
 		if (mesh->mTextureCoords[0]) {
@@ -150,8 +152,10 @@ std::vector<DX12Texture*> Model::loadMaterialTextures(aiMaterial* mat, aiTexture
 		aiString aiPath;
 		mat->GetTexture(type, i, &aiPath);
 		std::string path = aiPath.C_Str();
-
-		textures.push_back(textureLoader.deferLoad(path));
+		path = path.substr(path.find_last_of("\\") == std::string::npos ? 0 : path.find_last_of("\\")+1, path.length());
+		path = path.substr(path.find_last_of("/") == std::string::npos ? 0 : path.find_last_of("/")+1, path.length());
+		path = path.substr(0, path.find_last_of('.')) + ".dds";
+		textures.push_back(textureLoader.deferLoad(path, dir + "\\textures"));
 	}
 	return textures;
 }

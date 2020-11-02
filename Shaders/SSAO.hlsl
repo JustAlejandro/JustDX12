@@ -6,6 +6,9 @@
 
 cbuffer cbSSAOSettings : register(b0)
 {
+	bool showSSAO;
+	bool showSSShadows;
+	int2 padding;
 	float4x4 ViewProj;
 	int rayCount;
 	int TAA;
@@ -70,7 +73,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 			outCol += perSample;
 		}
 	}
-	
+	outCol = !showSSAO + (outCol * (float)showSSAO);
 	float3 lightDir = normalize(lightPos.xyz - worldPos.xyz);
 	float resColor = 1.0;
 	int occludeCount = 20;
@@ -86,7 +89,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 			occludeCount--;
 		}
 	}
-	outCol *= (occludeCount / 20.0);
+	outCol *= (!showSSShadows + ((occludeCount / 20.0f) * (float)showSSShadows));
 	outTex[dispatchThreadID.xy] = outCol;
 }
 

@@ -9,6 +9,9 @@
 class SSAOConstants : public ConstantBufferData {
 public:
 	struct SSAOConstantsStruct {
+		BOOL showSSAO = true;
+		BOOL showSSShadows = true;
+		DirectX::XMFLOAT2 padding = {0.0f, 0.0f};
 		DirectX::XMFLOAT4X4 viewProj = Identity();
 		int rayCount = 10;
 		int TAA = 0;

@@ -84,8 +84,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> defaultPSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> ssaoPSO = nullptr;
 
-	std::vector<Model*> objectsToRender;
-
 	PerPassConstants mainPassCB;
 	SSAOConstants ssaoConstantCB;
 	MergeConstants mergeConstantCB;
@@ -142,9 +140,6 @@ DemoApp::~DemoApp() {
 	delete computeStage;
 	delete renderStage;
 	delete vrsComputeStage;
-	for (int i = 0; i < objectsToRender.size(); i++) {
-		delete objectsToRender[i];
-	}
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
@@ -156,7 +151,7 @@ bool DemoApp::initialize() {
 	}
 
 	{
-		DescriptorJob perObjectConstants = { "PerObjectConstDesc", "PerObjectConstants", 
+		DescriptorJob perObjectConstants0 = { "PerObjectConstDesc", "PerObjectConstants0",
 			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_OBJECT };
 		DescriptorJob perPassConstants = { "PerPassConstDesc", "PerPassConstants",
 			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_PASS };
@@ -213,7 +208,7 @@ bool DemoApp::initialize() {
 		outTexArray[5].name = "outTexArray[5]";
 		ResourceJob depthTex = { "depthTex", DESCRIPTOR_TYPE_DSV | DESCRIPTOR_TYPE_SRV,
 			DEPTH_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
-		ConstantBufferJob perObjectJob = { "PerObjectConstants", new PerObjectConstants() };
+		ConstantBufferJob perObjectJob0 = { "PerObjectConstants0", new PerObjectConstants() };
 		ConstantBufferJob perPassJob = { "PerPassConstants", new PerPassConstants() };
 		std::vector<DXDefine> defines = { 
 			{L"VRS", L""},
@@ -229,8 +224,8 @@ bool DemoApp::initialize() {
 		renderTargets[5] = { "outTexDesc[5]", 0 };
 
 		PipeLineStageDesc rasterDesc;
-		rasterDesc.constantBufferJobs = { perObjectJob, perPassJob };
-		rasterDesc.descriptorJobs = { perObjectConstants, perPassConstants,
+		rasterDesc.constantBufferJobs = { perObjectJob0, perPassJob };
+		rasterDesc.descriptorJobs = { perObjectConstants0, perPassConstants,
 			rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
@@ -526,6 +521,8 @@ void DemoApp::draw() {
 	ImGui::Checkbox("Freeze Culling", &freezeCull);
 	ImGui::Checkbox("VRS", &VRS);
 	ImGui::Checkbox("Render VRS", &renderVRS);
+	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);
+	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
 	ImGui::BeginTabBar("VRS Ranges");
 	ImGui::BeginTabItem("VRS Ranges");
 	ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
@@ -673,11 +670,6 @@ void DemoApp::updateCamera() {
 
 void DemoApp::UpdateObjectCBs() {
 
-	for (Model* model : objectsToRender) {
-		PerObjectConstants objConst;
-
-		renderStage->deferUpdateConstantBuffer("PerObjectConstants", objConst);
-	}
 }
 
 void DemoApp::UpdateMaterialCBs() {
@@ -709,7 +701,7 @@ void DemoApp::UpdateMainPassCB() {
 	
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
 	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
-	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mCurrentFence / 250.0) * 600, 100.0, 0.0, 1.0);
+	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mainPassCB.data.TotalTime / 5.0) * 600, 100.0, 0.0, 1.0);
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
@@ -717,7 +709,7 @@ void DemoApp::UpdateMainPassCB() {
 	mergeConstantCB.data.viewPos = mainPassCB.data.EyePosW;
 	mergeConstantCB.data.numPointLights = 1;
 	mergeConstantCB.data.lights[0].strength = 1500.0;
-	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mCurrentFence / 250.0) * 600, 100.0, 0.0);
+	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mainPassCB.data.TotalTime / 5.0) * 600, 100.0, 0.0);
 
 	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);

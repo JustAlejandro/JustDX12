@@ -29,7 +29,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
     mDirectCmdListAlloc->Reset();
     mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
-    std::string nameDir = tex->dir + tex->Filename;
+    std::string nameDir = tex->dir + "\\" + tex->Filename;
     std::wstring nameDirW = std::wstring(nameDir.begin(), nameDir.end());
     DirectX::ScratchImage* imgData = new DirectX::ScratchImage();
     HRESULT result = DirectX::LoadFromDDSFile(nameDirW.c_str(), DirectX::DDS_FLAGS_NONE,
