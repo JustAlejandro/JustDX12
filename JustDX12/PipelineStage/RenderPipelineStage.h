@@ -35,6 +35,7 @@ protected:
 
 	std::vector<Model*> renderObjects;
 	bool allRenderObjectsSetup = false;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> occlusionPSO = nullptr;
 
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT scissorRect;

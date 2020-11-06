@@ -36,6 +36,9 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	D3DCreateBlob(indexBufferByteSize, &indexBufferCPU);
 	CopyMemory(indexBufferCPU->GetBufferPointer(), indices.data(), indexBufferByteSize);
 
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
+
 	vertexBufferGPU = CreateDefaultBuffer(thread->md3dDevice.Get(),
 		thread->mCommandList.Get(),
 		vertices.data(), vertexBufferByteSize, vertexBufferUploader);
@@ -50,6 +53,8 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 
 	// Wait for the upload to finish before moving on.
 	thread->waitOnFence();
+
+
 
 #ifdef CLEAR_MODEL_MEMORY
 	std::vector<Vertex>().swap(vertices);
@@ -141,6 +146,13 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
 	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
+	// Add Bounding Box to index/vertex list
+	Vertex BB;
+	BB.pos = { meshStorage.boundingBox.Center.x, meshStorage.boundingBox.Center.y, meshStorage.boundingBox.Center.z };
+	// Using the normal position to store the extents
+	BB.norm = { meshStorage.boundingBox.Extents.x, meshStorage.boundingBox.Extents.y, meshStorage.boundingBox.Extents.z };
+	vertices.push_back(BB);
+	meshStorage.boundingBoxVertexLocation = vertices.size() - 1;
 	return meshStorage;
 }
 

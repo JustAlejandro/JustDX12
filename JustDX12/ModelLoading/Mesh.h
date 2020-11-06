@@ -23,6 +23,7 @@ struct Mesh {
 	UINT indexCount = 0;
 	UINT startIndexLocation = 0;
 	INT baseVertexLocation = 0;
+	INT boundingBoxVertexLocation = 0;
 
 	DirectX::BoundingBox boundingBox;
 	DirectX::XMFLOAT3 maxPoint;

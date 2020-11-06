@@ -84,6 +84,19 @@ void RenderPipelineStage::BuildPSO() {
 		OutputDebugStringA("PSO Setup Failed");
 		throw "PSO FAIL";
 	}
+
+	// Setting up second PSO for predication occlusion.
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC occlusionPSODesc = graphicsPSO;
+	for (int i = 0; i < renderTargetDescs.size(); i++) {
+		occlusionPSODesc.BlendState.RenderTarget[0].RenderTargetWriteMask = 0;
+	}
+	occlusionPSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	occlusionPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	occlusionPSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+	if (FAILED(md3dDevice->CreateGraphicsPipelineState(&occlusionPSODesc, IID_PPV_ARGS(&occlusionPSO)))) {
+		OutputDebugStringA("Occlusion PSO Setup Failed");
+		throw "PSO FAIL";
+	}
 }
 
 void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {

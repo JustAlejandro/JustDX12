@@ -46,9 +46,6 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
-
 	Model(std::string name, std::string dir);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 	void processNode(aiNode* node, const aiScene* scene);
