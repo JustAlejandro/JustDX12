@@ -183,6 +183,7 @@ void RenderPipelineStage::bindRenderTarget() {
 void RenderPipelineStage::drawRenderObjects() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	int meshIndex = 0;
+	int modelIndex = 0;
 	if (VRS) {
 		resourceManager.getResource("VRS")->changeState(mCommandList, D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
@@ -201,20 +202,24 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->IASetIndexBuffer(&model->indexBufferView());
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		for (Mesh& m : model->meshes) {
-			DirectX::ContainmentType frustrumCullResult = frustrum.Contains(m.boundingBox);
-			if (frustrumCull && (frustrumCullResult == DirectX::ContainmentType::DISJOINT)) {
-				m.culledLast = true;
-				meshIndex++;
-				continue;
-			}
-			m.culledLast = false;
-
-			if (renderStageDesc.supportsCulling && occlusionCull && frustrumCullResult == DirectX::ContainmentType::CONTAINS) {
-				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)meshIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
+		if (renderStageDesc.supportsCulling && occlusionCull && frustrum.Contains(model->boundingBox) != (DirectX::ContainmentType::INTERSECTS)) {
+			DirectX::ContainmentType containType =  frustrum.Contains(model->boundingBox);
+			if (containType == DirectX::ContainmentType::CONTAINS) {
+				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)modelIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
 			else {
 				mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
+			}
+		}
+		else {
+			mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
+		}
+
+		for (Mesh& m : model->meshes) {
+			DirectX::ContainmentType frustrumCullResult = frustrum.Contains(m.boundingBox);
+			if (frustrumCull && (frustrumCullResult == DirectX::ContainmentType::DISJOINT)) {
+				meshIndex++;
+				continue;
 			}
 
 			if (VRS) {
@@ -234,7 +239,6 @@ void RenderPipelineStage::drawRenderObjects() {
 
 void RenderPipelineStage::drawOcclusionQuery() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
-	int meshIndex = 0;
 	mCommandList->SetPipelineState(occlusionPSO.Get());
 	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 	for (int i = 0; i < renderObjects.size(); i++) {
@@ -245,22 +249,13 @@ void RenderPipelineStage::drawOcclusionQuery() {
 		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
 		mCommandList->IASetIndexBuffer(&model->indexBufferView());
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-
-		for (Mesh& m : model->meshes) {
-			if (m.culledLast) {
-				meshIndex++;
-				continue;
-			}
-			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
-			mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, meshIndex);
-			mCommandList->DrawIndexedInstanced(1,
-				1, m.boundingBoxIndexLocation, m.boundingBoxVertexLocation, 0);
-			mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, meshIndex);
-			meshIndex++;
-		}
+		
+		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
+		mCommandList->DrawIndexedInstanced(1, 1, model->boundingBoxIndexLocation, model->boundingBoxVertexLocation, 0);
+		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST));
-	mCommandList->ResolveQueryData(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, 0, meshIndex, occlusionQueryResultBuffer.Get(), 0);
+	mCommandList->ResolveQueryData(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, 0, renderObjects.size(), occlusionQueryResultBuffer.Get(), 0);
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PREDICATION));
 }
 
