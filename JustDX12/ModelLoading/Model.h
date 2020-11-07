@@ -35,6 +35,8 @@ public:
 	unsigned int vertexBufferByteSize;
 	unsigned int indexBufferByteSize;
 	DXGI_FORMAT indexFormat;
+	INT boundingBoxVertexLocation = 0;
+	UINT boundingBoxIndexLocation = 0;
 
 	DirectX::BoundingBox boundingBox;
 	DirectX::XMFLOAT3 maxPoint;
@@ -48,6 +50,7 @@ public:
 
 	Model(std::string name, std::string dir);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
+	void addBoundingBoxesToVertexBuffer();
 	void processNode(aiNode* node, const aiScene* scene);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene);
 	std::vector<DX12Texture*> loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName);

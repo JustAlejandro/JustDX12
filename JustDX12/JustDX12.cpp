@@ -68,6 +68,7 @@ private:
 	bool freezeCull = false;
 	bool VRS = true;
 	bool renderVRS = false;
+	bool occlusionCull = true;
 	std::deque<float> frametime;
 
 	ComputePipelineStage* computeStage = nullptr;
@@ -240,6 +241,7 @@ bool DemoApp::initialize() {
 		};
 
 		RenderPipelineDesc rDesc;
+		rDesc.supportsCulling = true;
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
@@ -519,6 +521,7 @@ void DemoApp::draw() {
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
 	ImGui::Checkbox("Freeze Culling", &freezeCull);
+	ImGui::Checkbox("Occlusion Predication Culling", &renderStage->occlusionCull);
 	ImGui::Checkbox("VRS", &VRS);
 	ImGui::Checkbox("Render VRS", &renderVRS);
 	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);

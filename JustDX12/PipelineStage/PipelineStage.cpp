@@ -183,6 +183,8 @@ std::wstring PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
 		return L"ps_6_4";
 	case SHADER_TYPE_CS:
 		return L"cs_6_4";
+	case SHADER_TYPE_GS:
+		return L"gs_6_4";
 	default:
 		return L"";
 		break;

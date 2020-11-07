@@ -25,6 +25,8 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 
 	boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
 
+	addBoundingBoxesToVertexBuffer();
+
 	vertexByteStride = sizeof(Vertex);
 	indexFormat = DXGI_FORMAT_R32_UINT;
 	vertexBufferByteSize = (unsigned int)vertices.size() * sizeof(Vertex);
@@ -54,14 +56,32 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	// Wait for the upload to finish before moving on.
 	thread->waitOnFence();
 
-
-
 #ifdef CLEAR_MODEL_MEMORY
 	std::vector<Vertex>().swap(vertices);
 	vertices.shrink_to_fit();
 	std::vector<unsigned int>().swap(indices);
 	indices.shrink_to_fit();
 #endif // CLEAR_MODEL_MEMORY
+}
+
+void Model::addBoundingBoxesToVertexBuffer() {
+	for (auto& mesh : meshes) {
+		// Add Bounding Box to index/vertex list
+		Vertex BB;
+		BB.pos = { mesh.boundingBox.Center.x, mesh.boundingBox.Center.y, mesh.boundingBox.Center.z };
+		// Using the normal position to store the extents
+		BB.norm = { mesh.boundingBox.Extents.x, mesh.boundingBox.Extents.y, mesh.boundingBox.Extents.z };
+		vertices.push_back(BB);
+		mesh.boundingBoxVertexLocation = vertices.size() - 1;
+		mesh.boundingBoxIndexLocation = 0;
+	}
+	Vertex BB;
+	BB.pos = { boundingBox.Center.x, boundingBox.Center.y, boundingBox.Center.z };
+	// Using the normal position to store the extents
+	BB.norm = { boundingBox.Extents.x, boundingBox.Extents.y, boundingBox.Extents.z };
+	vertices.push_back(BB);
+	boundingBoxVertexLocation = vertices.size() - 1;
+	boundingBoxIndexLocation = 0;
 }
 
 void Model::processNode(aiNode* node, const aiScene* scene) {
@@ -146,13 +166,6 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
 	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
-	// Add Bounding Box to index/vertex list
-	Vertex BB;
-	BB.pos = { meshStorage.boundingBox.Center.x, meshStorage.boundingBox.Center.y, meshStorage.boundingBox.Center.z };
-	// Using the normal position to store the extents
-	BB.norm = { meshStorage.boundingBox.Extents.x, meshStorage.boundingBox.Extents.y, meshStorage.boundingBox.Extents.z };
-	vertices.push_back(BB);
-	meshStorage.boundingBoxVertexLocation = vertices.size() - 1;
 	return meshStorage;
 }
 

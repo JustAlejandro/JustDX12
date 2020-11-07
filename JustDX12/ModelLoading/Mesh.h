@@ -24,6 +24,8 @@ struct Mesh {
 	UINT startIndexLocation = 0;
 	INT baseVertexLocation = 0;
 	INT boundingBoxVertexLocation = 0;
+	UINT boundingBoxIndexLocation = 0;
+	bool culledLast = false;
 
 	DirectX::BoundingBox boundingBox;
 	DirectX::XMFLOAT3 maxPoint;

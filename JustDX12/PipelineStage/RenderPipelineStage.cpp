@@ -11,6 +11,20 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3
 	this->viewport = viewport;
 	this->scissorRect = scissorRect;
 	frustrumCull = true;
+	if (renderStageDesc.supportsCulling) {
+		// Largest buffer size to fit into a single GPU page (64kb)
+		// Have space for 8000 occlusion queries
+		md3dDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(8000),
+			D3D12_RESOURCE_STATE_PREDICATION,
+			nullptr,
+			IID_PPV_ARGS(&occlusionQueryResultBuffer));
+		D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
+		queryHeapDesc.Count = 8000;
+		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_OCCLUSION;
+		md3dDevice->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&occlusionQueryHeap));
+	}
 }
 
 void RenderPipelineStage::Execute() {
@@ -39,6 +53,9 @@ void RenderPipelineStage::Execute() {
 	bindRenderTarget();
 
 	drawRenderObjects();
+	if (renderStageDesc.supportsCulling && occlusionCull) {
+		drawOcclusionQuery();
+	}
 
 	//PIXEndEvent(mCommandList.GetAddressOf());
 
@@ -85,17 +102,32 @@ void RenderPipelineStage::BuildPSO() {
 		throw "PSO FAIL";
 	}
 
-	// Setting up second PSO for predication occlusion.
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC occlusionPSODesc = graphicsPSO;
-	for (int i = 0; i < renderTargetDescs.size(); i++) {
-		occlusionPSODesc.BlendState.RenderTarget[0].RenderTargetWriteMask = 0;
-	}
-	occlusionPSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	occlusionPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-	occlusionPSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
-	if (FAILED(md3dDevice->CreateGraphicsPipelineState(&occlusionPSODesc, IID_PPV_ARGS(&occlusionPSO)))) {
-		OutputDebugStringA("Occlusion PSO Setup Failed");
-		throw "PSO FAIL";
+	if (renderStageDesc.supportsCulling) {
+		// Setting up second PSO for predication occlusion.
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC occlusionPSODesc = graphicsPSO;
+		for (int i = 0; i < renderTargetDescs.size(); i++) {
+			occlusionPSODesc.BlendState.RenderTarget[i].RenderTargetWriteMask = 0;
+		}
+		occlusionPSODesc.InputLayout = { inputLayout.data(),(UINT)inputLayout.size() };
+		occlusionPSODesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+		occlusionPSODesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+		occlusionPSODesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+
+		// Need a different set of shaders
+		occlusionVS = compileShader(L"..\\Shaders\\BoundingBox.hlsl", {}, L"VS", getCompileTargetFromType(SHADER_TYPE_VS));
+		occlusionGS = compileShader(L"..\\Shaders\\BoundingBox.hlsl", {}, L"GS", getCompileTargetFromType(SHADER_TYPE_GS));
+		occlusionPS = compileShader(L"..\\Shaders\\BoundingBox.hlsl", {}, L"PS", getCompileTargetFromType(SHADER_TYPE_PS));
+		occlusionPSODesc.VS.pShaderBytecode = occlusionVS->GetBufferPointer();
+		occlusionPSODesc.VS.BytecodeLength = occlusionVS->GetBufferSize();
+		occlusionPSODesc.GS.pShaderBytecode = occlusionGS->GetBufferPointer();
+		occlusionPSODesc.GS.BytecodeLength = occlusionGS->GetBufferSize();
+		occlusionPSODesc.PS = { 0 };
+		occlusionPSODesc.PS.pShaderBytecode = occlusionPS->GetBufferPointer();
+		occlusionPSODesc.PS.BytecodeLength = occlusionPS->GetBufferSize();
+		if (FAILED(md3dDevice->CreateGraphicsPipelineState(&occlusionPSODesc, IID_PPV_ARGS(&occlusionPSO)))) {
+			OutputDebugStringA("Occlusion PSO Setup Failed\n");
+			throw "PSO FAIL";
+		}
 	}
 }
 
@@ -170,9 +202,19 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		for (Mesh& m : model->meshes) {
-			if (frustrumCull && (frustrum.Contains(m.boundingBox) == DirectX::ContainmentType::DISJOINT)) {
+			DirectX::ContainmentType frustrumCullResult = frustrum.Contains(m.boundingBox);
+			if (frustrumCull && (frustrumCullResult == DirectX::ContainmentType::DISJOINT)) {
+				m.culledLast = true;
 				meshIndex++;
 				continue;
+			}
+			m.culledLast = false;
+
+			if (renderStageDesc.supportsCulling && occlusionCull && frustrumCullResult == DirectX::ContainmentType::CONTAINS) {
+				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)meshIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
+			}
+			else {
+				mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
 
 			if (VRS) {
@@ -188,6 +230,38 @@ void RenderPipelineStage::drawRenderObjects() {
 			meshIndex++;
 		}
 	}
+}
+
+void RenderPipelineStage::drawOcclusionQuery() {
+	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
+	int meshIndex = 0;
+	mCommandList->SetPipelineState(occlusionPSO.Get());
+	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
+	for (int i = 0; i < renderObjects.size(); i++) {
+		Model* model = renderObjects[i];
+
+		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
+
+		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
+		mCommandList->IASetIndexBuffer(&model->indexBufferView());
+		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+
+		for (Mesh& m : model->meshes) {
+			if (m.culledLast) {
+				meshIndex++;
+				continue;
+			}
+			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
+			mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, meshIndex);
+			mCommandList->DrawIndexedInstanced(1,
+				1, m.boundingBoxIndexLocation, m.boundingBoxVertexLocation, 0);
+			mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, meshIndex);
+			meshIndex++;
+		}
+	}
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST));
+	mCommandList->ResolveQueryData(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, 0, meshIndex, occlusionQueryResultBuffer.Get(), 0);
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PREDICATION));
 }
 
 void RenderPipelineStage::importMeshTextures(Mesh* m, int usageIndex) {
