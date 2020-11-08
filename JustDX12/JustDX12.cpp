@@ -23,6 +23,10 @@ std::string baseDir = "..\\Models";
 std::string inputfile = "teapot.obj";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.obj";
+std::string armorDir = baseDir + "\\parade_armor";
+std::string armorFile = "armor.obj";
+std::string headDir = baseDir + "\\head";
+std::string headFile = "head.obj";
 
 std::string warn;
 std::string err;
@@ -466,6 +470,9 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
+	renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	renderStage->LoadModel(modelLoader, headFile, headDir);
+
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -712,7 +719,7 @@ void DemoApp::UpdateMainPassCB() {
 	mergeConstantCB.data.viewPos = mainPassCB.data.EyePosW;
 	mergeConstantCB.data.numPointLights = 1;
 	mergeConstantCB.data.lights[0].strength = 1500.0;
-	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mainPassCB.data.TotalTime / 5.0) * 600, 100.0, 0.0);
+	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mainPassCB.data.TotalTime / 5.0) * 600, 200.0, 0.0);
 
 	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);

@@ -11,20 +11,6 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3
 	this->viewport = viewport;
 	this->scissorRect = scissorRect;
 	frustrumCull = true;
-	if (renderStageDesc.supportsCulling) {
-		// Largest buffer size to fit into a single GPU page (64kb)
-		// Have space for 8000 occlusion queries
-		md3dDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(8000),
-			D3D12_RESOURCE_STATE_PREDICATION,
-			nullptr,
-			IID_PPV_ARGS(&occlusionQueryResultBuffer));
-		D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
-		queryHeapDesc.Count = 8000;
-		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_OCCLUSION;
-		md3dDevice->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&occlusionQueryHeap));
-	}
 }
 
 void RenderPipelineStage::Execute() {
@@ -131,6 +117,21 @@ void RenderPipelineStage::BuildPSO() {
 	}
 }
 
+void RenderPipelineStage::BuildQueryHeap() {
+	if (renderStageDesc.supportsCulling) {
+		md3dDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(renderObjects.size() * 8),
+			D3D12_RESOURCE_STATE_PREDICATION,
+			nullptr,
+			IID_PPV_ARGS(&occlusionQueryResultBuffer));
+		D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
+		queryHeapDesc.Count = renderObjects.size();
+		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_OCCLUSION;
+		md3dDevice->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&occlusionQueryHeap));
+	}
+}
+
 void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {
 	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
@@ -234,6 +235,7 @@ void RenderPipelineStage::drawRenderObjects() {
 
 			meshIndex++;
 		}
+		modelIndex++;
 	}
 }
 
@@ -249,9 +251,8 @@ void RenderPipelineStage::drawOcclusionQuery() {
 		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
 		mCommandList->IASetIndexBuffer(&model->indexBufferView());
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-		
 		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
-		mCommandList->DrawIndexedInstanced(1, 1, model->boundingBoxIndexLocation, model->boundingBoxVertexLocation, 0);
+		mCommandList->DrawInstanced(1, 1, model->boundingBoxVertexLocation, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST));
@@ -337,6 +338,7 @@ void RenderPipelineStage::setupRenderObjects() {
 		}
 	}
 	BuildDescriptors(stageDesc.descriptorJobs);
+	BuildQueryHeap();
 	allRenderObjectsSetup = true;
 }
 

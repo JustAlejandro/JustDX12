@@ -25,6 +25,7 @@ public:
 protected:
 	RenderPipelineDesc renderStageDesc;
 	void BuildPSO() override;
+	void BuildQueryHeap();
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0) override;
 	void bindRenderTarget();
 	void drawRenderObjects();
