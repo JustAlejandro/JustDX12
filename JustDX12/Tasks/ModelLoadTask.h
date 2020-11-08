@@ -20,7 +20,7 @@ public:
 		taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
 
 		Assimp::Importer importer;
-		OutputDebugString(L"Starting to Load Model\n");
+		OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());
 		const aiScene* scene2 = importer.ReadFile(model->dir + "\\" + model->name,
 			aiProcess_Triangulate | aiProcess_FlipUVs);
 		const aiScene* scene = importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
@@ -29,10 +29,10 @@ public:
 			OutputDebugStringA(("ERROR::ASSIMP::" + error).c_str());
 		}
 		else {
-			OutputDebugString(L"Finished load, beginning processing/upload\n");
+			OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 			model->setup(taskQueueThread, scene->mRootNode, scene);
 			model->loaded = true;
-			OutputDebugString(L"Finished Upload Model\n");
+			OutputDebugStringA(("Finished Upload Model: " + model->name + "\n").c_str());
 		}
 	}
 

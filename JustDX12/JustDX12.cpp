@@ -534,11 +534,18 @@ void DemoApp::draw() {
 	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);
 	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
 	ImGui::BeginTabBar("VRS Ranges");
-	ImGui::BeginTabItem("VRS Ranges");
-	ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
-	ImGui::SliderFloat("VRS Medium", &mainPassCB.data.VrsMedium, 0.0f, 2000.0f);
-	ImGui::SliderFloat("VRS Long", &mainPassCB.data.VrsLong, 0.0f, 2000.0f);
-	ImGui::EndTabItem();
+	if (ImGui::BeginTabItem("VRS Ranges")) {
+		ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
+		ImGui::SliderFloat("VRS Medium", &mainPassCB.data.VrsMedium, 0.0f, 2000.0f);
+		ImGui::SliderFloat("VRS Long", &mainPassCB.data.VrsLong, 0.0f, 2000.0f);
+		ImGui::EndTabItem();
+	}
+	if (ImGui::BeginTabItem("Light Options")) {
+		ImGui::SliderFloat3("Light Pos", (float*)&mergeConstantCB.data.lights[0].pos, -1000.0f, 1000.0f);
+		ImGui::SliderFloat("Light Strength", &mergeConstantCB.data.lights[0].strength, 0.0f, 5000.0f);
+		ImGui::ColorEdit3("Light Color", (float*)&mergeConstantCB.data.lights[0].color);
+		ImGui::EndTabItem();
+	}
 	ImGui::EndTabBar();
 	ImGui::End();
 
@@ -693,7 +700,7 @@ void DemoApp::UpdateMainPassCB() {
 	DirectX::XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
 	DirectX::XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
 	DirectX::XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
-	
+
 	XMStoreFloat4x4(&mainPassCB.data.view, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&mainPassCB.data.invView, XMMatrixTranspose(invView));
 	XMStoreFloat4x4(&mainPassCB.data.proj, XMMatrixTranspose(proj));
@@ -708,18 +715,16 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.DeltaTime = ImGui::GetIO().DeltaTime;
 	mainPassCB.data.TotalTime += mainPassCB.data.DeltaTime;
 	mainPassCB.data.renderVRS = renderVRS;
-	
+
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
 	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
-	ssaoConstantCB.data.lightPos = DirectX::XMFLOAT4(sin(mainPassCB.data.TotalTime / 5.0) * 600, 100.0, 0.0, 1.0);
+	ssaoConstantCB.data.lightPos = { mergeConstantCB.data.lights[0].pos.x, mergeConstantCB.data.lights[0].pos.y, mergeConstantCB.data.lights[0].pos.z, 1.0f };
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 
 	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	mergeConstantCB.data.viewPos = mainPassCB.data.EyePosW;
 	mergeConstantCB.data.numPointLights = 1;
-	mergeConstantCB.data.lights[0].strength = 1500.0;
-	mergeConstantCB.data.lights[0].pos = DirectX::XMFLOAT3(sin(mainPassCB.data.TotalTime / 5.0) * 600, 200.0, 0.0);
 
 	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
