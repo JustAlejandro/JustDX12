@@ -22,11 +22,11 @@
 std::string baseDir = "..\\Models";
 std::string inputfile = "teapot.obj";
 std::string sponzaDir = baseDir + "\\sponza";
-std::string sponzaFile = "sponza.obj";
+std::string sponzaFile = "sponza.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
-std::string armorFile = "armor.obj";
+std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
-std::string headFile = "head.obj";
+std::string headFile = "head.fbx";
 
 std::string warn;
 std::string err;

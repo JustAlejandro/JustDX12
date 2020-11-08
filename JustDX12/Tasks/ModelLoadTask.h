@@ -21,9 +21,8 @@ public:
 
 		Assimp::Importer importer;
 		OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());
-		const aiScene* scene2 = importer.ReadFile(model->dir + "\\" + model->name,
+		const aiScene* scene = importer.ReadFile(model->dir + "\\" + model->name,
 			aiProcess_Triangulate | aiProcess_FlipUVs);
-		const aiScene* scene = importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 			std::string error = importer.GetErrorString();
 			OutputDebugStringA(("ERROR::ASSIMP::" + error).c_str());

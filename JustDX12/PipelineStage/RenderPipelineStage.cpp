@@ -205,7 +205,7 @@ void RenderPipelineStage::drawRenderObjects() {
 
 		if (renderStageDesc.supportsCulling && occlusionCull && frustrum.Contains(model->boundingBox) != (DirectX::ContainmentType::INTERSECTS)) {
 			DirectX::ContainmentType containType =  frustrum.Contains(model->boundingBox);
-			if (containType == DirectX::ContainmentType::CONTAINS) {
+			if (model->boundingBox.Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS) {
 				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)modelIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
 			else {
