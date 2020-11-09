@@ -79,12 +79,14 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	int occludeCount = 20;
 	for (int j = 0; j < 20; j++)
 	{
-		worldPos.xyz += lightDir * 0.1;
+		worldPos.xyz += lightDir * 0.05;
 		float4 result = mul(worldPos, ViewProj);
 		result /= result.w;
 		result.xy = result.xy * 0.5 + 0.5;
 		result.y = result.y * -1.0 + 1.0;
-		if (depthTex[clampEdges((int2) (result.xy * resolution))].x < result.z)
+		result.z = linDepth(result.z);
+		float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
+		if (compareDepth < result.z && result.z - compareDepth < 60.0)
 		{
 			occludeCount--;
 		}
