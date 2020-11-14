@@ -5,7 +5,17 @@
 #include <dxcapi.h>
 #include <vector>
 
-Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList5* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer) {
+UINT32 GetFormatSize(DXGI_FORMAT format) {
+	switch (format) {
+	case DXGI_FORMAT_R32G32B32A32_FLOAT: return 16;
+	case DXGI_FORMAT_R32G32B32_FLOAT: return 12;
+	case DXGI_FORMAT_R32G32_FLOAT: return 8;
+	case DXGI_FORMAT_R32_FLOAT: return 4;
+	default: throw std::exception("Unimplemented type");
+	}
+}
+
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device2* device, ID3D12GraphicsCommandList5* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer) {
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
 
@@ -106,7 +116,8 @@ DirectX::XMFLOAT4X4 Identity() {
 
 UINT CalcConstantBufferByteSize(UINT byteSize) {
 	// Constant buffers have to be multiples of 256 byte size
-	return (byteSize + 255) & ~255;
+	int constBufferSize = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+	return (byteSize + constBufferSize - 1) & ~(constBufferSize - 1);
 }
 
 UINT CalcBufferByteSize(UINT byteSize, UINT alignment) {

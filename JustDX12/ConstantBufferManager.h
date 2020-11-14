@@ -4,12 +4,12 @@
 
 class ConstantBufferManager {
 public:
-	ConstantBufferManager(ComPtr<ID3D12Device> device);
+	ConstantBufferManager(ComPtr<ID3D12Device2> device);
 
 	DX12ConstantBuffer* getConstantBuffer(std::string name);
 	DX12ConstantBuffer* makeConstantBuffer(ConstantBufferJob job);
 private:
 	std::unordered_map<std::string, DX12ConstantBuffer> buffers;
-	ComPtr<ID3D12Device> device = nullptr;
+	ComPtr<ID3D12Device2> device = nullptr;
 };
 

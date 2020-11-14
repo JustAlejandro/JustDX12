@@ -21,7 +21,7 @@ DX12App* DX12App::getApp() {
 	return app;
 }
 
-Microsoft::WRL::ComPtr<ID3D12Device> DX12App::getDevice() {
+Microsoft::WRL::ComPtr<ID3D12Device2> DX12App::getDevice() {
 	return getApp()->md3dDevice;
 }
 

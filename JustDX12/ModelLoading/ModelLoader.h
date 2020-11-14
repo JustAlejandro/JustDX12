@@ -11,10 +11,12 @@
 #include "Tasks\ModelLoadTask.h"
 
 class Model;
+class MeshletModel;
 
 class ModelLoader: public TaskQueueThread {
 public:
-	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
+	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice);
 	Model* loadModel(std::string name, std::string dir);
+	MeshletModel* loadMeshletModel(std::string name, std::string dir);
 };
 

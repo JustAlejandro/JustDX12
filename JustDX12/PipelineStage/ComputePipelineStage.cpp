@@ -1,6 +1,6 @@
 #include "PipelineStage\ComputePipelineStage.h"
 
-ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, ComputePipelineDesc computeDesc)
+ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, ComputePipelineDesc computeDesc)
 	: PipelineStage(d3dDevice), computeStageDesc(computeDesc) {
 }
 
@@ -49,7 +49,11 @@ void ComputePipelineStage::BuildPSO() {
 	}
 }
 
-void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {
+void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
+	if (curRootParamDescs == nullptr) {
+		curRootParamDescs = rootParameterDescs;
+	}
+
 	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
 		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);

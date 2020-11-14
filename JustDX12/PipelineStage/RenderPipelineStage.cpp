@@ -4,9 +4,11 @@
 #include "RenderPipelineStageTask.h"
 #include <string>
 #include "Settings.h"
+#include "MeshletModel.h"
+#include <d3dx12.h>
 #include <DirectXCollision.h>
 
-RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
+RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
 	: PipelineStage(d3dDevice), renderStageDesc(renderDesc) {
 	this->viewport = viewport;
 	this->scissorRect = scissorRect;
@@ -55,9 +57,16 @@ void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, s
 	renderObjects.push_back(loader->loadModel(fileName, dirName));
 }
 
+void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName) {
+	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName));
+}
+
 RenderPipelineStage::~RenderPipelineStage() {
 	for (Model* m : renderObjects) {
 		delete m;
+	}
+	for (MeshletModel* mm : meshletRenderObjects) {
+		delete mm;
 	}
 }
 
@@ -86,6 +95,33 @@ void RenderPipelineStage::BuildPSO() {
 	if (FAILED(md3dDevice->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)))) {
 		OutputDebugStringA("PSO Setup Failed");
 		throw "PSO FAIL";
+	}
+
+	if (shadersByType.find(SHADER_TYPE_MS) != shadersByType.end()) {
+		D3DX12_MESH_SHADER_PIPELINE_STATE_DESC meshPSODesc = {};
+		meshPSODesc.pRootSignature = meshRootSignature.Get();
+		meshPSODesc.MS.pShaderBytecode = shadersByType[SHADER_TYPE_MS]->GetBufferPointer();
+		meshPSODesc.MS.BytecodeLength = shadersByType[SHADER_TYPE_MS]->GetBufferSize();
+		meshPSODesc.PS = graphicsPSO.PS;
+		meshPSODesc.NumRenderTargets = renderTargetDescs.size();
+		for (int i = 0; i < renderTargetDescs.size(); i++) {
+			meshPSODesc.RTVFormats[i] = COLOR_TEXTURE_FORMAT;
+		}
+		meshPSODesc.SampleDesc.Count = 1;
+		meshPSODesc.SampleDesc.Quality = 0;
+		meshPSODesc.DSVFormat = DEPTH_TEXTURE_DSV_FORMAT;
+		meshPSODesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		meshPSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		meshPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		meshPSODesc.SampleMask = UINT_MAX;
+
+		auto psoStream = CD3DX12_PIPELINE_MESH_STATE_STREAM(meshPSODesc);
+
+		D3D12_PIPELINE_STATE_STREAM_DESC streamDesc;
+		streamDesc.pPipelineStateSubobjectStream = &psoStream;
+		streamDesc.SizeInBytes = sizeof(psoStream);
+
+		ThrowIfFailed(md3dDevice->CreatePipelineState(&streamDesc, IID_PPV_ARGS(&meshletPSO)));
 	}
 
 	if (renderStageDesc.supportsCulling) {
@@ -132,7 +168,11 @@ void RenderPipelineStage::BuildQueryHeap() {
 	}
 }
 
-void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex) {
+void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
+	if (curRootParamDescs == nullptr) {
+		curRootParamDescs = rootParameterDescs;
+	}
+
 	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
 		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);

@@ -2,6 +2,7 @@
 #include "Tasks\Task.h"
 #include "ModelLoading\Model.h"
 #include "Tasks\TaskQueueThread.h"
+#include "MeshletModel.h"
 
 #include <iostream>
 #include <assimp/Importer.hpp>      // C++ importer interface
@@ -39,6 +40,35 @@ public:
 
 private:
 	Model* model;
+	TaskQueueThread* taskQueueThread;
+};
+
+class MeshletModelLoadTask : public Task {
+public:
+	MeshletModelLoadTask(TaskQueueThread* taskQueueThread, MeshletModel* model) {
+		this->model = model;
+		this->taskQueueThread = taskQueueThread;
+	}
+
+	void execute() override {
+		taskQueueThread->mDirectCmdListAlloc->Reset();
+		taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
+
+		OutputDebugStringA(("Starting to Load Meshlet Model: " + model->name + "\n").c_str());
+
+		model->LoadFromFile(model->dir + "\\" + model->name);
+
+		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
+
+		model->UploadGpuResources(taskQueueThread->md3dDevice.Get(), taskQueueThread->mCommandQueue.Get(), taskQueueThread->mDirectCmdListAlloc.Get(), taskQueueThread->mCommandList.Get());
+
+		OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
+	}
+
+	virtual ~MeshletModelLoadTask() override = default;
+
+private:
+	MeshletModel* model;
 	TaskQueueThread* taskQueueThread;
 };
 

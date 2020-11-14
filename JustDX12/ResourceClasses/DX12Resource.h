@@ -21,7 +21,7 @@ DEFINE_ENUM_FLAG_OPERATORS(DESCRIPTOR_TYPE);
 class DX12Resource {
 public:
 	DX12Resource(DESCRIPTOR_TYPES types, ID3D12Resource* res, D3D12_RESOURCE_STATES state);
-	DX12Resource(ComPtr<ID3D12Device> device, DESCRIPTOR_TYPES types, 
+	DX12Resource(ComPtr<ID3D12Device2> device, DESCRIPTOR_TYPES types, 
 		DXGI_FORMAT format, UINT texHeight, UINT texWidth);
 	void changeState(ComPtr<ID3D12GraphicsCommandList5> cmdList, D3D12_RESOURCE_STATES destState);
 	ID3D12Resource* get();

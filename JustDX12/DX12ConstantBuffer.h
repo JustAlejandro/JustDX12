@@ -13,7 +13,7 @@ struct ConstantBufferJob {
 
 class DX12ConstantBuffer {
 public:
-	DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device* device);
+	DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device2* device);
 	~DX12ConstantBuffer();
 
 	ID3D12Resource* get();

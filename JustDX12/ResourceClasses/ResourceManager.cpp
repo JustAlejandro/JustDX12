@@ -1,7 +1,7 @@
 #include "ResourceClasses\ResourceManager.h"
 #include <stdexcept>
 
-ResourceManager::ResourceManager(ComPtr<ID3D12Device> device) {
+ResourceManager::ResourceManager(ComPtr<ID3D12Device2> device) {
 	this->device = device;
 }
 

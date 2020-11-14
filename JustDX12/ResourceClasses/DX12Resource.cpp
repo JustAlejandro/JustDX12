@@ -8,7 +8,7 @@ DX12Resource::DX12Resource(DESCRIPTOR_TYPES types, ID3D12Resource* res, D3D12_RE
 	this->format = res->GetDesc().Format;
 }
 
-DX12Resource::DX12Resource(ComPtr<ID3D12Device> device, DESCRIPTOR_TYPES types, DXGI_FORMAT format, UINT texHeight, UINT texWidth) {
+DX12Resource::DX12Resource(ComPtr<ID3D12Device2> device, DESCRIPTOR_TYPES types, DXGI_FORMAT format, UINT texHeight, UINT texWidth) {
 	curState = D3D12_RESOURCE_STATE_COMMON;
 	type = types;
 	this->format = format;

@@ -1,6 +1,6 @@
 #include "ConstantBufferManager.h"
 
-ConstantBufferManager::ConstantBufferManager(ComPtr<ID3D12Device> device) {
+ConstantBufferManager::ConstantBufferManager(ComPtr<ID3D12Device2> device) {
 	this->device = device;
 }
 

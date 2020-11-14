@@ -22,7 +22,8 @@ enum SHADER_TYPE {
 	SHADER_TYPE_VS = 0,
 	SHADER_TYPE_PS,
 	SHADER_TYPE_CS,
-	SHADER_TYPE_GS
+	SHADER_TYPE_GS,
+	SHADER_TYPE_MS
 };
 
 struct RootParamDesc {
@@ -32,10 +33,6 @@ struct RootParamDesc {
 	D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	int numConstants = 1;
 	DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL;
-};
-
-struct SamplerDesc {
-	int empty = 0;
 };
 
 struct RenderTargetDesc {
@@ -53,7 +50,6 @@ struct ShaderDesc {
 
 struct PipeLineStageDesc {
 	std::vector<RootParamDesc> rootSigDesc;
-	std::vector<SamplerDesc> samplerDesc;
 	std::vector<DescriptorJob> descriptorJobs;
 	std::vector<ResourceJob> resourceJobs;
 	std::vector<ConstantBufferJob> constantBufferJobs;
@@ -77,9 +73,9 @@ public:
 	virtual void Execute() = 0;
 
 protected:
-	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice);
+	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice);
 	void LoadTextures(std::vector<std::pair<std::string, std::string>> textureFiles);
-	void BuildRootSignature(PipeLineStageDesc stageDesc);
+	void BuildRootSignature(std::vector<RootParamDesc> rootSigDescs);
 	void BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs);
 	void BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs);
 	void BuildResources(std::vector<ResourceJob>& resourceJobs);
@@ -93,7 +89,7 @@ protected:
 	DESCRIPTOR_TYPE getDescriptorTypeFromRootParameterDesc(RootParamDesc desc);
 	void resetCommandList();
 	void bindDescriptorHeaps();
-	virtual void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0)=0;
+	virtual void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr)=0;
 	void setResourceStates();
 protected:
 	PipeLineStageDesc stageDesc;

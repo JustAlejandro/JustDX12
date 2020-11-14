@@ -20,7 +20,7 @@ protected:
 public:
 	static DX12App* getApp();
 
-	static Microsoft::WRL::ComPtr<ID3D12Device> getDevice();
+	static Microsoft::WRL::ComPtr<ID3D12Device2> getDevice();
 
 	float getAspectRatio()const;
 
@@ -64,7 +64,7 @@ protected:
 
 	Microsoft::WRL::ComPtr<IDXGIFactory6> mdxgiFactory;
 	Microsoft::WRL::ComPtr<IDXGISwapChain> mSwapChain;
-	Microsoft::WRL::ComPtr<ID3D12Device> md3dDevice;
+	Microsoft::WRL::ComPtr<ID3D12Device2> md3dDevice;
 
 	Microsoft::WRL::ComPtr<ID3D12Fence> mFence;
 	UINT64 mCurrentFence = 0;

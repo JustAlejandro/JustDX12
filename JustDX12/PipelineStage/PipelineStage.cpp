@@ -6,7 +6,7 @@
 
 using namespace Microsoft::WRL;
 
-PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice)
+PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice)
 	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
 }
 
@@ -56,7 +56,7 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 		resourceManager.importResource(res.first, res.second);
 	}
 	renderTargetDescs = stageDesc.renderTargets;
-	BuildRootSignature(stageDesc);
+	BuildRootSignature(stageDesc.rootSigDesc);
 	BuildResources(stageDesc.resourceJobs);
 	BuildConstantBuffers(stageDesc.constantBufferJobs);
 	BuildShaders(stageDesc.shaderFiles);
@@ -65,20 +65,19 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	this->stageDesc = stageDesc;
 }
 
-void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
-	assert(stageDesc.samplerDesc.size() == 0);
-	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(stageDesc.rootSigDesc.size(), CD3DX12_ROOT_PARAMETER());
+void PipelineStage::BuildRootSignature(std::vector<RootParamDesc> rootSigDescs) {
+	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(rootSigDescs.size(), CD3DX12_ROOT_PARAMETER());
 	std::vector<int> shaderRegisters(ROOT_PARAMETER_TYPE_MAX_LENGTH, 0);
-	std::vector<CD3DX12_DESCRIPTOR_RANGE> tables(stageDesc.rootSigDesc.size(), CD3DX12_DESCRIPTOR_RANGE());
+	std::vector<CD3DX12_DESCRIPTOR_RANGE> tables(rootSigDescs.size(), CD3DX12_DESCRIPTOR_RANGE());
 
-	for (int i = 0; i < stageDesc.rootSigDesc.size(); i++) {
-		initRootParameterFromType(rootParameters[i], stageDesc.rootSigDesc[i], shaderRegisters, tables[i]);
+	for (int i = 0; i < rootSigDescs.size(); i++) {
+		initRootParameterFromType(rootParameters[i], rootSigDescs[i], shaderRegisters, tables[i]);
 	}
 
 	auto samplers = GetStaticSamplers();
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-		stageDesc.rootSigDesc.size(),
+		rootSigDescs.size(),
 		rootParameters.data(),
 		(UINT)samplers.size(),
 		samplers.data(),
@@ -97,7 +96,7 @@ void PipelineStage::BuildRootSignature(PipeLineStageDesc stageDesc) {
 	md3dDevice->CreateRootSignature(0, serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf()));
 
-	for (RootParamDesc& desc : stageDesc.rootSigDesc) {
+	for (RootParamDesc& desc : rootSigDescs) {
 		rootParameterDescs[desc.usagePattern].push_back(desc);
 	}
 }
@@ -185,6 +184,8 @@ std::wstring PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
 		return L"cs_6_4";
 	case SHADER_TYPE_GS:
 		return L"gs_6_4";
+	case SHADER_TYPE_MS:
+		return L"ms_6_4";
 	default:
 		return L"";
 		break;

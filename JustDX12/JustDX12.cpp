@@ -27,6 +27,7 @@ std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
 std::string headFile = "head.fbx";
+std::string dragonMeshlet = "Dragon_LOD0.bin";
 
 std::string warn;
 std::string err;
@@ -144,6 +145,7 @@ DemoApp::~DemoApp() {
 	delete modelLoader;
 	delete computeStage;
 	delete renderStage;
+	delete mergeStage;
 	delete vrsComputeStage;
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
@@ -236,7 +238,6 @@ bool DemoApp::initialize() {
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
 		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],outTexArray[5],depthTex,vrsTex };
 		rasterDesc.rootSigDesc = { perObjRoot, perMeshTexRoot, perPassRoot };
-		rasterDesc.samplerDesc = {};
 		rasterDesc.shaderFiles = { vs, ps };
 		rasterDesc.textureFiles = {
 			{"default_normal", "default_bump.dds"},
@@ -309,7 +310,6 @@ bool DemoApp::initialize() {
 		PipeLineStageDesc stageDesc;
 		stageDesc.descriptorJobs = { {constantsDesc, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
 		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, colorPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
-		stageDesc.samplerDesc = {};
 		stageDesc.resourceJobs = { outTex };
 		stageDesc.shaderFiles = { SSAOShaders };
 		stageDesc.constantBufferJobs = { cbOut };
@@ -470,6 +470,7 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
+	renderStage->LoadMeshletModel(modelLoader, dragonMeshlet, baseDir);
 	renderStage->LoadModel(modelLoader, armorFile, armorDir);
 	renderStage->LoadModel(modelLoader, headFile, headDir);
 
@@ -524,7 +525,7 @@ void DemoApp::draw() {
 	frametime.push_back(ImGui::GetIO().DeltaTime * 1000);
 	if (frametime.size() > 1000) frametime.pop_front();
 	std::vector<float> frametimeVec(frametime.begin(), frametime.end());
-	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 0.0f, 14.0f, ImVec2(ImGui::GetWindowWidth(), 300));
+	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 2.0f, 10.0f, ImVec2(ImGui::GetWindowWidth(), 300));
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
 	ImGui::Checkbox("Freeze Culling", &freezeCull);

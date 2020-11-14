@@ -37,10 +37,9 @@
     <ClCompile Include="DX12ConstantBuffer.cpp" />
     <ClCompile Include="ConstantBufferManager.cpp" />
     <ClCompile Include="KeyboardWrapper.cpp" />
-    <ClCompile Include="MeshletPipelineStage.cpp">
-      <Filter>Pipelines</Filter>
+    <ClCompile Include="MeshletModel.cpp">
+      <Filter>ModelLoading</Filter>
     </ClCompile>
-    <ClCompile Include="MeshletModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -100,10 +99,9 @@
       <Filter>Resources</Filter>
     </ClInclude>
     <ClInclude Include="KeyboardWrapper.h" />
-    <ClInclude Include="MeshletPipelineStage.h">
-      <Filter>Pipelines</Filter>
+    <ClInclude Include="MeshletModel.h">
+      <Filter>ModelLoading</Filter>
     </ClInclude>
-    <ClInclude Include="MeshletModel.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
