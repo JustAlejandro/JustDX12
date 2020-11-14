@@ -56,26 +56,48 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 
 	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
-		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
 
-		switch (descriptorType) {
-		case DESCRIPTOR_TYPE_NONE:
-			throw "Not sure what this is";
-		case DESCRIPTOR_TYPE_SRV:
-			mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
-				descriptor->gpuHandle);
-			break;
-		case DESCRIPTOR_TYPE_UAV:
-			mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
-				descriptor->gpuHandle);
-			break;
-		case DESCRIPTOR_TYPE_CBV:
-			mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
-				descriptor->gpuHandle);
-			break;
-		default:
-			throw "Don't know what to do here.";
-			break;
+		if (rootParameterDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
+			DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
+
+			switch (descriptorType) {
+			case DESCRIPTOR_TYPE_NONE:
+				throw "Not sure what this is";
+			case DESCRIPTOR_TYPE_SRV:
+				mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
+					descriptor->gpuHandle);
+				break;
+			case DESCRIPTOR_TYPE_UAV:
+				mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
+					descriptor->gpuHandle);
+				break;
+			case DESCRIPTOR_TYPE_CBV:
+				mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
+					descriptor->gpuHandle);
+				break;
+			default:
+				throw "Don't know what to do here.";
+				break;
+			}
+		}
+		else {
+			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();
+			switch (descriptorType) {
+			case DESCRIPTOR_TYPE_NONE:
+				OutputDebugStringA("Not sure what this is");
+			case DESCRIPTOR_TYPE_SRV:
+				mCommandList->SetComputeRootShaderResourceView(rootParameterDescs[usage][i].slot, resource);
+				break;
+			case DESCRIPTOR_TYPE_UAV:
+				mCommandList->SetComputeRootUnorderedAccessView(rootParameterDescs[usage][i].slot, resource);
+				break;
+			case DESCRIPTOR_TYPE_CBV:
+				mCommandList->SetComputeRootConstantBufferView(rootParameterDescs[usage][i].slot, resource);
+				break;
+			default:
+				throw "Don't know what to do here.";
+				break;
+			}
 		}
 	}
 }

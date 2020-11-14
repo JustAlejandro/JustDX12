@@ -14,6 +14,7 @@ struct RenderPipelineDesc {
 class RenderPipelineStage : public PipelineStage {
 public:
 	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
+	void setup(PipeLineStageDesc stageDesc) override;
 	void Execute() override;
 	void LoadModel(ModelLoader* loader, std::string fileName, std::string dirName);
 	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName);

@@ -15,6 +15,29 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d
 	frustrumCull = true;
 }
 
+void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
+	std::vector<RootParamDesc> meshParams;
+	meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
+		0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+	meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
+		1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+	meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
+		2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+	meshParams.push_back({ "UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV,
+		3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+	meshParams.push_back({ "PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV,
+		4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+	meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
+		5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+
+	for (RootParamDesc param : stageDesc.rootSigDesc) {
+		// Require 8 params for the mesh shader, so we push the root sig back.
+		param.slot += 6;
+		meshParams.push_back(param);
+	}
+	PipelineStage::setup(stageDesc);
+}
+
 void RenderPipelineStage::Execute() {
 	if (!allRenderObjectsSetup) {
 		setupRenderObjects();
@@ -175,30 +198,51 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 
 	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
-		DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
-		if (descriptor == nullptr) {
-			// For now just ignoring because if a texture doesn't exist we'll just assume it'll be fine.
-			// Different PSOs for different texturing would fix this.
-			continue;
+		if (rootParameterDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
+			DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
+			if (descriptor == nullptr) {
+				// For now just ignoring because if a texture doesn't exist we'll just assume it'll be fine.
+				// Different PSOs for different texturing would fix this.
+				continue;
+			}
+			switch (descriptorType) {
+			case DESCRIPTOR_TYPE_NONE:
+				OutputDebugStringA("Not sure what this is");
+			case DESCRIPTOR_TYPE_SRV:
+				mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
+					descriptor->gpuHandle);
+				break;
+			case DESCRIPTOR_TYPE_UAV:
+				mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
+					descriptor->gpuHandle);
+				break;
+			case DESCRIPTOR_TYPE_CBV:
+				mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
+					descriptor->gpuHandle);
+				break;
+			default:
+				throw "Don't know what to do here.";
+				break;
+			}
 		}
-		switch (descriptorType) {
-		case DESCRIPTOR_TYPE_NONE:
-			OutputDebugStringA("Not sure what this is");
-		case DESCRIPTOR_TYPE_SRV:
-			mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
-				descriptor->gpuHandle);
-			break;
-		case DESCRIPTOR_TYPE_UAV:
-			mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
-				descriptor->gpuHandle);
-			break;
-		case DESCRIPTOR_TYPE_CBV:
-			mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
-				descriptor->gpuHandle);
-			break;
-		default:
-			throw "Don't know what to do here.";
-			break;
+		else {
+			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();
+			switch (descriptorType) {
+			case DESCRIPTOR_TYPE_NONE:
+				OutputDebugStringA("Not sure what this is");
+			case DESCRIPTOR_TYPE_SRV:
+				mCommandList->SetGraphicsRootShaderResourceView(rootParameterDescs[usage][i].slot, resource);
+				break;
+			case DESCRIPTOR_TYPE_UAV:
+				mCommandList->SetGraphicsRootUnorderedAccessView(rootParameterDescs[usage][i].slot, resource);
+				break;
+			case DESCRIPTOR_TYPE_CBV:
+				mCommandList->SetGraphicsRootConstantBufferView(rootParameterDescs[usage][i].slot, resource);
+				break;
+			default:
+				throw "Don't know what to do here.";
+				break;
+			}
 		}
 	}
 }

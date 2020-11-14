@@ -75,7 +75,7 @@ public:
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice);
 	void LoadTextures(std::vector<std::pair<std::string, std::string>> textureFiles);
-	void BuildRootSignature(std::vector<RootParamDesc> rootSigDescs);
+	void BuildRootSignature(std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr);
 	void BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs);
 	void BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs);
 	void BuildResources(std::vector<ResourceJob>& resourceJobs);

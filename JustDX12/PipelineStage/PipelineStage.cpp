@@ -56,7 +56,7 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 		resourceManager.importResource(res.first, res.second);
 	}
 	renderTargetDescs = stageDesc.renderTargets;
-	BuildRootSignature(stageDesc.rootSigDesc);
+	BuildRootSignature(stageDesc.rootSigDesc, rootParameterDescs);
 	BuildResources(stageDesc.resourceJobs);
 	BuildConstantBuffers(stageDesc.constantBufferJobs);
 	BuildShaders(stageDesc.shaderFiles);
@@ -65,7 +65,7 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	this->stageDesc = stageDesc;
 }
 
-void PipelineStage::BuildRootSignature(std::vector<RootParamDesc> rootSigDescs) {
+void PipelineStage::BuildRootSignature(std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(rootSigDescs.size(), CD3DX12_ROOT_PARAMETER());
 	std::vector<int> shaderRegisters(ROOT_PARAMETER_TYPE_MAX_LENGTH, 0);
 	std::vector<CD3DX12_DESCRIPTOR_RANGE> tables(rootSigDescs.size(), CD3DX12_DESCRIPTOR_RANGE());
@@ -97,7 +97,7 @@ void PipelineStage::BuildRootSignature(std::vector<RootParamDesc> rootSigDescs) 
 		serializedRootSig->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf()));
 
 	for (RootParamDesc& desc : rootSigDescs) {
-		rootParameterDescs[desc.usagePattern].push_back(desc);
+		targetRootParamDescs[desc.usagePattern].push_back(desc);
 	}
 }
 
@@ -108,6 +108,7 @@ void PipelineStage::BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs)
 void PipelineStage::BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs) {
 	for (ConstantBufferJob& job : constantBufferJobs) {
 		constantBufferManager.makeConstantBuffer(job);
+		resourceManager.makeFromExisting(job.name, DESCRIPTOR_TYPE_NONE, constantBufferManager.getConstantBuffer(job.name)->get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 		delete job.initialData;
 	}
 }
@@ -149,8 +150,7 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 		param.InitAsConstants(desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANTS]++);
 		break;
 	case ROOT_PARAMETER_TYPE_CONSTANT_BUFFER:
-		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
-		param.InitAsDescriptorTable(1, &table);
+		param.InitAsConstantBufferView(registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
 		break;
 	case ROOT_PARAMETER_TYPE_SRV:
 		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_SRV]++);

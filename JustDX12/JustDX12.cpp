@@ -160,8 +160,6 @@ bool DemoApp::initialize() {
 	{
 		DescriptorJob perObjectConstants0 = { "PerObjectConstDesc", "PerObjectConstants0",
 			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_OBJECT };
-		DescriptorJob perPassConstants = { "PerPassConstDesc", "PerPassConstants",
-			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_PASS };
 
 		DescriptorJob rtvDescs[6];
 		rtvDescs[0].name = "outTexDesc[0]";
@@ -192,11 +190,11 @@ bool DemoApp::initialize() {
 		dsvDesc.dsvDesc = DEFAULT_DSV_DESC();
 		dsvDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		dsvDesc.usageIndex = 0;
-		RootParamDesc perObjRoot = { "PerObjectConstDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 
+		RootParamDesc perObjRoot = { "PerObjectConstDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT };
-		RootParamDesc perMeshTexRoot = { "texture_diffuse", ROOT_PARAMETER_TYPE_SRV,
+		RootParamDesc perMeshTexRoot = { "texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, DESCRIPTOR_USAGE_PER_MESH };
-		RootParamDesc perPassRoot = { "PerPassConstDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
+		RootParamDesc perPassRoot = { "PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		ResourceJob vrsTex = { "VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT,
 			(SCREEN_HEIGHT+vrsSupport.ShadingRateImageTileSize-1) / vrsSupport.ShadingRateImageTileSize,
@@ -232,7 +230,7 @@ bool DemoApp::initialize() {
 
 		PipeLineStageDesc rasterDesc;
 		rasterDesc.constantBufferJobs = { perObjectJob0, perPassJob };
-		rasterDesc.descriptorJobs = { perObjectConstants0, perPassConstants,
+		rasterDesc.descriptorJobs = { perObjectConstants0,
 			rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
@@ -253,8 +251,6 @@ bool DemoApp::initialize() {
 	}
 
 	{
-		DescriptorJob constantsDesc = { "SSAOConstantsDesc", "SSAOConstants", DESCRIPTOR_TYPE_CBV, 
-			{}, 0, DESCRIPTOR_USAGE_PER_PASS };
 		DescriptorJob depthTex = { "inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV,
 			DEFAULT_SRV_DESC(), 0, DESCRIPTOR_USAGE_PER_PASS };
 		depthTex.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
@@ -280,11 +276,11 @@ bool DemoApp::initialize() {
 		outTexDesc.uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
 		outTexDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		outTexDesc.usageIndex = 0;
-		RootParamDesc cbvPDesc = { "SSAOConstantsDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
+		RootParamDesc cbvPDesc = { "SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc rootPDesc = { "inputDepth", ROOT_PARAMETER_TYPE_SRV,
+		RootParamDesc rootPDesc = { "inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc colorPDesc = { "colorTex", ROOT_PARAMETER_TYPE_SRV,
+		RootParamDesc colorPDesc = { "colorTex", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		RootParamDesc normalPDesc = colorPDesc;
 		normalPDesc.name = "normalTex";
@@ -298,7 +294,7 @@ bool DemoApp::initialize() {
 		RootParamDesc worldPDesc = normalPDesc;
 		worldPDesc.name = "worldTex";
 		worldPDesc.slot = 6;
-		RootParamDesc uavPDesc = { "SSAOOut", ROOT_PARAMETER_TYPE_UAV,
+		RootParamDesc uavPDesc = { "SSAOOut", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			7, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		ResourceJob outTex;
 		outTex.name = "SSAOOutTexture";
@@ -308,7 +304,7 @@ bool DemoApp::initialize() {
 		ShaderDesc SSAOShaders = { "SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {} };
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { {constantsDesc, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
+		stageDesc.descriptorJobs = { {depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
 		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, colorPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
 		stageDesc.resourceJobs = { outTex };
 		stageDesc.shaderFiles = { SSAOShaders };
@@ -332,8 +328,6 @@ bool DemoApp::initialize() {
 	}
 
 	{
-		DescriptorJob perPassConstants = { "MergeConstDesc", "MergeConstants",
-			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_PASS };
 		DescriptorJob outDepthTex = { "outputDepth", "outputDepthTex" , DESCRIPTOR_TYPE_DSV,
 			{}, 0, DESCRIPTOR_USAGE_ALL };
 		outDepthTex.dsvDesc = DEFAULT_DSV_DESC();
@@ -369,7 +363,7 @@ bool DemoApp::initialize() {
 		mergedTex.type = DESCRIPTOR_TYPE_RTV;
 		mergedTex.rtvDesc = DEFAULT_RTV_DESC();
 		std::vector<RootParamDesc> params;
-		params.push_back({ "MergeConstDesc", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
+		params.push_back({ "MergeConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_ALL });
 		// Trying to bind all textures at once to be efficient.
 		params.push_back({ "SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
@@ -385,7 +379,7 @@ bool DemoApp::initialize() {
 		ShaderDesc mergeShaderPS = { "Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, defines };
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { perPassConstants, outDepthTex, ssaoTex, colorTex, specTex,
+		stageDesc.descriptorJobs = { outDepthTex, ssaoTex, colorTex, specTex,
 			normalTex, tangentTex, biNormalTex, worldTex, mergedTex };
 		stageDesc.constantBufferJobs = { mergedCB };
 		stageDesc.renderTargets = { mergedTarget };
@@ -432,14 +426,14 @@ bool DemoApp::initialize() {
 		outTexDesc.usageIndex = 0;
 		RootParamDesc rootPDesc;
 		rootPDesc.name = "inputDepth";
-		rootPDesc.type = ROOT_PARAMETER_TYPE_SRV;
+		rootPDesc.type = ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		rootPDesc.numConstants = 1;
 		rootPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		rootPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
 		rootPDesc.slot = 0;
 		RootParamDesc uavPDesc;
 		uavPDesc.name = "VrsOut";
-		uavPDesc.type = ROOT_PARAMETER_TYPE_UAV;
+		uavPDesc.type = ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		uavPDesc.numConstants = 1;
 		uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 		uavPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
@@ -471,8 +465,8 @@ bool DemoApp::initialize() {
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	renderStage->LoadMeshletModel(modelLoader, dragonMeshlet, baseDir);
-	renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	renderStage->LoadModel(modelLoader, headFile, headDir);
+	//renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	//renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
