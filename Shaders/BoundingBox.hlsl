@@ -1,35 +1,8 @@
-cbuffer cbPerObject : register(b0)
-{
-	float4x4 world;
-}
+#include "Common.hlsl"
 
-cbuffer cbPass : register(b1)
-{
-	float4x4 View;
-	float4x4 InvView;
-	float4x4 Proj;
-	float4x4 InvProj;
-	float4x4 ViewProj;
-	float4x4 InvViewProj;
-	float3 EyePosW;
-	float cbPerObjectPad;
-	float2 RenderTargetSize;
-	float2 InvRenderTargetSize;
-	float NearZ;
-	float FarZ;
-	float TotalTime;
-	float DeltaTime;
-	float VrsShort;
-	float VrsMedium;
-	float VrsLong;
-	int renderVRS;
-}
+ConstantBuffer<PerObject> PerObject : register(b0);
 
-Texture2D gDiffuseMap : register(t0);
-Texture2D gSpecularMap : register(t1);
-Texture2D gNormalMap : register(t2);
-SamplerState gsamLinear : register(s0);
-SamplerState anisoWrap : register(s4);
+ConstantBuffer<PerPass> PerPass : register(b1);
 
 struct VBoundingBoxIn
 {
@@ -59,8 +32,8 @@ struct PBoundingBoxOut
 VBoundingBoxOut VS(VBoundingBoxIn vin) 
 {
 	VBoundingBoxOut vout;
-	vout.center = mul(float4(vin.center, 1.0f), world).xyz;
-	vout.extents = mul(float4(vin.extents, 0.0f), world).xyz;
+	vout.center = mul(float4(vin.center, 1.0f), PerObject.world).xyz;
+	vout.extents = mul(float4(vin.extents, 0.0f), PerObject.world).xyz;
 	return vout;
 }
 
@@ -90,7 +63,7 @@ void GS(point VBoundingBoxOut gin[1], inout TriangleStream<GBoundingBoxOut> triS
 	[unroll]
 	for (int i = 0; i < 14; i++) 
 	{
-		gout.pos = mul(float4(verts[i],1.0f), ViewProj);
+		gout.pos = mul(float4(verts[i],1.0f), PerPass.ViewProj);
 		triStream.Append(gout);
 	}
 }

@@ -1,14 +1,4 @@
-
-
-struct Light
-{
-	float3 pos;
-	float strength;
-	float3 dir;
-	int padding;
-	float3 color;
-	float fov;
-};
+#include "Common.hlsl"
 
 struct VertexIn
 {
@@ -19,26 +9,17 @@ struct VertexIn
 	float2 TexC : TEXCOORD;
 };
 
-struct VertexOut
+struct VertexOutMerge
 {
 	float4 PosH : SV_Position;
 	float2 TexC : TEXCOORD;
 };
 
-struct PixelOut {
+struct PixelOutMerge {
 	float4 color : SV_Target0;
 };
 
-cbuffer cbMerge : register(b0)
-{
-	float3 viewPos;
-	int ipadding;
-	int numPointLights;
-	int numDirectionalLights;
-	int numSpotLights;
-	float padding;
-	Light lights[MAX_LIGHTS];
-};
+ConstantBuffer<Merge> Merge : register(b0);
 
 Texture2D ssaoTex : register(t0);
 Texture2D colorTex : register(t1);
@@ -50,31 +31,31 @@ Texture2D worldTex : register(t6);
 
 SamplerState gsamPoint : register(s1);
 
-VertexOut MergeVS(VertexIn vin)
+VertexOutMerge MergeVS(VertexIn vin)
 {
-	VertexOut vout;
+	VertexOutMerge vout;
 	vout.PosH = float4(vin.PosL,1.0);
 	vout.TexC = vin.TexC;
 	return vout;
 }
 
-PixelOut MergePS(VertexOut vout) 
+PixelOutMerge MergePS(VertexOutMerge vout) 
 {
-	PixelOut pout;
+	PixelOutMerge pout;
 	float3 col = colorTex.Sample(gsamPoint, vout.TexC).xyz;
 	float3 diffuse = 0.0f;
 	float3 spec = 0.0f;
 	float3 worldPos = worldTex.Sample(gsamPoint, vout.TexC).xyz;
-	for (int i = 0; i < numPointLights; i++) {
-		float3 lightVec = lights[i].pos - worldPos;
+	for (int i = 0; i < Merge.numPointLights; i++) {
+		float3 lightVec = Merge.lights[i].pos - worldPos;
 		float3 lightDir = normalize(lightVec);
 		float3 reflectDir = reflect(-lightDir, normalTex.Sample(gsamPoint, vout.TexC).xyz);
-		float attenuation = clamp(1.0 - dot(lightVec,lightVec) / (lights[i].strength * lights[i].strength), 0.0, 1.0);
-		diffuse += clamp(lights[i].color * attenuation 
+		float attenuation = clamp(1.0 - dot(lightVec,lightVec) / (Merge.lights[i].strength * Merge.lights[i].strength), 0.0, 1.0);
+		diffuse += clamp(Merge.lights[i].color * attenuation 
 			* max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0), 0.0, 1.0);	
-		spec += clamp(lights[i].color * attenuation
+		spec += clamp(Merge.lights[i].color * attenuation
 			* specTex.Sample(gsamPoint, vout.TexC).x
-			* pow(max(dot(reflectDir, normalize(viewPos - worldPos)), 0.0f), 32.0), 0.0, 1.0);
+			* pow(max(dot(reflectDir, normalize(Merge.viewPos - worldPos)), 0.0f), 32.0), 0.0, 1.0);
 	}
 	diffuse = clamp(diffuse + 0.005, 0.0f, 1.0f);
 	spec = 0.0 * clamp(spec, 0.0f, 1.0f);

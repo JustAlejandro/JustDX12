@@ -257,12 +257,18 @@ LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		if (lockMouseDirty) {
 			lockMouseDirty = false;
 			ShowCursor(true);
+			ClipCursor(nullptr);
 		}
 		return true;
 	}
 	if (lockMouseDirty) {
 		lockMouseDirty = false;
 		ShowCursor(false);
+		GetWindowRect(hWindow, &hWindowPos);
+		ClipCursor(&hWindowPos);
+		hWindowCenter.x = (hWindowPos.left + hWindowPos.right) / 2;
+		hWindowCenter.y = (hWindowPos.top + hWindowPos.bottom) / 2;
+		SetCursorPos(hWindowCenter.x, hWindowCenter.y);
 	}
 	switch (msg) {
 	case WM_DESTROY:

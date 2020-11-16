@@ -71,6 +71,9 @@ Microsoft::WRL::ComPtr<IDxcBlob> compileShader(const std::wstring& filename, con
 		PostQuitMessage(0);
 	}
 
+	Microsoft::WRL::ComPtr<IDxcIncludeHandler> pIncludeHandler;
+	library->CreateIncludeHandler(&pIncludeHandler);
+
 	Microsoft::WRL::ComPtr<IDxcOperationResult> result;
 
 	hr = compiler->Compile(
@@ -80,7 +83,7 @@ Microsoft::WRL::ComPtr<IDxcBlob> compileShader(const std::wstring& filename, con
 		target.c_str(),
 		arguements.data(), arguements.size(),
 		defines.data(), defines.size(),
-		NULL,
+		pIncludeHandler.Get(),
 		&result);
 	
 	if (SUCCEEDED(hr)) {

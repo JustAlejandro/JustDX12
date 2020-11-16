@@ -1,0 +1,84 @@
+#include "MeshletCommon.hlsl"
+#include "Common.hlsl"
+
+ConstantBuffer<PerObject> PerObject : register(b1);
+
+ConstantBuffer<PerPass> PerPass : register(b2);
+
+uint3 UnpackPrimitive(uint primitive) {
+	return uint3(primitive & 0x3FF,
+		(primitive >> 20) & 0x3FF,
+		(primitive >> 10) & 0x3FF);	
+}
+
+uint GetVertexIndex(Meshlet m, uint localIndex) {
+	localIndex = m.VertOffset + localIndex;
+	
+	if (MeshInfo.IndexBytes == 4) {
+		return UniqueVertexIndices.Load(localIndex * 4);	
+	}
+	else {
+		uint wordOffset = (localIndex & 0x1);
+		uint byteOffset = (localIndex / 2) * 4;
+		
+		uint indexPair = UniqueVertexIndices.Load(byteOffset);
+		uint index = (indexPair >> (wordOffset * 16)) & 0xFFFF;
+		
+		return index;
+	}
+}
+
+uint3 GetPrimitive(Meshlet m, uint index) {
+	return UnpackPrimitive(PrimitiveIndices[m.PrimOffset + index]);	
+}
+
+// Different 'VertexOut' than the one in sample.
+VertexOut GetVertexAttributes(uint meshletIndex, uint vertexIndex) {
+	Vertex v = Vertices[vertexIndex];
+	
+	float4 pos = float4(v.Position,1.0f);//mul(float4(v.Position, 1.0f), PerObject.world);
+	
+	VertexOut vout;
+	vout.PosW = pos.xyz;
+	vout.PosH = mul(pos, PerPass.ViewProj);
+	vout.NormalW = v.Normal;//mul(v.Normal, (float3x3) PerObject.world);
+	vout.BiNormalW = v.Normal;
+	vout.TangentW = v.Normal;
+	
+	return vout;
+}
+
+[NumThreads(128, 1, 1)]
+[OutputTopology("triangle")]
+void MS(uint gtid : SV_GroupThreadID,
+	uint gid : SV_GroupID,
+	out vertices VertexOut verts[64],
+	out indices uint3 tris[126]) {
+	
+	Meshlet m = Meshlets[MeshInfo.MeshletOffset + gid];
+	
+	SetMeshOutputCounts(m.VertCount, m.PrimCount);
+	
+	if (gtid < m.VertCount) {
+		uint vertexIndex = GetVertexIndex(m, gtid);
+		verts[gtid] = GetVertexAttributes(gid, vertexIndex);
+	}
+	
+	if (gtid < m.PrimCount) {
+		tris[gtid] = GetPrimitive(m, gtid);	
+	}
+}
+
+PixelOut PS(VertexOut pin)
+{
+	PixelOut p;
+	
+	p.color = float4(1.0f,1.0f,1.0f,1.0f);
+	
+	p.specular = float4(0.1f,0.1f,0.1f,1.0f);
+	p.normal = float4(pin.NormalW, 0.0);
+	p.tangent = float4(pin.TangentW, 0.0);
+	p.binormal = float4(pin.BiNormalW, 0.0);
+	p.world = float4(pin.PosW, 1.0f);
+	return p;
+}

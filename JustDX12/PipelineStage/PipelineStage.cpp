@@ -56,7 +56,7 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 		resourceManager.importResource(res.first, res.second);
 	}
 	renderTargetDescs = stageDesc.renderTargets;
-	BuildRootSignature(stageDesc.rootSigDesc, rootParameterDescs);
+	BuildRootSignature(rootSignature, stageDesc.rootSigDesc, rootParameterDescs);
 	BuildResources(stageDesc.resourceJobs);
 	BuildConstantBuffers(stageDesc.constantBufferJobs);
 	BuildShaders(stageDesc.shaderFiles);
@@ -65,7 +65,7 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	this->stageDesc = stageDesc;
 }
 
-void PipelineStage::BuildRootSignature(std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
+void PipelineStage::BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSig, std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(rootSigDescs.size(), CD3DX12_ROOT_PARAMETER());
 	std::vector<int> shaderRegisters(ROOT_PARAMETER_TYPE_MAX_LENGTH, 0);
 	std::vector<CD3DX12_DESCRIPTOR_RANGE> tables(rootSigDescs.size(), CD3DX12_DESCRIPTOR_RANGE());
@@ -94,7 +94,7 @@ void PipelineStage::BuildRootSignature(std::vector<RootParamDesc> rootSigDescs, 
 	}
 
 	md3dDevice->CreateRootSignature(0, serializedRootSig->GetBufferPointer(),
-		serializedRootSig->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf()));
+		serializedRootSig->GetBufferSize(), IID_PPV_ARGS(rootSig.GetAddressOf()));
 
 	for (RootParamDesc& desc : rootSigDescs) {
 		targetRootParamDescs[desc.usagePattern].push_back(desc);
@@ -148,17 +148,17 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 	switch (desc.type) {
 	case ROOT_PARAMETER_TYPE_CONSTANTS:
 		param.InitAsConstants(desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANTS]++);
+		registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++;
 		break;
 	case ROOT_PARAMETER_TYPE_CONSTANT_BUFFER:
 		param.InitAsConstantBufferView(registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
+		registers[ROOT_PARAMETER_TYPE_CONSTANTS]++;
 		break;
 	case ROOT_PARAMETER_TYPE_SRV:
-		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_SRV]++);
-		param.InitAsDescriptorTable(1, &table);
+		param.InitAsShaderResourceView(registers[ROOT_PARAMETER_TYPE_SRV]++);
 		break;
 	case ROOT_PARAMETER_TYPE_UAV:
-		table.Init(desc.rangeType, desc.numConstants, registers[ROOT_PARAMETER_TYPE_UAV]++);
-		param.InitAsDescriptorTable(1, &table);
+		param.InitAsUnorderedAccessView(registers[ROOT_PARAMETER_TYPE_UAV]++);
 		break;
 	case ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
 		{
@@ -185,7 +185,7 @@ std::wstring PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
 	case SHADER_TYPE_GS:
 		return L"gs_6_4";
 	case SHADER_TYPE_MS:
-		return L"ms_6_4";
+		return L"ms_6_5";
 	default:
 		return L"";
 		break;

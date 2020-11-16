@@ -126,6 +126,7 @@ public:
     const MeshletMesh& GetMesh(UINT32 i) const { return m_meshes[i]; }
 
     const DirectX::BoundingSphere& GetBoundingSphere() const { return m_boundingSphere; }
+    const DirectX::BoundingBox& GetBoundingBox() const { return m_boundingBox; }
 
     auto begin() { return m_meshes.begin(); }
     auto end() { return m_meshes.end(); }

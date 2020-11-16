@@ -1,29 +1,8 @@
-cbuffer cbPerObject : register(b0)
-{
-	float4x4 world;
-}
+#include "Common.hlsl"
 
-cbuffer cbPass : register(b1)
-{
-	float4x4 View;
-	float4x4 InvView;
-	float4x4 Proj;
-	float4x4 InvProj;
-	float4x4 ViewProj;
-	float4x4 InvViewProj;
-	float3 EyePosW;
-	float cbPerObjectPad;
-	float2 RenderTargetSize;
-	float2 InvRenderTargetSize;
-	float NearZ;
-	float FarZ;
-	float TotalTime;
-	float DeltaTime;
-	float VrsShort;
-	float VrsMedium;
-	float VrsLong;
-	int renderVRS;
-}
+ConstantBuffer<PerObject> PerObject : register(b0);
+
+ConstantBuffer<PerPass> PerPass : register(b1);
 
 Texture2D gDiffuseMap : register(t0);
 Texture2D gSpecularMap : register(t1);
@@ -40,52 +19,32 @@ struct VertexIn
 	float2 TexC : TEXCOORD;
 };
 
-struct VertexOut
-{
-	float4 PosH : SV_Position;
-	float3 PosW : TEXCOORD1;
-	float3 NormalW : NORMAL;
-	float3 TangentW : TANGENT;
-	float3 BiNormalW : BINORMAL;
-	float2 TexC : TEXCOORD;
-	uint shadingRate : SV_ShadingRate;
-};
-
-struct PixelOut {
-	float4 color : SV_Target0;
-	float4 specular : SV_Target1;
-	float4 normal : SV_Target2;
-	float4 tangent : SV_Target3;
-	float4 binormal : SV_Target4;
-	float4 world : SV_Target5;
-};
-
 VertexOut VS(VertexIn vin)
 {
 	VertexOut vout = (VertexOut) 0.0f;
     
-	vout.PosW = mul(float4(vin.PosL, 1.0f), world).xyz;
+	vout.PosW = mul(float4(vin.PosL, 1.0f), PerObject.world).xyz;
     
-	vout.NormalW = mul(vin.NormalL, (float3x3) world);
-	vout.TangentW = mul(vin.TangentL, (float3x3) world);
-	vout.BiNormalW = mul(vin.BiNormalL, (float3x3) world);
+	vout.NormalW = mul(vin.NormalL, (float3x3) PerObject.world);
+	vout.TangentW = mul(vin.TangentL, (float3x3) PerObject.world);
+	vout.BiNormalW = mul(vin.BiNormalL, (float3x3) PerObject.world);
     
-	vout.PosH = mul(float4(vout.PosW, 1.0f), ViewProj);
+	vout.PosH = mul(float4(vout.PosW, 1.0f), PerPass.ViewProj);
     
 	vout.TexC = vin.TexC;
 	
 	vout.shadingRate = 0xa;
-	float4 viewPos = mul(float4(vout.PosW, 1.0), View);
+	float4 viewPos = mul(float4(vout.PosW, 1.0), PerPass.View);
 	float dist = dot(viewPos.xyz, viewPos.xyz);
-	if (dist < VrsShort * VrsShort) {
+	if (dist < PerPass.VrsShort * PerPass.VrsShort) {
 		vout.shadingRate = 0x0;	
 		return vout;
 	}
-	if (dist < VrsMedium * VrsMedium) {
+	if (dist < PerPass.VrsMedium * PerPass.VrsMedium) {
 		vout.shadingRate = 0x4;	
 		return vout;
 	}
-	if (dist < VrsLong * VrsLong) {
+	if (dist < PerPass.VrsLong * PerPass.VrsLong) {
 		vout.shadingRate = 0x5;
 		return vout;
 	}
@@ -100,7 +59,7 @@ VertexOut VS(VertexIn vin)
 PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
-	if (renderVRS) {
+	if (PerPass.renderVRS) {
 		switch (pin.shadingRate) {
 			case 0x0:
 				p.color = float4(1.0,0.0,0.0,1.0);

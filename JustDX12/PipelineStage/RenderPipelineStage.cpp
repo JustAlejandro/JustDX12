@@ -16,25 +16,30 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d
 }
 
 void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
-	std::vector<RootParamDesc> meshParams;
-	meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
-		0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-	meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
-		1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-	meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
-		2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-	meshParams.push_back({ "UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV,
-		3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-	meshParams.push_back({ "PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV,
-		4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-	meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
-		5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+	if (renderStageDesc.usesMeshlets) {
+		std::vector<RootParamDesc> meshParams;
+		meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANTS,
+			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
+			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV,
+			3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV,
+			4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
+			5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
 
-	for (RootParamDesc param : stageDesc.rootSigDesc) {
-		// Require 8 params for the mesh shader, so we push the root sig back.
-		param.slot += 6;
-		meshParams.push_back(param);
+		for (RootParamDesc param : stageDesc.rootSigDesc) {
+			// Require 6 params for the mesh shader, so we push the root sig back.
+			param.slot += 6;
+			meshParams.push_back(param);
+		}
+
+		BuildRootSignature(meshRootSignature, meshParams, meshRootParameterDescs);
 	}
+
 	PipelineStage::setup(stageDesc);
 }
 
@@ -64,6 +69,11 @@ void RenderPipelineStage::Execute() {
 	bindRenderTarget();
 
 	drawRenderObjects();
+
+	if (renderStageDesc.usesMeshlets) {
+		drawMeshletRenderObjects();
+	}
+
 	if (renderStageDesc.supportsCulling && occlusionCull) {
 		drawOcclusionQuery();
 	}
@@ -120,12 +130,13 @@ void RenderPipelineStage::BuildPSO() {
 		throw "PSO FAIL";
 	}
 
-	if (shadersByType.find(SHADER_TYPE_MS) != shadersByType.end()) {
+	if (renderStageDesc.usesMeshlets) {
 		D3DX12_MESH_SHADER_PIPELINE_STATE_DESC meshPSODesc = {};
 		meshPSODesc.pRootSignature = meshRootSignature.Get();
 		meshPSODesc.MS.pShaderBytecode = shadersByType[SHADER_TYPE_MS]->GetBufferPointer();
 		meshPSODesc.MS.BytecodeLength = shadersByType[SHADER_TYPE_MS]->GetBufferSize();
-		meshPSODesc.PS = graphicsPSO.PS;
+		meshPSODesc.PS.pShaderBytecode = shaders["Mesh Pixel Shader"]->GetBufferPointer();
+		meshPSODesc.PS.BytecodeLength = shaders["Mesh Pixel Shader"]->GetBufferSize();
 		meshPSODesc.NumRenderTargets = renderTargetDescs.size();
 		for (int i = 0; i < renderTargetDescs.size(); i++) {
 			meshPSODesc.RTVFormats[i] = COLOR_TEXTURE_FORMAT;
@@ -137,6 +148,7 @@ void RenderPipelineStage::BuildPSO() {
 		meshPSODesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 		meshPSODesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 		meshPSODesc.SampleMask = UINT_MAX;
+		meshPSODesc.SampleDesc = DefaultSampleDesc();
 
 		auto psoStream = CD3DX12_PIPELINE_MESH_STATE_STREAM(meshPSODesc);
 
@@ -197,9 +209,9 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 	}
 
 	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
-		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
-		if (rootParameterDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
-			DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
+		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(curRootParamDescs[usage][i]);
+		if (curRootParamDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
+			DX12Descriptor* descriptor = descriptorManager.getDescriptor(curRootParamDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
 			if (descriptor == nullptr) {
 				// For now just ignoring because if a texture doesn't exist we'll just assume it'll be fine.
 				// Different PSOs for different texturing would fix this.
@@ -209,15 +221,15 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			case DESCRIPTOR_TYPE_NONE:
 				OutputDebugStringA("Not sure what this is");
 			case DESCRIPTOR_TYPE_SRV:
-				mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
+				mCommandList->SetGraphicsRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
 				break;
 			case DESCRIPTOR_TYPE_UAV:
-				mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
+				mCommandList->SetGraphicsRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
 				break;
 			case DESCRIPTOR_TYPE_CBV:
-				mCommandList->SetGraphicsRootDescriptorTable(rootParameterDescs[usage][i].slot,
+				mCommandList->SetGraphicsRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
 				break;
 			default:
@@ -226,18 +238,22 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			}
 		}
 		else {
-			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();
+			DX12Resource* resource = resourceManager.getResource(curRootParamDescs[usage][i].name);
+			if (resource == nullptr) {
+				continue;
+			}
+			D3D12_GPU_VIRTUAL_ADDRESS resPtr = resource->get()->GetGPUVirtualAddress();
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
 				OutputDebugStringA("Not sure what this is");
 			case DESCRIPTOR_TYPE_SRV:
-				mCommandList->SetGraphicsRootShaderResourceView(rootParameterDescs[usage][i].slot, resource);
+				mCommandList->SetGraphicsRootShaderResourceView(curRootParamDescs[usage][i].slot, resPtr);
 				break;
 			case DESCRIPTOR_TYPE_UAV:
-				mCommandList->SetGraphicsRootUnorderedAccessView(rootParameterDescs[usage][i].slot, resource);
+				mCommandList->SetGraphicsRootUnorderedAccessView(curRootParamDescs[usage][i].slot, resPtr);
 				break;
 			case DESCRIPTOR_TYPE_CBV:
-				mCommandList->SetGraphicsRootConstantBufferView(rootParameterDescs[usage][i].slot, resource);
+				mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, resPtr);
 				break;
 			default:
 				throw "Don't know what to do here.";
@@ -323,10 +339,39 @@ void RenderPipelineStage::drawRenderObjects() {
 	}
 }
 
+void RenderPipelineStage::drawMeshletRenderObjects() {
+	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
+	mCommandList->SetPipelineState(meshletPSO.Get());
+	mCommandList->SetGraphicsRootSignature(meshRootSignature.Get());
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL, 0, meshRootParameterDescs);
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS, 0, meshRootParameterDescs);
+	for (auto& model : meshletRenderObjects) {
+		if (frustrumCull && (frustrum.Contains(model->GetBoundingSphere()) == DirectX::ContainmentType::DISJOINT) && (model->GetBoundingSphere().Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS)) {
+			continue;
+		}
+		for (auto& mesh : *model) {
+			mCommandList->SetGraphicsRoot32BitConstant(0, mesh.IndexSize, 0);
+			mCommandList->SetGraphicsRootShaderResourceView(1, mesh.VertexResources[0]->GetGPUVirtualAddress());
+			mCommandList->SetGraphicsRootShaderResourceView(2, mesh.MeshletResource->GetGPUVirtualAddress());
+			mCommandList->SetGraphicsRootShaderResourceView(3, mesh.UniqueVertexIndexResource->GetGPUVirtualAddress());
+			mCommandList->SetGraphicsRootShaderResourceView(4, mesh.PrimitiveIndexResource->GetGPUVirtualAddress());
+			for (auto& meshlet : mesh.MeshletSubsets) {
+				mCommandList->SetGraphicsRoot32BitConstant(0, meshlet.Offset, 1);
+				mCommandList->DispatchMesh(meshlet.Count, 1, 1);
+			}
+		}
+	}
+}
+
 void RenderPipelineStage::drawOcclusionQuery() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
-	mCommandList->SetPipelineState(occlusionPSO.Get());
+	// Have to rebind if we're using meshlets.
 	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
+	mCommandList->SetPipelineState(occlusionPSO.Get());
+	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL);
+	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS);
+	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
 

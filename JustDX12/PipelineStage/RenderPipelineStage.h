@@ -9,6 +9,7 @@ class MeshletModel;
 
 struct RenderPipelineDesc {
 	bool supportsCulling = false;
+	bool usesMeshlets = false;
 };
 
 class RenderPipelineStage : public PipelineStage {
@@ -32,6 +33,7 @@ protected:
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;
 	void bindRenderTarget();
 	void drawRenderObjects();
+	void drawMeshletRenderObjects();
 	void drawOcclusionQuery();
 	void importMeshTextures(Mesh* m, int usageIndex);
 	void buildMeshTexturesDescriptors(Mesh* m, int usageIndex);

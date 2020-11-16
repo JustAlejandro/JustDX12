@@ -24,7 +24,7 @@ std::string inputfile = "teapot.obj";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
-std::string armorFile = "armor.fbx";
+std::string armorFile = "armor2.fbx";
 std::string headDir = baseDir + "\\head";
 std::string headFile = "head.fbx";
 std::string dragonMeshlet = "Dragon_LOD0.bin";
@@ -220,6 +220,8 @@ bool DemoApp::initialize() {
 			{L"VRS_4X4", L""} };
 		ShaderDesc vs = { "Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines };
 		ShaderDesc ps = { "Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines };
+		ShaderDesc ms = { "Meshlet.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {} };
+		ShaderDesc psMesh = { "Meshlet.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {} };
 		RenderTargetDesc renderTargets[6];
 		renderTargets[0] = { "outTexDesc[0]", 0 };
 		renderTargets[1] = { "outTexDesc[1]", 0 };
@@ -236,7 +238,7 @@ bool DemoApp::initialize() {
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
 		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],outTexArray[5],depthTex,vrsTex };
 		rasterDesc.rootSigDesc = { perObjRoot, perMeshTexRoot, perPassRoot };
-		rasterDesc.shaderFiles = { vs, ps };
+		rasterDesc.shaderFiles = { vs, psMesh, ps, ms };
 		rasterDesc.textureFiles = {
 			{"default_normal", "default_bump.dds"},
 			{"default_spec", "default_spec.dds"},
@@ -245,6 +247,7 @@ bool DemoApp::initialize() {
 
 		RenderPipelineDesc rDesc;
 		rDesc.supportsCulling = true;
+		rDesc.usesMeshlets = true;
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
@@ -465,8 +468,8 @@ bool DemoApp::initialize() {
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	renderStage->LoadMeshletModel(modelLoader, dragonMeshlet, baseDir);
-	//renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	//renderStage->LoadModel(modelLoader, headFile, headDir);
+	renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
