@@ -27,7 +27,7 @@ std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor2.fbx";
 std::string headDir = baseDir + "\\head";
 std::string headFile = "head.fbx";
-std::string dragonMeshlet = "Dragon_LOD0.bin";
+std::string armorMeshlet = "armor.bin";
 
 std::string warn;
 std::string err;
@@ -158,36 +158,35 @@ bool DemoApp::initialize() {
 	}
 
 	{
-		DescriptorJob perObjectConstants0 = { "PerObjectConstDesc", "PerObjectConstants0",
-			DESCRIPTOR_TYPE_CBV, {}, 0, DESCRIPTOR_USAGE_PER_OBJECT };
+		DescriptorJob perObjectConstants0("PerObjectConstDesc", "PerObjectConstants0", DESCRIPTOR_TYPE_CBV, false, 0, DESCRIPTOR_USAGE_PER_OBJECT);
 
 		DescriptorJob rtvDescs[6];
 		rtvDescs[0].name = "outTexDesc[0]";
-		rtvDescs[0].target = "outTexArray[0]";
+		rtvDescs[0].indirectTarget = "outTexArray[0]";
 		rtvDescs[0].type = DESCRIPTOR_TYPE_RTV;
-		rtvDescs[0].rtvDesc = DEFAULT_RTV_DESC();
+		rtvDescs[0].view.rtvDesc = DEFAULT_RTV_DESC();
 		rtvDescs[0].usage = DESCRIPTOR_USAGE_PER_PASS;
 		rtvDescs[0].usageIndex = 0;
 		rtvDescs[1] = rtvDescs[0];
 		rtvDescs[1].name = "outTexDesc[1]";
-		rtvDescs[1].target = "outTexArray[1]";
+		rtvDescs[1].indirectTarget = "outTexArray[1]";
 		rtvDescs[2] = rtvDescs[0];
 		rtvDescs[2].name = "outTexDesc[2]";
-		rtvDescs[2].target = "outTexArray[2]";
+		rtvDescs[2].indirectTarget = "outTexArray[2]";
 		rtvDescs[3] = rtvDescs[0];
 		rtvDescs[3].name = "outTexDesc[3]";
-		rtvDescs[3].target = "outTexArray[3]";
+		rtvDescs[3].indirectTarget = "outTexArray[3]";
 		rtvDescs[4] = rtvDescs[0];
 		rtvDescs[4].name = "outTexDesc[4]";
-		rtvDescs[4].target = "outTexArray[4]";
+		rtvDescs[4].indirectTarget = "outTexArray[4]";
 		rtvDescs[5] = rtvDescs[0];
 		rtvDescs[5].name = "outTexDesc[5]";
-		rtvDescs[5].target = "outTexArray[5]";
+		rtvDescs[5].indirectTarget = "outTexArray[5]";
 		DescriptorJob dsvDesc;
 		dsvDesc.name = "depthStencilView";
-		dsvDesc.target = "depthTex";
+		dsvDesc.indirectTarget = "depthTex";
 		dsvDesc.type = DESCRIPTOR_TYPE_DSV;
-		dsvDesc.dsvDesc = DEFAULT_DSV_DESC();
+		dsvDesc.view.dsvDesc = DEFAULT_DSV_DESC();
 		dsvDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		dsvDesc.usageIndex = 0;
 		RootParamDesc perObjRoot = { "PerObjectConstDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
@@ -248,35 +247,61 @@ bool DemoApp::initialize() {
 		RenderPipelineDesc rDesc;
 		rDesc.supportsCulling = true;
 		rDesc.usesMeshlets = true;
+		// Have to generate meshlet root signature
+		std::vector<RootParamDesc> meshParams;
+		meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANTS,
+			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
+			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV,
+			3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV,
+			4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
+			5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		perObjRoot.slot += 6;
+		perMeshTexRoot.slot += 6;
+		perPassRoot.slot += 6;
+		meshParams.push_back(perObjRoot);
+		meshParams.push_back(perMeshTexRoot);
+		meshParams.push_back(perPassRoot);
+		rDesc.meshletRootSignature = meshParams;
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
+		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
+		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
+		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
 	}
 
 	{
-		DescriptorJob depthTex = { "inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV,
-			DEFAULT_SRV_DESC(), 0, DESCRIPTOR_USAGE_PER_PASS };
-		depthTex.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
-		DescriptorJob normalTex = { "normalTex", "renderOutputNormals", DESCRIPTOR_TYPE_SRV,
-			DEFAULT_SRV_DESC(), 0, DESCRIPTOR_USAGE_PER_PASS };
+		DescriptorJob depthTex("inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV, false, 0, DESCRIPTOR_USAGE_PER_PASS);
+		depthTex.view.srvDesc = DEFAULT_SRV_DESC();
+		depthTex.view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
+		DescriptorJob normalTex("normalTex", "renderOutputNormals", DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_PER_PASS);
 		DescriptorJob colorTex = normalTex;
 		colorTex.name = "colorTex";
-		colorTex.target = "renderOutputColor";
+		colorTex.indirectTarget = "renderOutputColor";
 		DescriptorJob tangentTex = normalTex;
 		tangentTex.name = "tangentTex";
-		tangentTex.target = "renderOutputTangents";
+		tangentTex.indirectTarget = "renderOutputTangents";
 		DescriptorJob binormalTex = normalTex;
 		binormalTex.name = "binormalTex";
-		binormalTex.target = "renderOutputBinormals";
+		binormalTex.indirectTarget = "renderOutputBinormals";
 		DescriptorJob worldTex = normalTex;
 		worldTex.name = "worldTex";
-		worldTex.target = "renderOutputPosition";
+		worldTex.indirectTarget = "renderOutputPosition";
 		DescriptorJob outTexDesc;
 		outTexDesc.name = "SSAOOut";
-		outTexDesc.target = "SSAOOutTexture";
+		outTexDesc.indirectTarget = "SSAOOutTexture";
 		outTexDesc.type = DESCRIPTOR_TYPE_UAV;
-		outTexDesc.uavDesc = DEFAULT_UAV_DESC();
-		outTexDesc.uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		outTexDesc.view.uavDesc = DEFAULT_UAV_DESC();
+		outTexDesc.view.uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
 		outTexDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		outTexDesc.usageIndex = 0;
 		RootParamDesc cbvPDesc = { "SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
@@ -333,38 +358,38 @@ bool DemoApp::initialize() {
 	{
 		DescriptorJob outDepthTex = { "outputDepth", "outputDepthTex" , DESCRIPTOR_TYPE_DSV,
 			{}, 0, DESCRIPTOR_USAGE_ALL };
-		outDepthTex.dsvDesc = DEFAULT_DSV_DESC();
+		outDepthTex.view.dsvDesc = DEFAULT_DSV_DESC();
 		DescriptorJob ssaoTex;
 		ssaoTex.name = "SSAOTexDesc";
-		ssaoTex.target = "SSAOTex";
-		ssaoTex.srvDesc = DEFAULT_SRV_DESC();
-		ssaoTex.srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		ssaoTex.indirectTarget = "SSAOTex";
+		ssaoTex.view.srvDesc = DEFAULT_SRV_DESC();
+		ssaoTex.view.srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 		ssaoTex.type = DESCRIPTOR_TYPE_SRV;
 		DescriptorJob colorTex;
 		colorTex.name = "colorTexDesc";
-		colorTex.target = "colorTex";
-		colorTex.srvDesc = DEFAULT_SRV_DESC();
+		colorTex.indirectTarget = "colorTex";
+		colorTex.view.srvDesc = DEFAULT_SRV_DESC();
 		colorTex.type = DESCRIPTOR_TYPE_SRV;
 		DescriptorJob specTex = colorTex;
 		specTex.name = "specTexDesc";
-		specTex.target = "specularTex";
+		specTex.indirectTarget = "specularTex";
 		DescriptorJob normalTex = colorTex;
 		normalTex.name = "normalTexDesc";
-		normalTex.target = "normalTex";
+		normalTex.indirectTarget = "normalTex";
 		DescriptorJob tangentTex = colorTex;
 		tangentTex.name = "tangentTexDesc";
-		tangentTex.target = "tangentTex";
+		tangentTex.indirectTarget = "tangentTex";
 		DescriptorJob biNormalTex = colorTex;
 		biNormalTex.name = "biNormalTexDesc";
-		biNormalTex.target = "biNormalTex";
+		biNormalTex.indirectTarget = "biNormalTex";
 		DescriptorJob worldTex = colorTex;
 		worldTex.name = "worldTexDesc";
-		worldTex.target = "worldTex";
+		worldTex.indirectTarget = "worldTex";
 		DescriptorJob mergedTex;
 		mergedTex.name = "mergedTexDesc";
-		mergedTex.target = "mergedTex";
+		mergedTex.indirectTarget = "mergedTex";
 		mergedTex.type = DESCRIPTOR_TYPE_RTV;
-		mergedTex.rtvDesc = DEFAULT_RTV_DESC();
+		mergedTex.view.rtvDesc = DEFAULT_RTV_DESC();
 		std::vector<RootParamDesc> params;
 		params.push_back({ "MergeConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_ALL });
@@ -414,17 +439,17 @@ bool DemoApp::initialize() {
 	{
 		DescriptorJob depthTex;
 		depthTex.name = "inputDepth";
-		depthTex.target = "renderOutputTex";
+		depthTex.indirectTarget = "renderOutputTex";
 		depthTex.type = DESCRIPTOR_TYPE_SRV;
-		depthTex.srvDesc = DEFAULT_SRV_DESC();
+		depthTex.view.srvDesc = DEFAULT_SRV_DESC();
 		depthTex.usage = DESCRIPTOR_USAGE_PER_PASS;
 		depthTex.usageIndex = 0;
 		DescriptorJob outTexDesc;
 		outTexDesc.name = "VrsOut";
-		outTexDesc.target = "VrsOutTexture";
+		outTexDesc.indirectTarget = "VrsOutTexture";
 		outTexDesc.type = DESCRIPTOR_TYPE_UAV;
-		outTexDesc.uavDesc = DEFAULT_UAV_DESC();
-		outTexDesc.uavDesc.Format = DXGI_FORMAT_R8_UINT;
+		outTexDesc.view.uavDesc = DEFAULT_UAV_DESC();
+		outTexDesc.view.uavDesc.Format = DXGI_FORMAT_R8_UINT;
 		outTexDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		outTexDesc.usageIndex = 0;
 		RootParamDesc rootPDesc;
@@ -467,9 +492,9 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
-	renderStage->LoadMeshletModel(modelLoader, dragonMeshlet, baseDir);
-	renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	renderStage->LoadModel(modelLoader, headFile, headDir);
+	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
+	//renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	//renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -667,7 +692,7 @@ void DemoApp::mouseMove(WPARAM btnState, int x, int y) {
 	float dx = float(x - (SCREEN_WIDTH / 2));
 	float dy = float(y - (SCREEN_HEIGHT / 2) + 17);
 
-	lookAngle[0] = (lookAngle[0] + DirectX::XMConvertToRadians(0.25f * dy));
+	lookAngle[0] = std::min(std::max((lookAngle[0] + DirectX::XMConvertToRadians(0.25f * dy)), -AI_MATH_HALF_PI_F + 0.01f), AI_MATH_HALF_PI_F - 0.01f);
 	lookAngle[1] = (lookAngle[1] + DirectX::XMConvertToRadians(0.25f * dx));
 }
 

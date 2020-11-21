@@ -7,16 +7,6 @@
 #include <DirectXCollision.h>
 #include <limits>
 
-enum ModelFlags {
-	MODEL_FORMAT_POSITON = 1 << 0,
-	MODEL_FORMAT_NORMAL	= 1 << 1,
-	MODEL_FORMAT_TEXCOORD = 1 << 2,
-	MODEL_FORMAT_DIFFUSE_TEX = 1 << 3,
-	MODEL_FORMAT_NORMAL_TEX = 1 << 4,
-	MODEL_FORMAT_SPECULAR = 1 << 5,
-	MODEL_FORMAT_OPACITY = 1 << 6
-};
-
 class DX12Texture;
 
 class Model {
@@ -53,7 +43,7 @@ public:
 	void addBoundingBoxesToVertexBuffer();
 	void processNode(aiNode* node, const aiScene* scene);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene);
-	std::vector<DX12Texture*> loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName);
+	std::vector<DX12Texture*> loadMaterialTextures(aiMaterial* mat, aiTextureType type);
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView()const;
 };

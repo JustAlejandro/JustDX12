@@ -17,27 +17,7 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d
 
 void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	if (renderStageDesc.usesMeshlets) {
-		std::vector<RootParamDesc> meshParams;
-		meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANTS,
-			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
-			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV,
-			3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV,
-			4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
-			5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-
-		for (RootParamDesc param : stageDesc.rootSigDesc) {
-			// Require 6 params for the mesh shader, so we push the root sig back.
-			param.slot += 6;
-			meshParams.push_back(param);
-		}
-
-		BuildRootSignature(meshRootSignature, meshParams, meshRootParameterDescs);
+		BuildRootSignature(meshRootSignature, renderStageDesc.meshletRootSignature, meshRootParameterDescs);
 	}
 
 	PipelineStage::setup(stageDesc);
@@ -294,6 +274,7 @@ void RenderPipelineStage::drawRenderObjects() {
 
 		if (frustrumCull && (frustrum.Contains(model->boundingBox) == DirectX::ContainmentType::DISJOINT)) {
 			meshIndex += model->meshes.size();
+			modelIndex++;
 			continue;
 		}
 
@@ -345,6 +326,10 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	mCommandList->SetGraphicsRootSignature(meshRootSignature.Get());
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL, 0, meshRootParameterDescs);
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS, 0, meshRootParameterDescs);
+	if (VRS) {
+		resourceManager.getResource("VRS")->changeState(mCommandList, D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
+		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
+	}
 	for (auto& model : meshletRenderObjects) {
 		if (frustrumCull && (frustrum.Contains(model->GetBoundingSphere()) == DirectX::ContainmentType::DISJOINT) && (model->GetBoundingSphere().Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS)) {
 			continue;
@@ -389,62 +374,19 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PREDICATION));
 }
 
-void RenderPipelineStage::importMeshTextures(Mesh* m, int usageIndex) {
-	for (auto textureArray : m->textures) {
-		for (auto texture : textureArray.second) {
-			// Assuming only 1 texture per type...
-			resourceManager.importResource(textureArray.first + std::to_string(usageIndex), texture);
-		}
-	}
-}
-
 void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) {
-	std::string diffuse = "default_diff";
-	DX12Resource* diffuseTex = resourceManager.getResource(diffuse);
-	std::string specular = "default_spec";
-	DX12Resource* specularTex = resourceManager.getResource(specular);
-	std::string normal = "default_normal";
-	DX12Resource* normalTex = resourceManager.getResource(normal);
-
-	if ((m->typeFlags & MODEL_FORMAT_DIFFUSE_TEX) != 0) {
-		// Can't bind a texture if it doesn't exist.
-		diffuse = "texture_diffuse" + std::to_string(usageIndex);
-		diffuseTex = m->textures.at("texture_diffuse")[0];
+	for (const auto& texMap : renderStageDesc.textureToDescriptor) {
+		MODEL_FORMAT textureType = texMap.first;
+		DX12Resource* texture = nullptr;
+		if ((m->typeFlags & textureType) != 0) {
+			texture = m->textures.at(textureType)[0];
+		}
+		else {
+			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
+		}
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_PER_MESH);
+		addDescriptorJob(job);
 	}
-	if ((m->typeFlags & MODEL_FORMAT_SPECULAR) != 0) {
-		specular = "texture_specular" + std::to_string(usageIndex);
-		specularTex = m->textures.at("texture_specular")[0];
-	}
-	if ((m->typeFlags & MODEL_FORMAT_NORMAL_TEX) != 0) {
-		normal = "texture_normal" + std::to_string(usageIndex);
-		normalTex = m->textures.at("texture_normal")[0];
-	}
-
-	DescriptorJob j;
-	j.name = "texture_diffuse";
-	j.target = diffuse;// "texture_diffuse" + std::to_string(usageIndex);
-	j.type = DESCRIPTOR_TYPE_SRV;
-	j.usage = DESCRIPTOR_USAGE_PER_MESH;
-	j.usageIndex = usageIndex;
-	j.srvDesc.Format = diffuseTex->getFormat();
-	j.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	j.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	j.srvDesc.Texture2D.MipLevels = -1;
-	j.srvDesc.Texture2D.MostDetailedMip = 0;
-	j.srvDesc.Texture2D.PlaneSlice = 0;
-	j.srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	// Here's where we'd put more textures, but for now, this will be it.
-	addDescriptorJob(j);
-	j.name = "texture_specular";
-	j.target = specular;
-	j.srvDesc.Format = specularTex->getFormat();
-	addDescriptorJob(j);
-	j.name = "texture_normal";
-	j.target = normal;
-	j.srvDesc.Format = normalTex->getFormat();
-	addDescriptorJob(j);
-
-	// Flag them all as bound.
 	m->texturesBound = true;
 }
 
@@ -459,11 +401,15 @@ void RenderPipelineStage::setupRenderObjects() {
 				return;
 			}
 			if (!mesh.texturesBound) {
-				importMeshTextures(&mesh, index);
 				buildMeshTexturesDescriptors(&mesh, index);
 				return;
 			}
 			index++;
+		}
+	}
+	for (auto& meshletRenderObj : meshletRenderObjects) {
+		if (!meshletRenderObj->loaded) {
+			return;
 		}
 	}
 	BuildDescriptors(stageDesc.descriptorJobs);

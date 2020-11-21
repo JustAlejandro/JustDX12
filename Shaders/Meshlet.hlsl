@@ -5,6 +5,13 @@ ConstantBuffer<PerObject> PerObject : register(b1);
 
 ConstantBuffer<PerPass> PerPass : register(b2);
 
+// Have to start a bit later because the MeshletCommon uses all the other registers.
+Texture2D gDiffuseMap : register(t5);
+Texture2D gSpecularMap : register(t6);
+Texture2D gNormalMap : register(t7);
+SamplerState anisoWrap : register(s4);
+
+// Flipping tris because the loader defualts to OpenGL winding order.
 uint3 UnpackPrimitive(uint primitive) {
 	return uint3(primitive & 0x3FF,
 		(primitive >> 20) & 0x3FF,
@@ -42,8 +49,9 @@ VertexOut GetVertexAttributes(uint meshletIndex, uint vertexIndex) {
 	vout.PosW = pos.xyz;
 	vout.PosH = mul(pos, PerPass.ViewProj);
 	vout.NormalW = v.Normal;//mul(v.Normal, (float3x3) PerObject.world);
-	vout.BiNormalW = v.Normal;
-	vout.TangentW = v.Normal;
+	vout.BiNormalW = v.Bitangent;
+	vout.TangentW = v.Tangent;
+	vout.TexC = v.Texcoord;
 	
 	return vout;
 }

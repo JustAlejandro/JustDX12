@@ -30,7 +30,7 @@ struct Mesh {
 	DirectX::XMFLOAT3 maxPoint;
 	DirectX::XMFLOAT3 minPoint;
 
-	std::unordered_map<std::string, std::vector<DX12Texture*>> textures;
+	std::unordered_map<MODEL_FORMAT, std::vector<DX12Texture*>> textures;
 
 	bool allTexturesLoaded() {
 		if (texturesLoaded) return true;

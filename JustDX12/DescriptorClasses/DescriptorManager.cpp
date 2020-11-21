@@ -19,13 +19,18 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 		desc.usageIndex = job.usageIndex;
 
 		if (job.type == DESCRIPTOR_TYPE_CBV) {
-			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.target);
+			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.indirectTarget);
 			desc.constantBufferTarget = buffer;
-			job.cbvDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress();
-			job.cbvDesc.SizeInBytes = CalcConstantBufferByteSize(buffer->getBufferSize());
+			job.view.cbvDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress();
+			job.view.cbvDesc.SizeInBytes = CalcConstantBufferByteSize(buffer->getBufferSize());
 		}
 		else {
-			desc.resourceTarget = resourceManager->getResource(job.target);
+			if (job.directBinding) {
+				desc.resourceTarget = job.directBindingTarget;
+			}
+			else {
+				desc.resourceTarget = resourceManager->getResource(job.indirectTarget);
+			}
 		}
 
 		desc.descriptorHeap = heap.heap.Get();
@@ -86,19 +91,19 @@ std::vector<DX12Descriptor*>* DescriptorManager::getAllDescriptorsOfType(DESCRIP
 void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job) {
 	switch (job.type) {
 	case DESCRIPTOR_TYPE_RTV:
-		device->CreateRenderTargetView(descriptor.resourceTarget->get(), &job.rtvDesc, descriptor.cpuHandle);
+		device->CreateRenderTargetView(descriptor.resourceTarget->get(), job.autoDesc ? nullptr : &job.view.rtvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_DSV:
-		device->CreateDepthStencilView(descriptor.resourceTarget->get(), &job.dsvDesc, descriptor.cpuHandle);
+		device->CreateDepthStencilView(descriptor.resourceTarget->get(), job.autoDesc ? nullptr : &job.view.dsvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_SRV:
-		device->CreateShaderResourceView(descriptor.resourceTarget->get(), &job.srvDesc, descriptor.cpuHandle);
+		device->CreateShaderResourceView(descriptor.resourceTarget->get(), job.autoDesc ? nullptr : &job.view.srvDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_UAV:
-		device->CreateUnorderedAccessView(descriptor.resourceTarget->get(), nullptr, &job.uavDesc, descriptor.cpuHandle);
+		device->CreateUnorderedAccessView(descriptor.resourceTarget->get(), nullptr, job.autoDesc ? nullptr : &job.view.uavDesc, descriptor.cpuHandle);
 		break;
 	case DESCRIPTOR_TYPE_CBV:
-		device->CreateConstantBufferView(&job.cbvDesc, descriptor.cpuHandle);
+		device->CreateConstantBufferView(&job.view.cbvDesc, descriptor.cpuHandle);
 		break;
 	default:
 		OutputDebugStringA(("Couldn't create DescriptorView of type: " + std::to_string(job.type)).c_str());

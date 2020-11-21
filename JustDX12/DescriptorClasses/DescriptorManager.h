@@ -7,17 +7,45 @@
 class ResourceManager;
 class DX12Resource;
 
+union ViewDesc {
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+};
+
 struct DescriptorJob {
+	DescriptorJob() = default;
+	DescriptorJob(std::string name, DX12Resource* directBindingTarget, DESCRIPTOR_TYPE type, bool autoDesc = true, int usageIndex = 0, DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS) {
+		this->name = name;
+		this->directBinding = true;
+		this->directBindingTarget = directBindingTarget;
+		this->autoDesc = autoDesc;
+		this->type = type;
+		this->usageIndex = usageIndex;
+		this->usage = usage;
+		this->view.srvDesc = {};
+	}
+	DescriptorJob(std::string name, std::string targetResourceName, DESCRIPTOR_TYPE type, bool autoDesc = true, int usageIndex = 0, DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS) {
+		this->name = name;
+		this->directBinding = false;
+		this->indirectTarget = targetResourceName;
+		this->autoDesc = autoDesc;
+		this->type = type;
+		this->usageIndex = usageIndex;
+		this->usage = usage;
+		this->view.srvDesc = {};
+	}
 	std::string name;
-	std::string target;
+	// Only true if the DX12Resource* is given
+	bool directBinding = false;
+	std::string indirectTarget;
+	DX12Resource* directBindingTarget;
 	DESCRIPTOR_TYPE type;
-	union {
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
-		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
-		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-	};
+	bool autoDesc = false;
+	// Constructor won't fill this in, so you've got to do it if 'autoDesc == false'
+	ViewDesc view;
 	int usageIndex = 0;
 	DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS;
 };

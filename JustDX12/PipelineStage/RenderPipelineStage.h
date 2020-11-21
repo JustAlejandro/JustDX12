@@ -10,6 +10,9 @@ class MeshletModel;
 struct RenderPipelineDesc {
 	bool supportsCulling = false;
 	bool usesMeshlets = false;
+	std::vector<std::pair<MODEL_FORMAT, std::string>> textureToDescriptor;
+	std::unordered_map<MODEL_FORMAT, std::string> defaultTextures;
+	std::vector<RootParamDesc> meshletRootSignature;
 };
 
 class RenderPipelineStage : public PipelineStage {
@@ -35,7 +38,6 @@ protected:
 	void drawRenderObjects();
 	void drawMeshletRenderObjects();
 	void drawOcclusionQuery();
-	void importMeshTextures(Mesh* m, int usageIndex);
 	void buildMeshTexturesDescriptors(Mesh* m, int usageIndex);
 	void setupRenderObjects();
 

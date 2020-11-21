@@ -147,29 +147,29 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 		// TODO: make texture array distinguish between types...
 		// Probably just make a map from the typename to the array...
-		meshStorage.textures["texture_diffuse"] = loadMaterialTextures(material,
-			aiTextureType_DIFFUSE, "texture_diffuse");
-		meshStorage.textures["texture_normal"] = loadMaterialTextures(material,
-			aiTextureType_HEIGHT, "texture_normal");
-		meshStorage.textures["texture_specular"] = loadMaterialTextures(material,
-			aiTextureType_SPECULAR, "texture_specular");
-		meshStorage.textures["texture_alpha"] = loadMaterialTextures(material,
-			aiTextureType_OPACITY, "texture_alpha");
+		meshStorage.textures[MODEL_FORMAT_DIFFUSE_TEX] = loadMaterialTextures(material,
+			aiTextureType_DIFFUSE);
+		meshStorage.textures[MODEL_FORMAT_NORMAL_TEX] = loadMaterialTextures(material,
+			aiTextureType_HEIGHT);
+		meshStorage.textures[MODEL_FORMAT_SPECULAR_TEX] = loadMaterialTextures(material,
+			aiTextureType_SPECULAR);
+		meshStorage.textures[MODEL_FORMAT_OPACITY_TEX] = loadMaterialTextures(material,
+			aiTextureType_OPACITY);
 		if (material->GetTextureCount(aiTextureType_DIFFUSE))
 			meshStorage.typeFlags |= MODEL_FORMAT_DIFFUSE_TEX;
 		if (material->GetTextureCount(aiTextureType_HEIGHT))
 			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL_TEX;
 		if (material->GetTextureCount(aiTextureType_SPECULAR))
-			meshStorage.typeFlags |= MODEL_FORMAT_SPECULAR;
+			meshStorage.typeFlags |= MODEL_FORMAT_SPECULAR_TEX;
 		if (material->GetTextureCount(aiTextureType_OPACITY))
-			meshStorage.typeFlags |= MODEL_FORMAT_OPACITY;
+			meshStorage.typeFlags |= MODEL_FORMAT_OPACITY_TEX;
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
 	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
 	return meshStorage;
 }
 
-std::vector<DX12Texture*> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName) {
+std::vector<DX12Texture*> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type) {
 	TextureLoader& textureLoader = TextureLoader::getInstance();
 	std::vector<DX12Texture*> textures;
 
