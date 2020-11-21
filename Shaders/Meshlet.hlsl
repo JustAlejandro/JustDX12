@@ -11,7 +11,7 @@ Texture2D gSpecularMap : register(t6);
 Texture2D gNormalMap : register(t7);
 SamplerState anisoWrap : register(s4);
 
-// Flipping tris because the loader defualts to OpenGL winding order.
+// Flipping tris because the loader defaults to OpenGL winding order.
 uint3 UnpackPrimitive(uint primitive) {
 	return uint3(primitive & 0x3FF,
 		(primitive >> 20) & 0x3FF,
@@ -81,10 +81,14 @@ PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
 	
-	p.color = float4(1.0f,1.0f,1.0f,1.0f);
+	p.color = gDiffuseMap.Sample(anisoWrap, flipYofUV(pin.TexC));
 	
-	p.specular = float4(0.1f,0.1f,0.1f,1.0f);
-	p.normal = float4(pin.NormalW, 0.0);
+	p.specular = gSpecularMap.Sample(anisoWrap, flipYofUV(pin.TexC));
+	
+	float3 inNormal = normalize(gNormalMap.Sample(anisoWrap, flipYofUV(pin.TexC)).xyz);
+	float3x3 TBN = float3x3(pin.TangentW, pin.BiNormalW, pin.NormalW);
+	
+	p.normal = float4(normalize(mul(inNormal,TBN)), 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	p.binormal = float4(pin.BiNormalW, 0.0);
 	p.world = float4(pin.PosW, 1.0f);

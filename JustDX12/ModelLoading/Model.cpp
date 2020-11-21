@@ -147,42 +147,52 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 		// TODO: make texture array distinguish between types...
 		// Probably just make a map from the typename to the array...
-		meshStorage.textures[MODEL_FORMAT_DIFFUSE_TEX] = loadMaterialTextures(material,
-			aiTextureType_DIFFUSE);
-		meshStorage.textures[MODEL_FORMAT_NORMAL_TEX] = loadMaterialTextures(material,
-			aiTextureType_HEIGHT);
-		meshStorage.textures[MODEL_FORMAT_SPECULAR_TEX] = loadMaterialTextures(material,
-			aiTextureType_SPECULAR);
-		meshStorage.textures[MODEL_FORMAT_OPACITY_TEX] = loadMaterialTextures(material,
-			aiTextureType_OPACITY);
-		if (material->GetTextureCount(aiTextureType_DIFFUSE))
+		if (material->GetTextureCount(aiTextureType_DIFFUSE)) {
+			meshStorage.textures[MODEL_FORMAT_DIFFUSE_TEX] = loadMaterialTexture(material,
+				aiTextureType_DIFFUSE);
 			meshStorage.typeFlags |= MODEL_FORMAT_DIFFUSE_TEX;
-		if (material->GetTextureCount(aiTextureType_HEIGHT))
+		}
+		if (material->GetTextureCount(aiTextureType_HEIGHT)) {
+			meshStorage.textures[MODEL_FORMAT_NORMAL_TEX] = loadMaterialTexture(material,
+				aiTextureType_HEIGHT);
 			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL_TEX;
-		if (material->GetTextureCount(aiTextureType_SPECULAR))
+		}
+		if (material->GetTextureCount(aiTextureType_SPECULAR)) {
+			meshStorage.textures[MODEL_FORMAT_SPECULAR_TEX] = loadMaterialTexture(material,
+				aiTextureType_SPECULAR);
 			meshStorage.typeFlags |= MODEL_FORMAT_SPECULAR_TEX;
-		if (material->GetTextureCount(aiTextureType_OPACITY))
+		}
+		if (material->GetTextureCount(aiTextureType_OPACITY)) {
+			meshStorage.textures[MODEL_FORMAT_OPACITY_TEX] = loadMaterialTexture(material,
+				aiTextureType_OPACITY);
 			meshStorage.typeFlags |= MODEL_FORMAT_OPACITY_TEX;
+		}
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
 	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
 	return meshStorage;
 }
 
-std::vector<DX12Texture*> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type) {
-	TextureLoader& textureLoader = TextureLoader::getInstance();
-	std::vector<DX12Texture*> textures;
+DX12Texture* Model::loadMaterialTexture(aiMaterial* mat, aiTextureType type) {
+	DX12Texture* texture = nullptr;
 
-	for (int i = 0; i < mat->GetTextureCount(type); i++) {
-		aiString aiPath;
-		mat->GetTexture(type, i, &aiPath);
-		std::string path = aiPath.C_Str();
-		path = path.substr(path.find_last_of("\\") == std::string::npos ? 0 : path.find_last_of("\\")+1, path.length());
-		path = path.substr(path.find_last_of("/") == std::string::npos ? 0 : path.find_last_of("/")+1, path.length());
-		path = path.substr(0, path.find_last_of('.')) + ".dds";
-		textures.push_back(textureLoader.deferLoad(path, dir + "\\textures"));
+	if (mat->GetTextureCount(type) == 0) {
+		return texture;
 	}
-	return textures;
+	if (mat->GetTextureCount(type) > 1) {
+		OutputDebugStringA("We don't support more than one texture per type for each material, defaulting to first texture seen.");
+	}
+
+	TextureLoader& textureLoader = TextureLoader::getInstance();
+
+	aiString aiPath;
+	mat->GetTexture(type, 0, &aiPath);
+	std::string path = aiPath.C_Str();
+	path = path.substr(path.find_last_of("\\") == std::string::npos ? 0 : path.find_last_of("\\")+1, path.length());
+	path = path.substr(path.find_last_of("/") == std::string::npos ? 0 : path.find_last_of("/")+1, path.length());
+	path = path.substr(0, path.find_last_of('.')) + ".dds";
+	texture = textureLoader.deferLoad(path, dir + "\\textures");
+	return texture;
 }
 
 D3D12_VERTEX_BUFFER_VIEW Model::vertexBufferView() const {

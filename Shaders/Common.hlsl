@@ -1,3 +1,10 @@
+float2 flipYofUV(float2 uv) {
+	float2 flipped = uv - float2(0.0f,0.5f);
+	flipped.y *= -1;
+	flipped.y += 0.5f;
+	return flipped;
+}
+
 struct PerObject
 {
 	float4x4 world;

@@ -46,14 +46,31 @@ const D3D12_SHADING_RATE shadingRates[] = {
 };
 
 enum MODEL_FORMAT {
+	MODEL_FORMAT_NONE = 0,
 	MODEL_FORMAT_POSITON = 1 << 0,
 	MODEL_FORMAT_NORMAL = 1 << 1,
 	MODEL_FORMAT_TEXCOORD = 1 << 2,
 	MODEL_FORMAT_DIFFUSE_TEX = 1 << 3,
 	MODEL_FORMAT_NORMAL_TEX = 1 << 4,
 	MODEL_FORMAT_SPECULAR_TEX = 1 << 5,
-	MODEL_FORMAT_OPACITY_TEX = 1 << 6
+	MODEL_FORMAT_OPACITY_TEX = 1 << 6,
 };
+
+inline MODEL_FORMAT simpleMtlTypeToModelFormat(std::string type) {
+	if (type == "diffuse") {
+		return MODEL_FORMAT_DIFFUSE_TEX;
+	}
+	if (type == "normal") {
+		return MODEL_FORMAT_NORMAL_TEX;
+	}
+	if (type == "specular") {
+		return MODEL_FORMAT_SPECULAR_TEX;
+	}
+	if (type == "opacity") {
+		return MODEL_FORMAT_OPACITY_TEX;
+	}
+	return MODEL_FORMAT_NONE;
+}
 
 inline D3D12_VIEWPORT DEFAULT_VIEW_PORT() {
 	D3D12_VIEWPORT defaultViewPort;

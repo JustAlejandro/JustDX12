@@ -263,6 +263,7 @@ bool DemoApp::initialize() {
 			5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
 		perObjRoot.slot += 6;
 		perMeshTexRoot.slot += 6;
+		perMeshTexRoot.name = "mesh_texture_diffuse";
 		perPassRoot.slot += 6;
 		meshParams.push_back(perObjRoot);
 		meshParams.push_back(perMeshTexRoot);
@@ -274,6 +275,9 @@ bool DemoApp::initialize() {
 		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
 		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
+		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
+		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
+		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
@@ -493,8 +497,8 @@ bool DemoApp::initialize() {
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
-	//renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	//renderStage->LoadModel(modelLoader, headFile, headDir);
+	renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);

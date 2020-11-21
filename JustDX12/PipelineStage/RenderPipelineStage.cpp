@@ -188,7 +188,7 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 		curRootParamDescs = rootParameterDescs;
 	}
 
-	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
+	for (int i = 0; i < curRootParamDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(curRootParamDescs[usage][i]);
 		if (curRootParamDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
 			DX12Descriptor* descriptor = descriptorManager.getDescriptor(curRootParamDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
@@ -330,10 +330,13 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 		resourceManager.getResource("VRS")->changeState(mCommandList, D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
 	}
+	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
 		if (frustrumCull && (frustrum.Contains(model->GetBoundingSphere()) == DirectX::ContainmentType::DISJOINT) && (model->GetBoundingSphere().Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS)) {
+			modelIndex++;
 			continue;
 		}
+		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, modelIndex, meshRootParameterDescs);
 		for (auto& mesh : *model) {
 			mCommandList->SetGraphicsRoot32BitConstant(0, mesh.IndexSize, 0);
 			mCommandList->SetGraphicsRootShaderResourceView(1, mesh.VertexResources[0]->GetGPUVirtualAddress());
@@ -345,6 +348,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 				mCommandList->DispatchMesh(meshlet.Count, 1, 1);
 			}
 		}
+		modelIndex++;
 	}
 }
 
@@ -379,7 +383,24 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) 
 		MODEL_FORMAT textureType = texMap.first;
 		DX12Resource* texture = nullptr;
 		if ((m->typeFlags & textureType) != 0) {
-			texture = m->textures.at(textureType)[0];
+			texture = m->textures.at(textureType);
+		}
+		else {
+			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
+		}
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_PER_MESH);
+		addDescriptorJob(job);
+	}
+	m->texturesBound = true;
+}
+
+void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex) {
+	for (const auto& texMap : renderStageDesc.meshletTextureToDescriptor) {
+		MODEL_FORMAT textureType = texMap.first;
+		DX12Resource* texture = nullptr;
+		auto textureIter = m->textures.find(textureType);
+		if (textureIter != m->textures.end()) {
+			texture = textureIter->second;
 		}
 		else {
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
@@ -407,10 +428,19 @@ void RenderPipelineStage::setupRenderObjects() {
 			index++;
 		}
 	}
+	index = 0;
 	for (auto& meshletRenderObj : meshletRenderObjects) {
 		if (!meshletRenderObj->loaded) {
 			return;
 		}
+		if (!meshletRenderObj->allTexturesLoaded()) {
+			return;
+		}
+		if (!meshletRenderObj->texturesBound) {
+			buildMeshletTexturesDescriptors(meshletRenderObj, index);
+			return;
+		}
+		index++;
 	}
 	BuildDescriptors(stageDesc.descriptorJobs);
 	BuildQueryHeap();

@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <ModelLoading\TextureLoader.h>
 
 const D3D12_INPUT_ELEMENT_DESC elementDescs[Attribute::Count] = {
     { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 1 },
@@ -87,6 +88,9 @@ HRESULT MeshletModel::LoadFromFile(const std::string fileName) {
     if (header.Version != CURRENT_FILE_VERSION) {
         return E_FAIL; // Version Mismatch
     }
+    
+    // Start loading the materials once we're sure the model is valid.
+    LoadSimpleMtl();
 
     meshes.resize(header.MeshCount);
     stream.read(reinterpret_cast<char*>(meshes.data()), meshes.size() * sizeof(meshes[0]));
@@ -260,7 +264,6 @@ HRESULT MeshletModel::LoadFromFile(const std::string fileName) {
             DirectX::BoundingBox::CreateMerged(m_boundingBox, m_boundingBox, m.BoundingBox);
         }
     }
-
     return S_OK;
 }
 
@@ -429,4 +432,37 @@ HRESULT MeshletModel::UploadGpuResources(ID3D12Device2* device, ID3D12CommandQue
     loaded = true;
 
     return S_OK;
+}
+
+bool MeshletModel::allTexturesLoaded() {
+    if (texturesLoaded) return true;
+
+    for (const auto& texture : textures) {
+        if (texture.second->status == TEX_STATUS_NOT_LOADED) {
+            return false;
+        }
+    }
+    texturesLoaded = true;
+    return texturesLoaded;
+}
+
+void MeshletModel::LoadSimpleMtl() {
+    TextureLoader& textureLoader = TextureLoader::getInstance();
+
+    std::fstream mtlFile;
+    mtlFile.open(dir + "\\" + name.substr(0, name.find_last_of('.')) + ".simplemtl", std::ios::in);
+    
+    if (!mtlFile.is_open()) {
+        OutputDebugStringA(("Couldn't open .simplemtl file for Meshlet Model: " + name + "\n").c_str());
+    }
+    std::string line;
+    while (std::getline(mtlFile, line)) {
+        MODEL_FORMAT texType = simpleMtlTypeToModelFormat(line.substr(0, line.find_first_of(" ")));
+        std::string texPath = line.substr(line.find_first_of(" ") + 1, line.length());
+        texPath = texPath.substr(texPath.find_last_of("\\") == std::string::npos ? 0 : texPath.find_last_of("\\") + 1, texPath.length());
+        texPath = texPath.substr(texPath.find_last_of("/") == std::string::npos ? 0 : texPath.find_last_of("/") + 1, texPath.length());
+        texPath = texPath.substr(0, texPath.find_last_of('.')) + ".dds";
+
+        textures[texType] = textureLoader.deferLoad(texPath, dir + "\\textures");
+    }
 }

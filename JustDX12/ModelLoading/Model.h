@@ -43,7 +43,7 @@ public:
 	void addBoundingBoxesToVertexBuffer();
 	void processNode(aiNode* node, const aiScene* scene);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene);
-	std::vector<DX12Texture*> loadMaterialTextures(aiMaterial* mat, aiTextureType type);
+	DX12Texture* loadMaterialTexture(aiMaterial* mat, aiTextureType type);
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView()const;
 };

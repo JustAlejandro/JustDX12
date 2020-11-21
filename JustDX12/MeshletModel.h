@@ -135,7 +135,19 @@ public:
     std::string name;
     std::string dir;
 
+    std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
+
+    bool allTexturesLoaded();
+
+    bool texturesBound = false;
+
 private:
+    // Trying to make repeated checks faster
+    bool texturesLoaded = false;
+
+private:
+    void LoadSimpleMtl();
+
     std::vector<MeshletMesh> m_meshes;
     DirectX::BoundingSphere m_boundingSphere;
     DirectX::BoundingBox m_boundingBox;

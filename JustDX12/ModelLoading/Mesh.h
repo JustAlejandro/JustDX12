@@ -30,16 +30,14 @@ struct Mesh {
 	DirectX::XMFLOAT3 maxPoint;
 	DirectX::XMFLOAT3 minPoint;
 
-	std::unordered_map<MODEL_FORMAT, std::vector<DX12Texture*>> textures;
+	std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
 
 	bool allTexturesLoaded() {
 		if (texturesLoaded) return true;
 
-		for (const auto& textureArray : textures) {
-			for (const auto& texture : textureArray.second) {
-				if (texture->status == TEX_STATUS_NOT_LOADED) {
-					return false;
-				}
+		for (const auto& texture : textures) {
+			if (texture.second->status == TEX_STATUS_NOT_LOADED) {
+				return false;
 			}
 		}
 		texturesLoaded = true;

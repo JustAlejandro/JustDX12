@@ -8,11 +8,12 @@ class ModelLoader;
 class MeshletModel;
 
 struct RenderPipelineDesc {
-	bool supportsCulling = false;
-	bool usesMeshlets = false;
 	std::vector<std::pair<MODEL_FORMAT, std::string>> textureToDescriptor;
 	std::unordered_map<MODEL_FORMAT, std::string> defaultTextures;
+	bool supportsCulling = false;
+	bool usesMeshlets = false;
 	std::vector<RootParamDesc> meshletRootSignature;
+	std::vector<std::pair<MODEL_FORMAT, std::string>> meshletTextureToDescriptor;
 };
 
 class RenderPipelineStage : public PipelineStage {
@@ -39,6 +40,7 @@ protected:
 	void drawMeshletRenderObjects();
 	void drawOcclusionQuery();
 	void buildMeshTexturesDescriptors(Mesh* m, int usageIndex);
+	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
 	void setupRenderObjects();
 
 	void addDescriptorJob(DescriptorJob j);
