@@ -8,9 +8,6 @@ struct VBoundingBoxIn
 {
 	float3 center : POSITION;
 	float3 extents : NORMAL;
-	float3 padding0 : TANGENT;
-	float3 padding1 : BINORMAL;
-	float2 padding2 : TEXCOORD;
 };
 
 struct VBoundingBoxOut 

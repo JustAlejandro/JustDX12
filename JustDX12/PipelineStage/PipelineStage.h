@@ -80,7 +80,7 @@ protected:
 	void BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs);
 	void BuildResources(std::vector<ResourceJob>& resourceJobs);
 	void BuildShaders(std::vector<ShaderDesc> shaderDescs);
-	void BuildInputLayout();
+	virtual void BuildInputLayout();
 	virtual void BuildPSO();
 
 	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);

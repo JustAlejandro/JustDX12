@@ -10,6 +10,15 @@
 #include "Texture.h"
 #include <DirectXCollision.h>
 
+struct CompactBoundingBox {
+	DirectX::XMFLOAT3 center;
+	DirectX::XMFLOAT3 bounds;
+	CompactBoundingBox(DirectX::XMFLOAT3 center, DirectX::XMFLOAT3 bounds) {
+		this->center = center;
+		this->bounds = bounds;
+	}
+};
+
 struct Vertex {
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 norm;

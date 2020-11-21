@@ -131,7 +131,7 @@ public:
     auto begin() { return m_meshes.begin(); }
     auto end() { return m_meshes.end(); }
 
-    bool loaded;
+    bool loaded = false;
     std::string name;
     std::string dir;
 

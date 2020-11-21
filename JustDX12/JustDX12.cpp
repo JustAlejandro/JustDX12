@@ -498,7 +498,7 @@ bool DemoApp::initialize() {
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
 	renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	renderStage->LoadModel(modelLoader, headFile, headDir);
+	//renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);

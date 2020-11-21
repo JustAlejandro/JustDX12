@@ -258,6 +258,7 @@ HRESULT MeshletModel::LoadFromFile(const std::string fileName) {
 
         if (i == 0) {
             m_boundingSphere = m.BoundingSphere;
+            m_boundingBox = m.BoundingBox;
         }
         else {
             DirectX::BoundingSphere::CreateMerged(m_boundingSphere, m_boundingSphere, m.BoundingSphere);

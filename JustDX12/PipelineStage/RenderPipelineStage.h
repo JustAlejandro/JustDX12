@@ -41,7 +41,9 @@ protected:
 	void drawOcclusionQuery();
 	void buildMeshTexturesDescriptors(Mesh* m, int usageIndex);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
+	void BuildInputLayout() override;
 	void setupRenderObjects();
+	void setupOcclusionBoundingBoxes();
 
 	void addDescriptorJob(DescriptorJob j);
 
@@ -57,6 +59,11 @@ protected:
 	Microsoft::WRL::ComPtr<IDxcBlob> occlusionVS = nullptr;
 	Microsoft::WRL::ComPtr<IDxcBlob> occlusionGS = nullptr;
 	Microsoft::WRL::ComPtr<IDxcBlob> occlusionPS = nullptr;
+
+	Microsoft::WRL::ComPtr<ID3DBlob> occlusionBoundingBoxBufferCPU = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPU = nullptr;
+	D3D12_VERTEX_BUFFER_VIEW occlusionBoundingBoxBufferView;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> occlusionInputLayout;
 
 	// Have to keep seperate rootsig for Meshes because vertex data is now a bound object.
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> meshRootSignature = nullptr;
