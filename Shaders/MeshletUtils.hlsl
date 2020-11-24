@@ -11,8 +11,11 @@
 
 struct MeshInfo
 {
-    uint IndexBytes;
-    uint MeshletOffset;
+    uint IndexSize;
+    uint MeshletCount;
+
+    uint LastMeshletVertCount;
+    uint LastMeshletPrimCount;
 };
 
 struct Meshlet

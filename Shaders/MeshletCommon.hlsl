@@ -9,6 +9,7 @@
 //
 //*********************************************************
 #include "MeshletUtils.hlsl"
+#include "Common.hlsl"
 
 struct Vertex
 {
@@ -17,6 +18,11 @@ struct Vertex
     float3 Tangent;
     float3 Bitangent;
     float2 Texcoord;
+};
+
+struct Payload
+{
+    uint MeshletIndices[GROUP_SIZE];
 };
 
 // Slight variation from Microsoft here, not using their resource binding style.

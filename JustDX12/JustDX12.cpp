@@ -219,8 +219,9 @@ bool DemoApp::initialize() {
 			{L"VRS_4X4", L""} };
 		ShaderDesc vs = { "Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines };
 		ShaderDesc ps = { "Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines };
-		ShaderDesc ms = { "Meshlet.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {} };
-		ShaderDesc psMesh = { "Meshlet.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {} };
+		ShaderDesc as = { "MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {} };
+		ShaderDesc ms = { "MeshletMS.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {} };
+		ShaderDesc psMesh = { "MeshletMS.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {} };
 		RenderTargetDesc renderTargets[6];
 		renderTargets[0] = { "outTexDesc[0]", 0 };
 		renderTargets[1] = { "outTexDesc[1]", 0 };
@@ -237,7 +238,7 @@ bool DemoApp::initialize() {
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
 		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],outTexArray[5],depthTex,vrsTex };
 		rasterDesc.rootSigDesc = { perObjRoot, perMeshTexRoot, perPassRoot };
-		rasterDesc.shaderFiles = { vs, psMesh, ps, ms };
+		rasterDesc.shaderFiles = { vs, psMesh, ps, as, ms };
 		rasterDesc.textureFiles = {
 			{"default_normal", "default_bump.dds"},
 			{"default_spec", "default_spec.dds"},
@@ -249,8 +250,8 @@ bool DemoApp::initialize() {
 		rDesc.usesMeshlets = true;
 		// Have to generate meshlet root signature
 		std::vector<RootParamDesc> meshParams;
-		meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANTS,
-			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, DESCRIPTOR_USAGE_PER_MESHLET });
+		meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
+			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
 		meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
 			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
 		meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
@@ -498,7 +499,7 @@ bool DemoApp::initialize() {
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
 	renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	//renderStage->LoadModel(modelLoader, headFile, headDir);
+	renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);

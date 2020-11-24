@@ -113,6 +113,8 @@ void RenderPipelineStage::BuildPSO() {
 	if (renderStageDesc.usesMeshlets) {
 		D3DX12_MESH_SHADER_PIPELINE_STATE_DESC meshPSODesc = {};
 		meshPSODesc.pRootSignature = meshRootSignature.Get();
+		meshPSODesc.AS.pShaderBytecode = shadersByType[SHADER_TYPE_AS]->GetBufferPointer();
+		meshPSODesc.AS.BytecodeLength = shadersByType[SHADER_TYPE_AS]->GetBufferSize();
 		meshPSODesc.MS.pShaderBytecode = shadersByType[SHADER_TYPE_MS]->GetBufferPointer();
 		meshPSODesc.MS.BytecodeLength = shadersByType[SHADER_TYPE_MS]->GetBufferSize();
 		meshPSODesc.PS.pShaderBytecode = shaders["Mesh Pixel Shader"]->GetBufferPointer();
@@ -346,15 +348,14 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 		}
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, modelIndex, meshRootParameterDescs);
 		for (auto& mesh : *model) {
-			mCommandList->SetGraphicsRoot32BitConstant(0, mesh.IndexSize, 0);
+			mCommandList->SetGraphicsRootConstantBufferView(0, mesh.MeshInfoResource->GetGPUVirtualAddress());
 			mCommandList->SetGraphicsRootShaderResourceView(1, mesh.VertexResources[0]->GetGPUVirtualAddress());
 			mCommandList->SetGraphicsRootShaderResourceView(2, mesh.MeshletResource->GetGPUVirtualAddress());
 			mCommandList->SetGraphicsRootShaderResourceView(3, mesh.UniqueVertexIndexResource->GetGPUVirtualAddress());
 			mCommandList->SetGraphicsRootShaderResourceView(4, mesh.PrimitiveIndexResource->GetGPUVirtualAddress());
-			for (auto& meshlet : mesh.MeshletSubsets) {
-				mCommandList->SetGraphicsRoot32BitConstant(0, meshlet.Offset, 1);
-				mCommandList->DispatchMesh(meshlet.Count, 1, 1);
-			}
+			mCommandList->SetGraphicsRootShaderResourceView(5, mesh.CullDataResource->GetGPUVirtualAddress());
+			
+			mCommandList->DispatchMesh(DivRoundUp((UINT32)mesh.Meshlets.size(), 32), 1, 1);
 		}
 		modelIndex++;
 	}

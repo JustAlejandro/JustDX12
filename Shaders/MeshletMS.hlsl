@@ -1,5 +1,4 @@
 #include "MeshletCommon.hlsl"
-#include "Common.hlsl"
 
 ConstantBuffer<PerObject> PerObject : register(b1);
 
@@ -21,7 +20,7 @@ uint3 UnpackPrimitive(uint primitive) {
 uint GetVertexIndex(Meshlet m, uint localIndex) {
 	localIndex = m.VertOffset + localIndex;
 	
-	if (MeshInfo.IndexBytes == 4) {
+	if (MeshInfo.IndexSize == 4) {
 		return UniqueVertexIndices.Load(localIndex * 4);	
 	}
 	else {
@@ -56,14 +55,22 @@ VertexOut GetVertexAttributes(uint meshletIndex, uint vertexIndex) {
 	return vout;
 }
 
-[NumThreads(128, 1, 1)]
+[NumThreads(GROUP_SIZE, 1, 1)]
 [OutputTopology("triangle")]
 void MS(uint gtid : SV_GroupThreadID,
 	uint gid : SV_GroupID,
-	out vertices VertexOut verts[64],
-	out indices uint3 tris[126]) {
+    in payload Payload payload,
+	out vertices VertexOut verts[GROUP_SIZE],
+	out indices uint3 tris[GROUP_SIZE]) {
 	
-	Meshlet m = Meshlets[MeshInfo.MeshletOffset + gid];
+	uint meshletIndex = payload.MeshletIndices[gid];
+	
+	if (meshletIndex >= MeshInfo.MeshletCount)
+	{
+		return;	
+	}
+	
+	Meshlet m = Meshlets[meshletIndex];
 	
 	SetMeshOutputCounts(m.VertCount, m.PrimCount);
 	
