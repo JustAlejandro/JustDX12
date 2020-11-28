@@ -21,7 +21,7 @@ struct PerPass
 	float4x4 ViewProj;
 	float4x4 InvViewProj;
 	float3 EyePosW;
-	float cbPerObjectPad;
+	int meshletCull;
 	float2 RenderTargetSize;
 	float2 InvRenderTargetSize;
 	float NearZ;

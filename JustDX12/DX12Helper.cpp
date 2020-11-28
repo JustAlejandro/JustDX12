@@ -117,6 +117,14 @@ DirectX::XMFLOAT4X4 Identity() {
 	return I;
 }
 
+float AverageVector(std::vector<float>& vec) {
+	float sum = 0.0f;
+	for (const float& num : vec) {
+		sum += num;
+	}
+	return sum / vec.size();
+}
+
 UINT CalcConstantBufferByteSize(UINT byteSize) {
 	// Constant buffers have to be multiples of 256 byte size
 	int constBufferSize = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;

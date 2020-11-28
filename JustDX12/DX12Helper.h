@@ -40,6 +40,8 @@ Microsoft::WRL::ComPtr<IDxcBlob> compileShader(
 
 DirectX::XMFLOAT4X4 Identity();
 
+float AverageVector(std::vector<float>& vec);
+
 UINT CalcConstantBufferByteSize(UINT byteSize);
 
 UINT CalcBufferByteSize(UINT byteSize, UINT alignment);

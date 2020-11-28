@@ -13,8 +13,8 @@ SamplerState anisoWrap : register(s4);
 // Flipping tris because the loader defaults to OpenGL winding order.
 uint3 UnpackPrimitive(uint primitive) {
 	return uint3(primitive & 0x3FF,
-		(primitive >> 20) & 0x3FF,
-		(primitive >> 10) & 0x3FF);	
+		(primitive >> 10) & 0x3FF,
+		(primitive >> 20) & 0x3FF);	
 }
 
 uint GetVertexIndex(Meshlet m, uint localIndex) {

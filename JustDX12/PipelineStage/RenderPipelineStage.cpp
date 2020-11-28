@@ -334,8 +334,12 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	}
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
-		if (renderStageDesc.supportsCulling && occlusionCull && frustrum.Contains(model->GetBoundingBox()) != (DirectX::ContainmentType::INTERSECTS)) {
-			DirectX::ContainmentType containType = frustrum.Contains(model->GetBoundingBox());
+		DirectX::ContainmentType containType = frustrum.Contains(model->GetBoundingBox());
+		if (containType == DirectX::ContainmentType::DISJOINT) {
+			modelIndex++;
+			continue;
+		}
+		if (renderStageDesc.supportsCulling && occlusionCull && containType != (DirectX::ContainmentType::INTERSECTS)) {
 			if (model->GetBoundingBox().Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS) {
 				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)(modelIndex + renderObjects.size()) * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}

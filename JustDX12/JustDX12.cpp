@@ -499,7 +499,7 @@ bool DemoApp::initialize() {
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
 	renderStage->LoadModel(modelLoader, armorFile, armorDir);
-	renderStage->LoadModel(modelLoader, headFile, headDir);
+	//renderStage->LoadModel(modelLoader, headFile, headDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -554,9 +554,11 @@ void DemoApp::draw() {
 	std::vector<float> frametimeVec(frametime.begin(), frametime.end());
 	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 2.0f, 10.0f, ImVec2(ImGui::GetWindowWidth(), 300));
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::Text("Last 1000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
 	ImGui::Checkbox("Freeze Culling", &freezeCull);
 	ImGui::Checkbox("Occlusion Predication Culling", &renderStage->occlusionCull);
+	ImGui::Checkbox("Meshlet Normal Cone Culling", (bool*)&mainPassCB.data.meshletCull);
 	ImGui::Checkbox("VRS", &VRS);
 	ImGui::Checkbox("Render VRS", &renderVRS);
 	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);
@@ -735,7 +737,11 @@ void DemoApp::UpdateMainPassCB() {
 	XMStoreFloat4x4(&mainPassCB.data.invProj, XMMatrixTranspose(invProj));
 	XMStoreFloat4x4(&mainPassCB.data.viewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&mainPassCB.data.invViewProj, XMMatrixTranspose(invViewProj));
-	mainPassCB.data.EyePosW = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
+	// Easiest way to stop updating the viewer position for meshlet culling.
+	// Sadly breaks specular lighting, but this is a debug toggle, so no big deal.
+	if (!freezeCull) {
+		mainPassCB.data.EyePosW = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
+	}
 	mainPassCB.data.RenderTargetSize = DirectX::XMFLOAT2((float)mClientWidth, (float)mClientHeight);
 	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
 	mainPassCB.data.NearZ = 1.0f;

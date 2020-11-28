@@ -74,7 +74,7 @@ public:
 		DirectX::XMFLOAT4X4 viewProj = Identity();
 		DirectX::XMFLOAT4X4 invViewProj = Identity();
 		DirectX::XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
-		float cbPadding = 0.0f;
+		BOOL meshletCull = 1;
 		DirectX::XMFLOAT2 RenderTargetSize = { 0.0f, 0.0f };
 		DirectX::XMFLOAT2 InvRenderTargetSize = { 0.0f, 0.0f };
 		float NearZ = 0.0f;
@@ -84,7 +84,7 @@ public:
 		float VrsShort = shadingRateDistance[0];
 		float VrsMedium = shadingRateDistance[1];
 		float VrsLong = shadingRateDistance[2];
-		int renderVRS = 1;
+		BOOL renderVRS = 1;
 	};
 
 	PerPassConstantsStruct data;
