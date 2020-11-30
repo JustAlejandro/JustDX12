@@ -15,10 +15,10 @@ DX12ConstantBuffer* ConstantBufferManager::getConstantBuffer(std::string name) {
 }
 
 DX12ConstantBuffer* ConstantBufferManager::makeConstantBuffer(ConstantBufferJob job) {
-	if (buffers.find(job.name) != buffers.find(job.name)) {
+	if (buffers.find(job.name + std::to_string(job.usageIndex)) != buffers.find(job.name + std::to_string(job.usageIndex))) {
 		OutputDebugStringA(("ConstBuffer named " + job.name + " already exists\n").c_str());
 		return nullptr;
 	}
-	buffers.try_emplace(job.name, job.initialData, device.Get());
-	return getConstantBuffer(job.name);
+	buffers.try_emplace(job.name + std::to_string(job.usageIndex), job.initialData, device.Get());
+	return getConstantBuffer(job.name + std::to_string(job.usageIndex));
 }

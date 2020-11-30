@@ -32,7 +32,6 @@ std::string armorMeshlet = "armor.bin";
 std::string warn;
 std::string err;
 
-const int numFrameResources = 1;
 
 class DemoApp : public DX12App {
 public:
@@ -158,8 +157,6 @@ bool DemoApp::initialize() {
 	}
 
 	{
-		DescriptorJob perObjectConstants0("PerObjectConstDesc", "PerObjectConstants0", DESCRIPTOR_TYPE_CBV, false, 0, DESCRIPTOR_USAGE_PER_OBJECT);
-
 		DescriptorJob rtvDescs[6];
 		rtvDescs[0].name = "outTexDesc[0]";
 		rtvDescs[0].indirectTarget = "outTexArray[0]";
@@ -189,7 +186,7 @@ bool DemoApp::initialize() {
 		dsvDesc.view.dsvDesc = DEFAULT_DSV_DESC();
 		dsvDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
 		dsvDesc.usageIndex = 0;
-		RootParamDesc perObjRoot = { "PerObjectConstDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+		RootParamDesc perObjRoot = { "PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT };
 		RootParamDesc perMeshTexRoot = { "texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, DESCRIPTOR_USAGE_PER_MESH };
@@ -212,7 +209,10 @@ bool DemoApp::initialize() {
 		outTexArray[5].name = "outTexArray[5]";
 		ResourceJob depthTex = { "depthTex", DESCRIPTOR_TYPE_DSV | DESCRIPTOR_TYPE_SRV,
 			DEPTH_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
-		ConstantBufferJob perObjectJob0 = { "PerObjectConstants0", new PerObjectConstants() };
+		ConstantBufferJob perObjectJob0 = { "PerObjectConstants", new PerObjectConstants(), 0 };
+		ConstantBufferJob perObjectJob1 = { "PerObjectConstants", new PerObjectConstants(), 1 };
+		ConstantBufferJob perObjectJob2 = { "PerObjectConstants", new PerObjectConstants(), 2 };
+		ConstantBufferJob perObjectJobMeshlet0 = { "PerObjectConstantsMeshlet", new PerObjectConstants(), 0 };
 		ConstantBufferJob perPassJob = { "PerPassConstants", new PerPassConstants() };
 		std::vector<DXDefine> defines = { 
 			{L"VRS", L""},
@@ -230,10 +230,10 @@ bool DemoApp::initialize() {
 		renderTargets[4] = { "outTexDesc[4]", 0 };
 		renderTargets[5] = { "outTexDesc[5]", 0 };
 
+
 		PipeLineStageDesc rasterDesc;
-		rasterDesc.constantBufferJobs = { perObjectJob0, perPassJob };
-		rasterDesc.descriptorJobs = { perObjectConstants0,
-			rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
+		rasterDesc.constantBufferJobs = { perObjectJob0, perObjectJob1, perObjectJob2, perObjectJobMeshlet0, perPassJob };
+		rasterDesc.descriptorJobs = { rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
 		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],outTexArray[5],depthTex,vrsTex };
@@ -244,6 +244,7 @@ bool DemoApp::initialize() {
 			{"default_spec", "default_spec.dds"},
 			{"default_diff", "default_diff.dds"}
 		};
+
 
 		RenderPipelineDesc rDesc;
 		rDesc.supportsCulling = true;
@@ -262,6 +263,7 @@ bool DemoApp::initialize() {
 			4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
 		meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
 			5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
+		perObjRoot.name = "PerObjectConstantsMeshlet";
 		perObjRoot.slot += 6;
 		perMeshTexRoot.slot += 6;
 		perMeshTexRoot.name = "mesh_texture_diffuse";
@@ -279,6 +281,7 @@ bool DemoApp::initialize() {
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
+
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
@@ -529,8 +532,13 @@ void DemoApp::update() {
 	onKeyboardInput();
 	updateCamera();
 
-	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % numFrameResources;
+	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % CPU_FRAME_COUNT;
 	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
+
+	renderStage->nextFrame();
+	computeStage->nextFrame();
+	mergeStage->nextFrame();
+	vrsComputeStage->nextFrame();
 
 	if (mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
@@ -620,7 +628,7 @@ void DemoApp::draw() {
 	
 	mCommandList->Close();
 
-	ID3D12CommandList* cmdList[] = { mCommandList.Get() };
+	ID3D12CommandList* cmdList[] = { renderStage->mCommandList.Get(), computeStage->mCommandList.Get(), mergeStage->mCommandList.Get(), vrsComputeStage->mCommandList.Get(), mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
 
 	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
@@ -639,9 +647,9 @@ void DemoApp::onResize() {
 }
 
 void DemoApp::BuildFrameResources() {
-	for (int i = 0; i < numFrameResources; i++) {
-		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-			1, (UINT)/*Num of objects*/1, (UINT)/*Num of Materials*/0));
+	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
+		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get()));
+		mFrameResources[i].get()->CmdListAlloc->SetName((L"Alloc" + std::to_wstring(i)).c_str());
 	}
 }
 

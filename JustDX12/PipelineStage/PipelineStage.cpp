@@ -8,6 +8,9 @@ using namespace Microsoft::WRL;
 
 PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice)
 	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
+	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
+		frameResourceArray.push_back(std::make_unique<FrameResource>(md3dDevice.Get()));
+	}
 }
 
 void PipelineStage::LoadTextures(std::vector<std::pair<std::string,std::string>> textureFiles) {
@@ -26,19 +29,23 @@ int PipelineStage::deferExecute() {
 	return triggerFence();
 }
 
-void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data) {
-	constantBufferManager.getConstantBuffer(name)->prepareUpdateBuffer(&data);
-	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, name));
+void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex) {
+	constantBufferManager.getConstantBuffer(name + std::to_string(usageIndex))->prepareUpdateBuffer(&data);
+	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, name + std::to_string(usageIndex)));
 }
 
 void PipelineStage::updateConstantBuffer(std::string name) {
-	constantBufferManager.getConstantBuffer(name)->updateBuffer();
+	constantBufferManager.getConstantBuffer(name)->updateBuffer(frameIndex);
 }
 
 int PipelineStage::triggerFence() {
 	int dest = getFenceValue() + 1;
 	enqueue(new PipelineStageTaskFence(this, dest));
 	return dest;
+}
+
+void PipelineStage::nextFrame() {
+	frameIndex = (frameIndex + 1) % CPU_FRAME_COUNT;
 }
 
 void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
@@ -108,7 +115,6 @@ void PipelineStage::BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs)
 void PipelineStage::BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs) {
 	for (ConstantBufferJob& job : constantBufferJobs) {
 		constantBufferManager.makeConstantBuffer(job);
-		resourceManager.makeFromExisting(job.name, DESCRIPTOR_TYPE_NONE, constantBufferManager.getConstantBuffer(job.name)->get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 		delete job.initialData;
 	}
 }
@@ -229,8 +235,9 @@ DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterDesc(RootParamD
 }
 
 void PipelineStage::resetCommandList() {
-	mDirectCmdListAlloc->Reset();
-	mCommandList->Reset(mDirectCmdListAlloc.Get(), PSO.Get());
+	mDirectCmdListAlloc = frameResourceArray[frameIndex].get()->CmdListAlloc;
+	ThrowIfFailed(mDirectCmdListAlloc->Reset());
+	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), PSO.Get()));
 }
 
 void PipelineStage::bindDescriptorHeaps() {

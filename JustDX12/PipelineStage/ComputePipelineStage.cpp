@@ -23,9 +23,6 @@ void ComputePipelineStage::Execute() {
 	//PIXEndEvent(mCommandList.Get());
 
 	mCommandList->Close();
-
-	ID3D12CommandList* cmdList[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
 }
 
 void ComputePipelineStage::setup(PipeLineStageDesc stageDesc) {
@@ -80,6 +77,9 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 				break;
 			}
 		}
+		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
+			mCommandList->SetComputeRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(curRootParamDescs[usage][i].name + std::to_string(usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
+		}
 		else {
 			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();
 			switch (descriptorType) {
@@ -90,9 +90,6 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 				break;
 			case DESCRIPTOR_TYPE_UAV:
 				mCommandList->SetComputeRootUnorderedAccessView(rootParameterDescs[usage][i].slot, resource);
-				break;
-			case DESCRIPTOR_TYPE_CBV:
-				mCommandList->SetComputeRootConstantBufferView(rootParameterDescs[usage][i].slot, resource);
 				break;
 			default:
 				throw "Don't know what to do here.";

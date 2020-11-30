@@ -62,6 +62,7 @@ protected:
 
 	Microsoft::WRL::ComPtr<ID3DBlob> occlusionBoundingBoxBufferCPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPU = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPUUploader = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW occlusionBoundingBoxBufferView;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> occlusionInputLayout;
 

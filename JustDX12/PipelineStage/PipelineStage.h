@@ -8,6 +8,7 @@
 #include "ConstantBufferManager.h"
 #include <dxcapi.h>
 #include <vector>
+#include "FrameResource.h"
 
 enum ROOT_PARAMETER_TYPE {
 	ROOT_PARAMETER_TYPE_CONSTANTS = 0,
@@ -64,9 +65,10 @@ class PipelineStage : public TaskQueueThread {
 public:
 	void deferSetup(PipeLineStageDesc stageDesc);
 	int deferExecute();
-	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data);
+	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex = 0);
 	void updateConstantBuffer(std::string name);
 	int triggerFence();
+	void nextFrame();
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
 	DX12Resource* getResource(std::string name);
 
@@ -93,7 +95,11 @@ protected:
 	virtual void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr)=0;
 	void setResourceStates();
 protected:
+	int frameIndex = 0;
+
 	PipeLineStageDesc stageDesc;
+
+	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;

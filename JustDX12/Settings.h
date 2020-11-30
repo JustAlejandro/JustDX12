@@ -10,6 +10,8 @@
 #define USE_PIX
 #define CLEAR_MODEL_MEMORY
 
+#define CPU_FRAME_COUNT 3
+
 #define SCREEN_WIDTH 2560
 #define SCREEN_HEIGHT 1440
 

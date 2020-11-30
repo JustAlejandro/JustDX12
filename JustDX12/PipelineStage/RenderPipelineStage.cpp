@@ -24,12 +24,13 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 }
 
 void RenderPipelineStage::Execute() {
+	resetCommandList();
+
 	if (!allRenderObjectsSetup) {
 		setupRenderObjects();
+		mCommandList->Close();
 		return;
 	}
-
-	resetCommandList();
 
 	//PIXBeginEvent(mCommandList.GetAddressOf(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
 
@@ -38,8 +39,6 @@ void RenderPipelineStage::Execute() {
 
 	mCommandList->RSSetViewports(1, &viewport);
 	mCommandList->RSSetScissorRects(1, &scissorRect);
-
-	//mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_4X4, nullptr);
 
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
 
@@ -61,9 +60,6 @@ void RenderPipelineStage::Execute() {
 	//PIXEndEvent(mCommandList.GetAddressOf());
 
 	mCommandList->Close();
-
-	ID3D12CommandList* cmdList[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
 }
 
 void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName) {
@@ -219,6 +215,9 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 				break;
 			}
 		}
+		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
+			mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(curRootParamDescs[usage][i].name + std::to_string(usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
+		}
 		else {
 			DX12Resource* resource = resourceManager.getResource(curRootParamDescs[usage][i].name);
 			if (resource == nullptr) {
@@ -233,9 +232,6 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 				break;
 			case DESCRIPTOR_TYPE_UAV:
 				mCommandList->SetGraphicsRootUnorderedAccessView(curRootParamDescs[usage][i].slot, resPtr);
-				break;
-			case DESCRIPTOR_TYPE_CBV:
-				mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, resPtr);
 				break;
 			default:
 				throw "Don't know what to do here.";
@@ -470,8 +466,6 @@ void RenderPipelineStage::setupRenderObjects() {
 }
 
 void RenderPipelineStage::setupOcclusionBoundingBoxes() {
-	resetCommandList();
-
 	std::vector<CompactBoundingBox> boundingBoxes;
 	for (const auto& model : renderObjects) {
 		boundingBoxes.emplace_back(model->boundingBox.Center, model->boundingBox.Extents);
@@ -484,15 +478,8 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 	D3DCreateBlob(byteSize, &occlusionBoundingBoxBufferCPU);
 	CopyMemory(occlusionBoundingBoxBufferCPU->GetBufferPointer(), boundingBoxes.data(), byteSize);
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> bufferUploader = nullptr;
-
 	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
-		boundingBoxes.data(), byteSize, bufferUploader);
-
-	mCommandList->Close();
-	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-	waitOnFence();
+		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);
 
 	occlusionBoundingBoxBufferView.BufferLocation = occlusionBoundingBoxBufferGPU->GetGPUVirtualAddress();
 	occlusionBoundingBoxBufferView.StrideInBytes = sizeof(CompactBoundingBox);

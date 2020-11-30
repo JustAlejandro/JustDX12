@@ -19,10 +19,9 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 		desc.usageIndex = job.usageIndex;
 
 		if (job.type == DESCRIPTOR_TYPE_CBV) {
-			DX12ConstantBuffer* buffer = constantBufferManager->getConstantBuffer(job.indirectTarget);
-			desc.constantBufferTarget = buffer;
-			job.view.cbvDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress();
-			job.view.cbvDesc.SizeInBytes = CalcConstantBufferByteSize(buffer->getBufferSize());
+			// Can't make a CBV descriptor because constant buffers are ring buffered per frame.
+			OutputDebugStringA("Error: Can't make a CBV descriptor, try binding the CBV directly with root params");
+			continue;
 		}
 		else {
 			if (job.directBinding) {
@@ -101,9 +100,6 @@ void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, Descrip
 		break;
 	case DESCRIPTOR_TYPE_UAV:
 		device->CreateUnorderedAccessView(descriptor.resourceTarget->get(), nullptr, job.autoDesc ? nullptr : &job.view.uavDesc, descriptor.cpuHandle);
-		break;
-	case DESCRIPTOR_TYPE_CBV:
-		device->CreateConstantBufferView(&job.view.cbvDesc, descriptor.cpuHandle);
 		break;
 	default:
 		OutputDebugStringA(("Couldn't create DescriptorView of type: " + std::to_string(job.type)).c_str());
