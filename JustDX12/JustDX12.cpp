@@ -604,7 +604,7 @@ void DemoApp::draw() {
 	vrsComputeStage->deferWaitOnFence(mergeStage->getFence(), mergeFenceValue);
 	int vrsComputeFenceValue = vrsComputeStage->deferExecute();
 
-	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
 
 	//WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
 	WaitOnFenceForever(vrsComputeStage->getFence(), vrsComputeFenceValue);
@@ -625,6 +625,8 @@ void DemoApp::draw() {
 
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+
+	PIXEndEvent(mCommandList.Get());
 	
 	mCommandList->Close();
 

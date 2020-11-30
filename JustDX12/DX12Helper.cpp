@@ -151,6 +151,26 @@ void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) 
 	}
 }
 
+void WaitOnMultipleFencesForever(std::vector<ID3D12Fence*> fences, std::vector<UINT64> destVals, ID3D12Device1* device) {
+	bool alreadyFinished = true;
+	for (int i = 0; i < fences.size(); i++) {
+		if (fences[i]->GetCompletedValue() < destVals[i]) {
+			alreadyFinished = false;
+			break;
+		}
+	}
+	if (!alreadyFinished) {
+		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+
+		device->SetEventOnMultipleFenceCompletion(fences.data(), destVals.data(), fences.size(), D3D12_MULTIPLE_FENCE_WAIT_FLAG_ALL, eventHandle);
+
+		PIXNotifyWakeFromFenceSignal(eventHandle);
+
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+}
+
 void updateBoundingBoxMinMax(DirectX::XMFLOAT3& minPoint, DirectX::XMFLOAT3& maxPoint, const DirectX::XMFLOAT3& pos) {
 	maxPoint.x = std::fmax(maxPoint.x, pos.x);
 	maxPoint.y = std::fmax(maxPoint.y, pos.y);

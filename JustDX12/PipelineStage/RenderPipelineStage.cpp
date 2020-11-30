@@ -32,7 +32,7 @@ void RenderPipelineStage::Execute() {
 		return;
 	}
 
-	//PIXBeginEvent(mCommandList.GetAddressOf(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -57,7 +57,7 @@ void RenderPipelineStage::Execute() {
 		drawOcclusionQuery();
 	}
 
-	//PIXEndEvent(mCommandList.GetAddressOf());
+	PIXEndEvent(mCommandList.Get());
 
 	mCommandList->Close();
 }

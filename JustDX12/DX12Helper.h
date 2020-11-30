@@ -48,6 +48,8 @@ UINT CalcBufferByteSize(UINT byteSize, UINT alignment);
 
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal);
 
+void WaitOnMultipleFencesForever(std::vector<ID3D12Fence*> fences, std::vector<UINT64> destVals, ID3D12Device1* device);
+
 void updateBoundingBoxMinMax(DirectX::XMFLOAT3& minPoint, DirectX::XMFLOAT3& maxPoint, const DirectX::XMFLOAT3& pos);
 
 DirectX::BoundingBox boundingBoxFromMinMax(const DirectX::XMFLOAT3& min, const DirectX::XMFLOAT3& max);

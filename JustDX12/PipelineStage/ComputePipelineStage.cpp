@@ -7,7 +7,7 @@ ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2>
 void ComputePipelineStage::Execute() {
 	resetCommandList();
 
-	//PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), "SSAO");
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), "SSAO");
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -20,7 +20,7 @@ void ComputePipelineStage::Execute() {
 	mCommandList->Dispatch(computeStageDesc.groupCount[0], computeStageDesc.groupCount[1], computeStageDesc.groupCount[2]);
 
 
-	//PIXEndEvent(mCommandList.Get());
+	PIXEndEvent(mCommandList.Get());
 
 	mCommandList->Close();
 }
