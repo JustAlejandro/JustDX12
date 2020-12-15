@@ -45,7 +45,7 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device2> device, DESCRIPTOR_TYPES types,
 	D3D12_CLEAR_VALUE defaultDepthClear = DEFAULT_CLEAR_VALUE_DEPTH_STENCIL();
 	D3D12_CLEAR_VALUE* clearVal = (types & DESCRIPTOR_TYPE_DSV) ? &defaultDepthClear : nullptr;
 	device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		&gDefaultHeapDesc,
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
 		curState,
@@ -55,9 +55,9 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device2> device, DESCRIPTOR_TYPES types,
 
 void DX12Resource::changeState(ComPtr<ID3D12GraphicsCommandList5> cmdList, D3D12_RESOURCE_STATES destState) {
 	if (curState == destState) return;
-
-	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(),
-		curState, destState));
+	
+	auto stateTransition = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), curState, destState);
+	cmdList->ResourceBarrier(1, &stateTransition);
 	curState = destState;
 }
 

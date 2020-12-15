@@ -5,10 +5,12 @@ DX12ConstantBuffer::DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device2* 
 	elementByteSize = CalcConstantBufferByteSize(data->byteSize());
 
 	for (UINT i = 0; i < CPU_FRAME_COUNT; i++) {
+		auto uploadHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(elementByteSize);
 		device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			&uploadHeap,
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(elementByteSize),
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&uploadBuffer[i]));

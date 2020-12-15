@@ -54,7 +54,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
     tex->MetaData.Alignment = 0;
 
     md3dDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        &gDefaultHeapDesc,
         D3D12_HEAP_FLAG_NONE,
         &tex->MetaData,
         D3D12_RESOURCE_STATE_COPY_DEST,
@@ -73,9 +73,10 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
         0, layouts, numRows, rowSizesInBytes, &textureMemorySize);
 
     // Create the upload heap for the texture data
-    md3dDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(CalcBufferByteSize(textureMemorySize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT));
+    md3dDevice->CreateCommittedResource(&gUploadHeapDesc,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(CalcBufferByteSize(textureMemorySize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT)),
+        &bufferDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(&tex->UploadHeap));

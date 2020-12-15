@@ -212,6 +212,9 @@ bool DemoApp::initialize() {
 		ConstantBufferJob perObjectJob0 = { "PerObjectConstants", new PerObjectConstants(), 0 };
 		ConstantBufferJob perObjectJob1 = { "PerObjectConstants", new PerObjectConstants(), 1 };
 		ConstantBufferJob perObjectJob2 = { "PerObjectConstants", new PerObjectConstants(), 2 };
+		ConstantBufferJob perObjectJob3 = { "PerObjectConstants", new PerObjectConstants(), 3 };
+		ConstantBufferJob perObjectJob4 = { "PerObjectConstants", new PerObjectConstants(), 4 };
+		ConstantBufferJob perObjectJob5 = { "PerObjectConstants", new PerObjectConstants(), 5 };
 		ConstantBufferJob perObjectJobMeshlet0 = { "PerObjectConstantsMeshlet", new PerObjectConstants(), 0 };
 		ConstantBufferJob perPassJob = { "PerPassConstants", new PerPassConstants() };
 		std::vector<DXDefine> defines = { 
@@ -232,7 +235,7 @@ bool DemoApp::initialize() {
 
 
 		PipeLineStageDesc rasterDesc;
-		rasterDesc.constantBufferJobs = { perObjectJob0, perObjectJob1, perObjectJob2, perObjectJobMeshlet0, perPassJob };
+		rasterDesc.constantBufferJobs = { perObjectJob0, perObjectJob1, perObjectJob2, perObjectJob3, perObjectJob4, perObjectJob5, perObjectJobMeshlet0, perPassJob };
 		rasterDesc.descriptorJobs = { rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
 		rasterDesc.externalResources = {};
 		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
@@ -521,7 +524,7 @@ bool DemoApp::initialize() {
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	ImGui::StyleColorsDark();
 	ImGui_ImplWin32_Init(hWindow);
-	ImGui_ImplDX12_Init(md3dDevice.Get(), 2, COLOR_TEXTURE_FORMAT, mImguiHeap.Get(),
+	ImGui_ImplDX12_Init(md3dDevice.Get(), CPU_FRAME_COUNT, COLOR_TEXTURE_FORMAT, mImguiHeap.Get(),
 		mImguiHeap->GetCPUDescriptorHandleForHeapStart(), mImguiHeap->GetGPUDescriptorHandleForHeapStart());
 	ImGui_ImplDX12_CreateDeviceObjects();
 
@@ -593,9 +596,11 @@ void DemoApp::draw() {
 
 	mCommandList->Reset(cmdListAlloc.Get(), defaultPSO.Get());
 
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
+	auto transToCopy = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
+	mCommandList->ResourceBarrier(1, &transToCopy);
 
+	// Have to keep these chained together since the resource transitions aren't done correctly
 	int renderFenceValue = renderStage->deferExecute();
 	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
 	int computeFenceValue =  computeStage->deferExecute();
@@ -613,18 +618,19 @@ void DemoApp::draw() {
 	megeOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	mCommandList->CopyResource(CurrentBackBuffer(), megeOut->get());
 
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	auto transToRender = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mCommandList->ResourceBarrier(1, &transToRender);
 
 	mCommandList->SetDescriptorHeaps(1, mImguiHeap.GetAddressOf());
 
-	mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, nullptr);
+	auto backBufferView = CurrentBackBufferView();
+	mCommandList->OMSetRenderTargets(1, &backBufferView, true, nullptr);
 
 	ImGui::Render();
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
 
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	auto transToPresent = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	mCommandList->ResourceBarrier(1, &transToPresent);
 
 	PIXEndEvent(mCommandList.Get());
 	
@@ -737,9 +743,12 @@ void DemoApp::UpdateMainPassCB() {
 	DirectX::XMMATRIX proj = XMLoadFloat4x4(&this->proj);
 
 	DirectX::XMMATRIX viewProj = XMMatrixMultiply(view, proj);
-	DirectX::XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
-	DirectX::XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
-	DirectX::XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
+	auto viewDet = XMMatrixDeterminant(view);
+	DirectX::XMMATRIX invView = XMMatrixInverse(&viewDet, view);
+	auto projDet = XMMatrixDeterminant(proj);
+	DirectX::XMMATRIX invProj = XMMatrixInverse(&projDet, proj);
+	auto viewProjDet = XMMatrixDeterminant(viewProj);
+	DirectX::XMMATRIX invViewProj = XMMatrixInverse(&viewProjDet, viewProj);
 
 	XMStoreFloat4x4(&mainPassCB.data.view, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&mainPassCB.data.invView, XMMatrixTranspose(invView));

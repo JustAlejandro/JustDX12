@@ -28,11 +28,13 @@ bool IsVisible(CullData c, float4x4 world, float3 viewPos)
 	// This is all the same logic as the mesh shading culling example in
 	// the DX12 graphics samples from Microsoft, we'll see how well it performs in
 	// a real world environment and see if we can make the culling more aggressive.
-	float4 center = mul(float4(c.BoundingSphere.xyz, 1), world);
+	//float4 center = mul(float4(c.BoundingSphere.xyz, 1), world);
+	float4 center = float4(c.BoundingSphere.xyz, 1);
 	
 	float4 normalCone = UnpackCone(c.NormalCone);
 	
-	float3 axis = normalize(mul(float4(normalCone.xyz, 0), world)).xyz;
+	//float3 axis = normalize(mul(float4(normalCone.xyz, 0), world)).xyz;
+	float3 axis = normalize(float4(normalCone.xyz, 0)).xyz;
 	
 	float3 apex = center.xyz - axis * c.ApexOffset;
 	

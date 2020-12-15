@@ -168,9 +168,10 @@ void RenderPipelineStage::BuildPSO() {
 
 void RenderPipelineStage::BuildQueryHeap() {
 	if (renderStageDesc.supportsCulling) {
-		md3dDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer((renderObjects.size() + meshletRenderObjects.size()) * 8);
+		md3dDevice->CreateCommittedResource(&gDefaultHeapDesc,
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer((renderObjects.size() + meshletRenderObjects.size()) * 8),
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_PREDICATION,
 			nullptr,
 			IID_PPV_ARGS(&occlusionQueryResultBuffer));
@@ -278,8 +279,10 @@ void RenderPipelineStage::drawRenderObjects() {
 
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
 
-		mCommandList->IASetVertexBuffers(0, 1, &model->vertexBufferView());
-		mCommandList->IASetIndexBuffer(&model->indexBufferView());
+		auto vertexBufferView = model->vertexBufferView();
+		auto indexBufferView = model->indexBufferView();
+		mCommandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+		mCommandList->IASetIndexBuffer(&indexBufferView);
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		if (renderStageDesc.supportsCulling && occlusionCull && frustrum.Contains(model->boundingBox) != (DirectX::ContainmentType::INTERSECTS)) {
@@ -379,9 +382,11 @@ void RenderPipelineStage::drawOcclusionQuery() {
 		mCommandList->DrawInstanced(1, 1, i, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST));
+	auto copyTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST);
+	mCommandList->ResourceBarrier(1, &copyTransition);
 	mCommandList->ResolveQueryData(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, 0, renderObjects.size() + meshletRenderObjects.size(), occlusionQueryResultBuffer.Get(), 0);
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PREDICATION));
+	auto predTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PREDICATION);
+	mCommandList->ResourceBarrier(1, &predTransition);
 }
 
 void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) {
