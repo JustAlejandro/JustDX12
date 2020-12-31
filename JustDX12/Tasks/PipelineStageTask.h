@@ -1,6 +1,7 @@
 #pragma once
 #include "Tasks\Task.h"
 #include "PipelineStage\PipelineStage.h"
+#include "IndexedName.h"
 
 class PipelineStageTask : public Task {
 public:
@@ -55,11 +56,12 @@ public:
 
 class PipelineStageTaskUpdateConstantBuffer : public PipelineStageTask {
 public:
-	PipelineStageTaskUpdateConstantBuffer(PipelineStage* stage, std::string name) : PipelineStageTask(stage) {
-		this->name = name;
+	PipelineStageTaskUpdateConstantBuffer(PipelineStage* stage, IndexedName indexName) : PipelineStageTask(stage),
+		indexName(indexName) {
+	
 	}
-	void execute() override { stage->updateConstantBuffer(name); }
+	void execute() override { stage->updateConstantBuffer(indexName); }
 	virtual ~PipelineStageTaskUpdateConstantBuffer() override = default;
 private:
-	std::string name;
+	IndexedName indexName;
 };

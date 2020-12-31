@@ -30,12 +30,12 @@ int PipelineStage::deferExecute() {
 }
 
 void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex) {
-	constantBufferManager.getConstantBuffer(name + std::to_string(usageIndex))->prepareUpdateBuffer(&data);
-	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, name + std::to_string(usageIndex)));
+	constantBufferManager.getConstantBuffer(IndexedName(name, usageIndex))->prepareUpdateBuffer(&data);
+	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, IndexedName(name, usageIndex)));
 }
 
-void PipelineStage::updateConstantBuffer(std::string name) {
-	constantBufferManager.getConstantBuffer(name)->updateBuffer(frameIndex);
+void PipelineStage::updateConstantBuffer(IndexedName indexName) {
+	constantBufferManager.getConstantBuffer(indexName)->updateBuffer(frameIndex);
 }
 
 int PipelineStage::triggerFence() {

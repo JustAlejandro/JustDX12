@@ -10,7 +10,7 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device2> device) {
 
 void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager) {
 	for (DescriptorJob& job : descriptorJobs) {
-		DX12Descriptor& desc = descriptors[std::make_pair(job.name + std::to_string(job.usageIndex), job.type)];
+		DX12Descriptor& desc = descriptors[std::make_pair(IndexedName(job.name, job.usageIndex), job.type)];
 		DX12DescriptorHeap& heap = heaps[heapTypeFromDescriptorType(job.type)];
 
 		desc.cpuHandle = heap.endCPUHandle;
@@ -40,8 +40,8 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 	}
 }
 
-DX12Descriptor* DescriptorManager::getDescriptor(const std::string& name, const DESCRIPTOR_TYPE& type) {
-	auto out = descriptors.find(std::make_pair(name, type));
+DX12Descriptor* DescriptorManager::getDescriptor(const IndexedName& indexedName, const DESCRIPTOR_TYPE& type) {
+	auto out = descriptors.find(std::make_pair(indexedName, type));
 	if (out == descriptors.end()) {
 		return nullptr;
 	}

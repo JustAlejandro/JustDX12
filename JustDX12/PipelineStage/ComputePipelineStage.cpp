@@ -1,4 +1,5 @@
 #include "PipelineStage\ComputePipelineStage.h"
+#include "IndexedName.h"
 
 ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, ComputePipelineDesc computeDesc)
 	: PipelineStage(d3dDevice), computeStageDesc(computeDesc) {
@@ -55,7 +56,7 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
 
 		if (rootParameterDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
-			DX12Descriptor* descriptor = descriptorManager.getDescriptor(rootParameterDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
+			DX12Descriptor* descriptor = descriptorManager.getDescriptor(IndexedName(rootParameterDescs[usage][i].name, usageIndex), descriptorType);
 
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
@@ -78,7 +79,7 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 			}
 		}
 		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
-			mCommandList->SetComputeRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(curRootParamDescs[usage][i].name + std::to_string(usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
+			mCommandList->SetComputeRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
 		}
 		else {
 			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();

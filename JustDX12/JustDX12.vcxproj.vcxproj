@@ -200,6 +200,7 @@
     <ClInclude Include="ConstantBufferManager.h" />
     <ClInclude Include="ConstantBufferTypes.h" />
     <ClInclude Include="DX12ConstantBuffer.h" />
+    <ClInclude Include="IndexedName.h" />
     <ClInclude Include="KeyboardWrapper.h" />
     <ClInclude Include="MeshletModel.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />

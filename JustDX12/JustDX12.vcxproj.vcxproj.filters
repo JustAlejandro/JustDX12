@@ -102,6 +102,7 @@
     <ClInclude Include="MeshletModel.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
+    <ClInclude Include="IndexedName.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

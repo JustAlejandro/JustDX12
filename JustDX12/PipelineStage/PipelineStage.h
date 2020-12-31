@@ -66,7 +66,7 @@ public:
 	void deferSetup(PipeLineStageDesc stageDesc);
 	int deferExecute();
 	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex = 0);
-	void updateConstantBuffer(std::string name);
+	void updateConstantBuffer(IndexedName indexName);
 	int triggerFence();
 	void nextFrame();
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);

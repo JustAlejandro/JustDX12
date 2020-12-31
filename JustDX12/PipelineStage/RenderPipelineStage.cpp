@@ -190,7 +190,7 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 	for (int i = 0; i < curRootParamDescs[usage].size(); i++) {
 		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(curRootParamDescs[usage][i]);
 		if (curRootParamDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
-			DX12Descriptor* descriptor = descriptorManager.getDescriptor(curRootParamDescs[usage][i].name + std::to_string(usageIndex), descriptorType);
+			DX12Descriptor* descriptor = descriptorManager.getDescriptor(IndexedName(curRootParamDescs[usage][i].name, usageIndex), descriptorType);
 			if (descriptor == nullptr) {
 				// For now just ignoring because if a texture doesn't exist we'll just assume it'll be fine.
 				// Different PSOs for different texturing would fix this.
@@ -217,7 +217,7 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			}
 		}
 		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
-			mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(curRootParamDescs[usage][i].name + std::to_string(usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
+			mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
 		}
 		else {
 			DX12Resource* resource = resourceManager.getResource(curRootParamDescs[usage][i].name);
@@ -255,7 +255,7 @@ void RenderPipelineStage::bindRenderTarget() {
 #endif // DEBUG
 
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
-		&descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName + "0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
+		&descriptorManager.getDescriptor(IndexedName(renderTargetDescs[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
 		&descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle);
 }
