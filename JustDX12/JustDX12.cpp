@@ -17,6 +17,7 @@
 #include "KeyboardWrapper.h"
 
 #include <random>
+#include <ctime>
 
 
 std::string baseDir = "..\\Models";
@@ -77,6 +78,7 @@ private:
 	bool renderVRS = false;
 	bool occlusionCull = true;
 	std::deque<float> frametime;
+	std::deque<float> cpuFrametime;
 
 	ComputePipelineStage* computeStage = nullptr;
 	ComputePipelineStage* vrsComputeStage = nullptr;
@@ -581,10 +583,14 @@ void DemoApp::draw() {
 	ImGui::Begin("Info Window", &showImgui);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
 	frametime.push_back(ImGui::GetIO().DeltaTime * 1000);
 	if (frametime.size() > 1000) frametime.pop_front();
+	if (cpuFrametime.size() > 1000) cpuFrametime.pop_front();
 	std::vector<float> frametimeVec(frametime.begin(), frametime.end());
-	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 2.0f, 10.0f, ImVec2(ImGui::GetWindowWidth(), 300));
+	std::vector<float> cpuFrametimeVec(cpuFrametime.begin(), cpuFrametime.end());
+	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	ImGui::Text("Last 5000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
+	ImGui::Text("Last 1000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
+	ImGui::PlotLines("CPU Frame Times (ms)", cpuFrametimeVec.data(), cpuFrametimeVec.size(), 0, "CPU Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
+	ImGui::Text("Last 1000 CPU Frame Average %.3f ms/frame", AverageVector(cpuFrametimeVec));
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
 	ImGui::Checkbox("Freeze Culling", &freezeCull);
 	ImGui::Checkbox("Occlusion Predication Culling", &renderStage->occlusionCull);
@@ -615,6 +621,8 @@ void DemoApp::draw() {
 	}
 	ImGui::EndTabBar();
 	ImGui::End();
+
+	std::chrono::high_resolution_clock::time_point startFrameTime = std::chrono::high_resolution_clock::now();
 
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
@@ -671,6 +679,10 @@ void DemoApp::draw() {
 	mCurrFrameResource->Fence = ++mCurrentFence;
 
 	mCommandQueue->Signal(mFence.Get(), mCurrentFence);
+
+	std::chrono::high_resolution_clock::time_point endFrameTime = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> time_span = endFrameTime - startFrameTime;
+	cpuFrametime.push_back(time_span.count());
 }
 
 void DemoApp::onResize() {
