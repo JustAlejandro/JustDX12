@@ -59,7 +59,7 @@ VertexOut GetVertexAttributes(uint meshletIndex, uint vertexIndex) {
 [OutputTopology("triangle")]
 void MS(uint gtid : SV_GroupThreadID,
 	uint gid : SV_GroupID,
-    in payload Payload payload,
+	in payload Payload payload,
 	out vertices VertexOut verts[GROUP_SIZE],
 	out indices uint3 tris[GROUP_SIZE]) {
 	

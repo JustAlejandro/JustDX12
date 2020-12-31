@@ -5,9 +5,9 @@
 #include "MeshletModel.h"
 
 #include <iostream>
-#include <assimp/Importer.hpp>      // C++ importer interface
-#include <assimp/scene.h>           // Output data structure
-#include <assimp/postprocess.h>     // Post processing flags
+#include <assimp/Importer.hpp>		// C++ importer interface
+#include <assimp/scene.h>			// Output data structure
+#include <assimp/postprocess.h>		// Post processing flags
 
 class ModelLoadTask : public Task {
 public:

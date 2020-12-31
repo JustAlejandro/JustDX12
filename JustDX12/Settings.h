@@ -195,8 +195,8 @@ inline std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers() {
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressW
-		0.0f,                             // mipLODBias
-		8);                               // maxAnisotropy
+		0.0f,							  // mipLODBias
+		8);								  // maxAnisotropy
 
 	const CD3DX12_STATIC_SAMPLER_DESC anisotropicClamp(
 		5, // shaderRegister
@@ -204,8 +204,8 @@ inline std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers() {
 		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressU
 		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
 		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressW
-		0.0f,                              // mipLODBias
-		8);                                // maxAnisotropy
+		0.0f,							   // mipLODBias
+		8);								   // maxAnisotropy
 
 	return {
 		pointWrap, pointClamp,
