@@ -74,6 +74,11 @@ bool DX12App::initialize() {
 		&vrsSupport,
 		sizeof(vrsSupport));
 
+	md3dDevice->CheckFeatureSupport(
+		D3D12_FEATURE_D3D12_OPTIONS1,
+		&waveSupport,
+		sizeof(waveSupport));
+
 	return true;
 }
 

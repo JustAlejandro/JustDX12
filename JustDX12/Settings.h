@@ -12,8 +12,8 @@
 
 #define CPU_FRAME_COUNT 3
 
-#define SCREEN_WIDTH 2560
-#define SCREEN_HEIGHT 1440
+#define SCREEN_WIDTH 3200
+#define SCREEN_HEIGHT 1800
 
 #define MAX_LIGHTS 10
 

@@ -23,7 +23,7 @@ public:
 		Assimp::Importer importer;
 		OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());
 		const aiScene* scene = importer.ReadFile(model->dir + "\\" + model->name,
-			aiProcess_GenUVCoords | aiProcess_Triangulate | aiProcess_FlipUVs);
+			aiProcess_GenUVCoords | aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_ImproveCacheLocality | aiProcess_GenSmoothNormals);
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 			std::string error = importer.GetErrorString();
 			OutputDebugStringA(("ERROR::ASSIMP::" + error).c_str());

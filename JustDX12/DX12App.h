@@ -96,5 +96,6 @@ protected:
 	int mClientHeight;
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS6 vrsSupport;
+	D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveSupport;
 };
 

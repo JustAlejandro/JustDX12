@@ -27,7 +27,10 @@ std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor2.fbx";
 std::string headDir = baseDir + "\\head";
 std::string headFile = "head.fbx";
+std::string headSmallFile = "headSmall.fbx";
+std::string headSmallMeshlet = "headSmall.bin";
 std::string armorMeshlet = "armor.bin";
+std::string headMeshlet = "headReduce.bin";
 
 std::string warn;
 std::string err;
@@ -90,14 +93,15 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> ssaoPSO = nullptr;
 
 	PerPassConstants mainPassCB;
+	VrsConstants vrsCB;
 	SSAOConstants ssaoConstantCB;
 	MergeConstants mergeConstantCB;
 
-	DirectX::XMFLOAT4 eyePos = { 0.0f,70.0f,-10.0f, 1.0f };
+	DirectX::XMFLOAT4 eyePos = { 0.0f,70.0f,40.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
 	DirectX::XMFLOAT4X4 proj = Identity();
 
-	float lookAngle[3] = { 0.0f, 0.0f, 0.0f };
+	float lookAngle[3] = { 0.0f, DirectX::XM_PI, 0.0f };
 
 	float mTheta = 1.3f * DirectX::XM_PI;
 	float mPhi = 0.4f * DirectX::XM_PI;
@@ -478,23 +482,34 @@ bool DemoApp::initialize() {
 		uavPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
 		uavPDesc.slot = 1;
 		std::vector<DXDefine> defines = {
-			{L"N", L"8" },
+			// Processing in square wavefronts, so have to round down.
+			{L"N", std::to_wstring(waveSupport.WaveLaneCountMax)},// vrsSupport.ShadingRateImageTileSize) },
 			{L"TILE_SIZE", std::to_wstring(vrsSupport.ShadingRateImageTileSize)},
 			{L"EXTRA_SAMPLES", L"0"} };
 		ShaderDesc VrsShader = { "..\\Shaders\\VRSCompute.hlsl", "VRS Compute", 
 			"VRSOut", SHADER_TYPE_CS, defines };
-		
+
+		ConstantBufferJob VrsConst = { "VrsConstants", new VrsConstants() };
+		RootParamDesc VrsConstPDesc;
+		VrsConstPDesc.name = "VrsConstants";
+		VrsConstPDesc.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
+		VrsConstPDesc.numConstants = 1;
+		VrsConstPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		VrsConstPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
+		VrsConstPDesc.slot = 2;
+
 		PipeLineStageDesc stageDesc;
 		stageDesc.descriptorJobs = { depthTex, outTexDesc };
-		stageDesc.rootSigDesc = { rootPDesc, uavPDesc };
+		stageDesc.rootSigDesc = { rootPDesc, uavPDesc, VrsConstPDesc };
 		stageDesc.shaderFiles = { VrsShader };
+		stageDesc.constantBufferJobs = { VrsConst };
 		stageDesc.externalResources = {
 			std::make_pair("renderOutputTex", mergeStage->getResource("mergedTex")),
 			std::make_pair("VrsOutTexture", renderStage->getResource("VRS"))
 		};
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = (SCREEN_WIDTH + (vrsSupport.ShadingRateImageTileSize*8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
-		cDesc.groupCount[1] = (SCREEN_HEIGHT + (vrsSupport.ShadingRateImageTileSize*8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
+		cDesc.groupCount[0] = DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize);// (SCREEN_WIDTH + (vrsSupport.ShadingRateImageTileSize * 8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
+		cDesc.groupCount[1] = DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize);// (SCREEN_HEIGHT + (vrsSupport.ShadingRateImageTileSize*8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
 		cDesc.groupCount[2] = 1;
 		
 		vrsComputeStage = new ComputePipelineStage(md3dDevice, cDesc);
@@ -503,9 +518,12 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
-	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
-	renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
+	//renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
+	renderStage->LoadMeshletModel(modelLoader, headMeshlet, headDir);
+	//renderStage->LoadModel(modelLoader, headSmallFile, headDir);
 	//renderStage->LoadModel(modelLoader, headFile, headDir);
+	renderStage->LoadModel(modelLoader, armorFile, armorDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -545,6 +563,7 @@ void DemoApp::update() {
 
 	if (mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+		assert(eventHandle != NULL);
 		mFence->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle);
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
@@ -565,7 +584,7 @@ void DemoApp::draw() {
 	std::vector<float> frametimeVec(frametime.begin(), frametime.end());
 	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 2.0f, 10.0f, ImVec2(ImGui::GetWindowWidth(), 300));
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	ImGui::Text("Last 1000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
+	ImGui::Text("Last 5000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
 	ImGui::Checkbox("Freeze Culling", &freezeCull);
 	ImGui::Checkbox("Occlusion Predication Culling", &renderStage->occlusionCull);
@@ -574,11 +593,18 @@ void DemoApp::draw() {
 	ImGui::Checkbox("Render VRS", &renderVRS);
 	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);
 	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
+	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
+	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
 	ImGui::BeginTabBar("VRS Ranges");
 	if (ImGui::BeginTabItem("VRS Ranges")) {
 		ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
 		ImGui::SliderFloat("VRS Medium", &mainPassCB.data.VrsMedium, 0.0f, 2000.0f);
 		ImGui::SliderFloat("VRS Long", &mainPassCB.data.VrsLong, 0.0f, 2000.0f);
+		ImGui::SliderFloat("VRS Low Lum", &vrsCB.data.vrsLumLow, 0.0f, 1.0f);
+		ImGui::SliderFloat("VRS Medium Lum", &vrsCB.data.vrsLumMedium, 0.0f, 1.0f);
+		ImGui::SliderFloat("VRS High Lum", &vrsCB.data.vrsLumHigh, 0.0f, 1.0f);
+		ImGui::SliderFloat("VRS Lum Variance", &vrsCB.data.vrsVarianceCut, 0.0f, 1.0f);
+		ImGui::SliderInt("VRS Lum Variance Voters", &vrsCB.data.vrsVarianceVotes, 0, vrsSupport.ShadingRateImageTileSize * vrsSupport.ShadingRateImageTileSize);
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("Light Options")) {
@@ -779,6 +805,7 @@ void DemoApp::UpdateMainPassCB() {
 	mergeConstantCB.data.viewPos = mainPassCB.data.EyePosW;
 	mergeConstantCB.data.numPointLights = 1;
 
+	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 	if (!freezeCull) {

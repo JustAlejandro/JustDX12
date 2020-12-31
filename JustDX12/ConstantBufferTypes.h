@@ -126,3 +126,30 @@ public:
 	}
 	virtual ~MergeConstants() override {};
 };
+
+class VrsConstants : public ConstantBufferData {
+public:
+	// Default values are just some test values that actually look 'decent'
+	struct VrsConstantsStruct {
+		BOOL vrsAvgLum = true;
+		BOOL vrsVarLum = true;
+		float vrsLumHigh = 0.096;
+		float vrsLumMedium = 0.021;
+		float vrsLumLow = 0.007;
+		float vrsVarianceCut = 0.007f;
+		int vrsVarianceVotes = 67;
+	};
+
+	VrsConstantsStruct data;
+
+	virtual UINT byteSize() const override {
+		return sizeof(VrsConstantsStruct);
+	}
+	virtual std::unique_ptr<ConstantBufferData> clone() const override {
+		return std::make_unique<VrsConstants>(*this);
+	}
+	void* getData() override {
+		return &data;
+	}
+	virtual ~VrsConstants() override {};
+};
