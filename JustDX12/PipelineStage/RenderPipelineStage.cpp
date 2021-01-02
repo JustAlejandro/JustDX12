@@ -27,9 +27,9 @@ void RenderPipelineStage::Execute() {
 	resetCommandList();
 
 	if (!allRenderObjectsSetup) {
-		setupRenderObjects();
-		mCommandList->Close();
-		return;
+		while (!allRenderObjectsSetup) {
+			setupRenderObjects();
+		}
 	}
 
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
@@ -485,6 +485,9 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 
 	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
 		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);
+
+	auto transToVertexBuffer = CD3DX12_RESOURCE_BARRIER::Transition(occlusionBoundingBoxBufferGPU.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	mCommandList->ResourceBarrier(1, &transToVertexBuffer);
 
 	occlusionBoundingBoxBufferView.BufferLocation = occlusionBoundingBoxBufferGPU->GetGPUVirtualAddress();
 	occlusionBoundingBoxBufferView.StrideInBytes = sizeof(CompactBoundingBox);
