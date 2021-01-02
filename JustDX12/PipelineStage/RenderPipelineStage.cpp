@@ -21,18 +21,21 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	}
 
 	PipelineStage::setup(stageDesc);
+	BuildDescriptors(stageDesc.descriptorJobs);
 }
 
 void RenderPipelineStage::Execute() {
 	resetCommandList();
+
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
+
+	PerformTransitionsIn();
 
 	if (!allRenderObjectsSetup) {
 		while (!allRenderObjectsSetup) {
 			setupRenderObjects();
 		}
 	}
-
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -56,6 +59,8 @@ void RenderPipelineStage::Execute() {
 	if (renderStageDesc.supportsCulling && occlusionCull) {
 		drawOcclusionQuery();
 	}
+
+	PerformTransitionsOut();
 
 	PIXEndEvent(mCommandList.Get());
 
@@ -166,6 +171,14 @@ void RenderPipelineStage::BuildPSO() {
 	}
 }
 
+std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> RenderPipelineStage::getRequiredResourceStates() {
+	auto requiredStates = PipelineStage::getRequiredResourceStates();
+	if (renderStageDesc.supportsVRS) {
+		requiredStates.push_back(std::make_pair(D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE, resourceManager.getResource(renderStageDesc.VrsTextureName)));
+	}
+	return requiredStates;
+}
+
 void RenderPipelineStage::BuildQueryHeap() {
 	if (renderStageDesc.supportsCulling) {
 		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer((renderObjects.size() + meshletRenderObjects.size()) * 8);
@@ -265,7 +278,6 @@ void RenderPipelineStage::drawRenderObjects() {
 	int meshIndex = 0;
 	int modelIndex = 0;
 	if (VRS) {
-		resourceManager.getResource("VRS")->changeState(mCommandList, D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
@@ -328,8 +340,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL, 0, meshRootParameterDescs);
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS, 0, meshRootParameterDescs);
 	if (VRS) {
-		resourceManager.getResource("VRS")->changeState(mCommandList, D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE);
-		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
+		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
@@ -465,7 +476,7 @@ void RenderPipelineStage::setupRenderObjects() {
 
 	setupOcclusionBoundingBoxes();
 
-	BuildDescriptors(stageDesc.descriptorJobs);
+	BuildDescriptors(renderingDescriptorJobs);
 	BuildQueryHeap();
 	allRenderObjectsSetup = true;
 }
@@ -495,5 +506,5 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 }
 
 void RenderPipelineStage::addDescriptorJob(DescriptorJob j) {
-	stageDesc.descriptorJobs.push_back(j);
+	renderingDescriptorJobs.push_back(j);
 }

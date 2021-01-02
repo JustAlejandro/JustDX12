@@ -20,6 +20,7 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> mCommandList;
 
+	HANDLE deferSetCpuEvent();
 	void waitOnFence();
 	int getFenceValue();
 	void setFence(int destVal);

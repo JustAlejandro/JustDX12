@@ -11,6 +11,8 @@ struct RenderPipelineDesc {
 	std::vector<std::pair<MODEL_FORMAT, std::string>> textureToDescriptor;
 	std::unordered_map<MODEL_FORMAT, std::string> defaultTextures;
 	bool supportsCulling = false;
+	bool supportsVRS = false;
+	std::string VrsTextureName = "VRS";
 	bool usesMeshlets = false;
 	std::vector<RootParamDesc> meshletRootSignature;
 	std::vector<std::pair<MODEL_FORMAT, std::string>> meshletTextureToDescriptor;
@@ -33,6 +35,7 @@ public:
 protected:
 	RenderPipelineDesc renderStageDesc;
 	void BuildPSO() override;
+	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> getRequiredResourceStates() override;
 	void BuildQueryHeap();
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;
 	void bindRenderTarget();
@@ -51,6 +54,7 @@ protected:
 	std::vector<MeshletModel*> meshletRenderObjects;
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionQueryResultBuffer;
 	Microsoft::WRL::ComPtr<ID3D12QueryHeap> occlusionQueryHeap;
+	std::vector<DescriptorJob> renderingDescriptorJobs;
 
 	bool allRenderObjectsSetup = false;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> meshletPSO = nullptr;

@@ -43,6 +43,16 @@ void TaskQueueThread::enqueue(Task* t) {
 	taskCv.notify_one();
 }
 
+HANDLE TaskQueueThread::deferSetCpuEvent() {
+	HANDLE ev = CreateEvent(
+		NULL,
+		FALSE,
+		FALSE,
+		NULL);
+	enqueue(new SetCpuEventTask(ev));
+	return ev;
+}
+
 void TaskQueueThread::waitOnFence() {
 	fenceValue++;
 	setFence(fenceValue);

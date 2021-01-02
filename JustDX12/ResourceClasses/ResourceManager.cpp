@@ -20,6 +20,7 @@ DX12Resource* ResourceManager::getResource(std::string name) {
 
 DX12Resource* ResourceManager::importResource(std::string name, DX12Resource* externalResource) {
 	externalResources[name] = externalResource;
+	externalResource->local = false;
 	return externalResource;
 }
 

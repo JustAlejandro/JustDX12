@@ -2,13 +2,15 @@
 #include "IndexedName.h"
 
 ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, ComputePipelineDesc computeDesc)
-	: PipelineStage(d3dDevice), computeStageDesc(computeDesc) {
+	: PipelineStage(d3dDevice, D3D12_COMMAND_LIST_TYPE_DIRECT), computeStageDesc(computeDesc) {
 }
 
 void ComputePipelineStage::Execute() {
 	resetCommandList();
 
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), "SSAO");
+
+	PerformTransitionsIn();
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -20,6 +22,7 @@ void ComputePipelineStage::Execute() {
 
 	mCommandList->Dispatch(computeStageDesc.groupCount[0], computeStageDesc.groupCount[1], computeStageDesc.groupCount[2]);
 
+	PerformTransitionsOut();
 
 	PIXEndEvent(mCommandList.Get());
 

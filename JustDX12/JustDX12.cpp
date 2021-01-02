@@ -50,6 +50,8 @@ public:
 
 	virtual void draw()override;
 
+	void ImGuiPrepareUI();
+
 	virtual void onResize()override;
 
 private:
@@ -162,6 +164,7 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
+	std::vector<HANDLE> cpuWaitHandles;
 	{
 		DescriptorJob rtvDescs[6];
 		rtvDescs[0].name = "outTexDesc[0]";
@@ -290,10 +293,12 @@ bool DemoApp::initialize() {
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
+		rDesc.supportsVRS = true;
 
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
+		cpuWaitHandles.push_back(renderStage->deferSetCpuEvent());
 	}
 
 	{
@@ -370,6 +375,7 @@ bool DemoApp::initialize() {
 		computeStage = new ComputePipelineStage(md3dDevice, cDesc);
 		computeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(computeStage->getFence(), computeStage->triggerFence());
+		cpuWaitHandles.push_back(computeStage->deferSetCpuEvent());
 	}
 
 	{
@@ -447,10 +453,12 @@ bool DemoApp::initialize() {
 		};
 
 		RenderPipelineDesc mergeRDesc;
+		mergeRDesc.supportsVRS = true;
 		mergeStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		mergeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(mergeStage->getFence(), mergeStage->triggerFence());
 		mergeStage->frustrumCull = false;
+		cpuWaitHandles.push_back(mergeStage->deferSetCpuEvent());
 	}
 
 	{
@@ -510,19 +518,21 @@ bool DemoApp::initialize() {
 			std::make_pair("VrsOutTexture", renderStage->getResource("VRS"))
 		};
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize);// (SCREEN_WIDTH + (vrsSupport.ShadingRateImageTileSize * 8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
-		cDesc.groupCount[1] = DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize);// (SCREEN_HEIGHT + (vrsSupport.ShadingRateImageTileSize*8) - 1) / (vrsSupport.ShadingRateImageTileSize * 8);
+		cDesc.groupCount[0] = DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize);
+		cDesc.groupCount[1] = DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize);
 		cDesc.groupCount[2] = 1;
 		
 		vrsComputeStage = new ComputePipelineStage(md3dDevice, cDesc);
 		vrsComputeStage->deferSetup(stageDesc);
+		cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 	}
+
 	modelLoader = new ModelLoader(md3dDevice);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
-	//renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
-	renderStage->LoadMeshletModel(modelLoader, headMeshlet, headDir);
+	renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
+	//renderStage->LoadMeshletModel(modelLoader, headMeshlet, headDir);
 	//renderStage->LoadModel(modelLoader, headSmallFile, headDir);
 	//renderStage->LoadModel(modelLoader, headFile, headDir);
 	renderStage->LoadModel(modelLoader, armorFile, armorDir);
@@ -531,6 +541,11 @@ bool DemoApp::initialize() {
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
 	BuildFrameResources();
+
+	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
+	WaitForMultipleObjects(cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
+	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ renderStage, computeStage, mergeStage, vrsComputeStage });
+	mCommandList->ResourceBarrier(initialTransitions.size(), initialTransitions.data());
 
 	mCommandList->Close();
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
@@ -577,6 +592,74 @@ void DemoApp::update() {
 }
 
 void DemoApp::draw() {
+	ImGuiPrepareUI();
+
+	std::chrono::high_resolution_clock::time_point startFrameTime = std::chrono::high_resolution_clock::now();
+
+	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdListAlloc = mCurrFrameResource->CmdListAlloc;
+
+	cmdListAlloc->Reset();
+
+	mCommandList->Reset(cmdListAlloc.Get(), defaultPSO.Get());
+
+	SetName(mCommandList.Get(), L"Meta Command List");
+
+	auto transToCopy = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
+	mCommandList->ResourceBarrier(1, &transToCopy);
+
+	std::vector<HANDLE> eventHandles;
+	eventHandles.push_back(renderStage->deferExecute());
+	eventHandles.push_back(computeStage->deferExecute());
+	eventHandles.push_back(mergeStage->deferExecute());
+	eventHandles.push_back(vrsComputeStage->deferExecute());
+
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
+
+	WaitForMultipleObjects(eventHandles.size(), eventHandles.data(), TRUE, INFINITE);
+
+	// TODO: FIND A WAY TO MAKE SURE THIS RESOURCE ALWAYS GOES BACK TO THE CORRECT STATE
+	DX12Resource* mergeOut = mergeStage->getResource("mergedTex");
+	auto mergeTransitionIn = CD3DX12_RESOURCE_BARRIER::Transition(mergeOut->get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	mCommandList->ResourceBarrier(1, &mergeTransitionIn);
+	mCommandList->CopyResource(CurrentBackBuffer(), mergeOut->get());
+	auto mergeTransitionOut = CD3DX12_RESOURCE_BARRIER::Transition(mergeOut->get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_GENERIC_READ);
+	mCommandList->ResourceBarrier(1, &mergeTransitionOut);
+
+	auto transToRender = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	mCommandList->ResourceBarrier(1, &transToRender);
+
+	mCommandList->SetDescriptorHeaps(1, mImguiHeap.GetAddressOf());
+
+	auto backBufferView = CurrentBackBufferView();
+	mCommandList->OMSetRenderTargets(1, &backBufferView, true, nullptr);
+
+	ImGui::Render();
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
+
+	auto transToPresent = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	mCommandList->ResourceBarrier(1, &transToPresent);
+
+	PIXEndEvent(mCommandList.Get());
+	
+	mCommandList->Close();
+
+	ID3D12CommandList* cmdList[] = { renderStage->mCommandList.Get(), computeStage->mCommandList.Get(), mergeStage->mCommandList.Get(), vrsComputeStage->mCommandList.Get(), mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
+
+	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
+	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
+
+	mCurrFrameResource->Fence = ++mCurrentFence;
+
+	mCommandQueue->Signal(mFence.Get(), mCurrentFence);
+
+	std::chrono::high_resolution_clock::time_point endFrameTime = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> time_span = endFrameTime - startFrameTime;
+	cpuFrametime.push_back(time_span.count());
+}
+
+void DemoApp::ImGuiPrepareUI() {
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
@@ -621,68 +704,6 @@ void DemoApp::draw() {
 	}
 	ImGui::EndTabBar();
 	ImGui::End();
-
-	std::chrono::high_resolution_clock::time_point startFrameTime = std::chrono::high_resolution_clock::now();
-
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdListAlloc = mCurrFrameResource->CmdListAlloc;
-
-	cmdListAlloc->Reset();
-
-	mCommandList->Reset(cmdListAlloc.Get(), defaultPSO.Get());
-
-	auto transToCopy = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
-	mCommandList->ResourceBarrier(1, &transToCopy);
-
-	// Have to keep these chained together since the resource transitions aren't done correctly
-	int renderFenceValue = renderStage->deferExecute();
-	computeStage->deferWaitOnFence(renderStage->getFence(), renderFenceValue);
-	int computeFenceValue =  computeStage->deferExecute();
-	mergeStage->deferWaitOnFence(computeStage->getFence(), computeFenceValue);
-	int mergeFenceValue = mergeStage->deferExecute();
-	vrsComputeStage->deferWaitOnFence(mergeStage->getFence(), mergeFenceValue);
-	int vrsComputeFenceValue = vrsComputeStage->deferExecute();
-
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
-
-	//WaitOnFenceForever(computeStage->getFence(), computeFenceValue);
-	WaitOnFenceForever(vrsComputeStage->getFence(), vrsComputeFenceValue);
-
-	DX12Resource* megeOut = mergeStage->getResource("mergedTex");
-	megeOut->changeState(mCommandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
-	mCommandList->CopyResource(CurrentBackBuffer(), megeOut->get());
-
-	auto transToRender = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	mCommandList->ResourceBarrier(1, &transToRender);
-
-	mCommandList->SetDescriptorHeaps(1, mImguiHeap.GetAddressOf());
-
-	auto backBufferView = CurrentBackBufferView();
-	mCommandList->OMSetRenderTargets(1, &backBufferView, true, nullptr);
-
-	ImGui::Render();
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
-
-	auto transToPresent = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-	mCommandList->ResourceBarrier(1, &transToPresent);
-
-	PIXEndEvent(mCommandList.Get());
-	
-	mCommandList->Close();
-
-	ID3D12CommandList* cmdList[] = { renderStage->mCommandList.Get(), computeStage->mCommandList.Get(), mergeStage->mCommandList.Get(), vrsComputeStage->mCommandList.Get(), mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
-
-	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
-	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
-
-	mCurrFrameResource->Fence = ++mCurrentFence;
-
-	mCommandQueue->Signal(mFence.Get(), mCurrentFence);
-
-	std::chrono::high_resolution_clock::time_point endFrameTime = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double, std::milli> time_span = endFrameTime - startFrameTime;
-	cpuFrametime.push_back(time_span.count());
 }
 
 void DemoApp::onResize() {

@@ -3,13 +3,14 @@
 #include <cassert>
 #include "DX12Helper.h"
 #include "ModelLoading\TextureLoader.h"
+#include <set>
 
 using namespace Microsoft::WRL;
 
-PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice)
-	: TaskQueueThread(d3dDevice), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
+PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType)
+	: TaskQueueThread(d3dDevice, cmdListType), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
 	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
-		frameResourceArray.push_back(std::make_unique<FrameResource>(md3dDevice.Get()));
+		frameResourceArray.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), cmdListType));
 	}
 }
 
@@ -24,9 +25,9 @@ void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
 	enqueue(new	PipelineStageTaskSetup(this, stageDesc));
 }
 
-int PipelineStage::deferExecute() {
+HANDLE PipelineStage::deferExecute() {
 	enqueue(new PipelineStageTaskRun(this));
-	return triggerFence();
+	return deferSetCpuEvent();
 }
 
 void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex) {
@@ -54,6 +55,68 @@ void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, 
 
 DX12Resource* PipelineStage::getResource(std::string name) {
 	return resourceManager.getResource(name);
+}
+
+// To be able to build multiple command lists at once we need all the stages to agree on what transitions happen when.
+// Return the initial transistions needed to put us in the cycle we want.
+std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(std::vector<PipelineStage*> stages) {
+	std::set<DX12Resource*> resourcesToProcess;
+	std::vector<std::unordered_map<DX12Resource*, D3D12_RESOURCE_STATES>> desiredStatesByStage;
+	std::vector<std::pair<DX12Resource*, D3D12_RESOURCE_STATES>> requiredInitialStates;
+
+	// Step 1: find all the resources that need to be transitioned across stages.
+	for (PipelineStage* stage : stages) {
+		auto requiredStates = stage->getRequiredResourceStates();
+		std::unordered_map<DX12Resource*, D3D12_RESOURCE_STATES> desiredStates;
+		for (auto& state : requiredStates) {
+			if (!state.second->local) {
+				desiredStates[state.second] = state.first;
+				resourcesToProcess.insert(state.second);
+			}
+		}
+		desiredStatesByStage.push_back(desiredStates);
+	}
+
+	// Step 2: process each resource and its needed transitions
+	for (auto& res : resourcesToProcess) {
+		D3D12_RESOURCE_STATES initState;
+		// Find the last state that the resource will be in per loop and make that the expected initial state.
+		for (auto iter = desiredStatesByStage.rbegin(); iter != desiredStatesByStage.rend(); iter++) {
+			if (iter->find(res) != iter->end()) {
+				initState = iter->at(res);
+				break;
+			}
+		}
+		requiredInitialStates.push_back(std::make_pair(res, initState));
+
+		// Step 2.5: Make each pipeline stage transition into/out of the required states
+		PipelineStage* prevStage = nullptr;
+		D3D12_RESOURCE_STATES prevState = initState;
+		for (int i = 0; i < stages.size(); i++) {
+			auto desiredState = desiredStatesByStage[i].find(res);
+			if (desiredState != desiredStatesByStage[i].end()) {
+				// If the resource is already in the pipeline's desired state, no need to perform a transition.
+				if (desiredState->second != prevState) {
+					if (prevStage == nullptr) {
+						stages[i]->AddTransitionIn(res, prevState, desiredState->second);
+						prevState = desiredState->second;
+					}
+					// Prefer to make the previous stage handle transitions. (If possible)
+					else if (prevStage != nullptr) {
+						prevStage->AddTransitionOut(res, prevState, desiredState->second);
+						prevState = desiredState->second;
+					}
+				}
+			}
+			prevStage = stages[i];
+		}
+	}
+
+	std::vector<CD3DX12_RESOURCE_BARRIER> requiredInitialTranisitions;
+	for (auto& initialState : requiredInitialStates) {
+		initialState.first->changeStateDeferred(initialState.second, requiredInitialTranisitions);
+	}
+	return requiredInitialTranisitions;
 }
 
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
@@ -150,6 +213,27 @@ void PipelineStage::BuildPSO() {
 	throw "Can't call BuildPSO on PipelineStage object";
 }
 
+void PipelineStage::PerformTransitionsIn() {
+	if (transitionsIn.size() > 0) {
+		mCommandList->ResourceBarrier(transitionsIn.size(), transitionsIn.data());
+	}
+}
+
+void PipelineStage::PerformTransitionsOut() {
+	if (transitionsOut.size() > 0) {
+		mCommandList->ResourceBarrier(transitionsOut.size(), transitionsOut.data());
+	}
+}
+
+void PipelineStage::AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	transitionsIn.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+}
+
+void PipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	transitionsOut.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+}
+
+
 void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table) {
 	switch (desc.type) {
 	case ROOT_PARAMETER_TYPE_CONSTANTS:
@@ -245,9 +329,15 @@ void PipelineStage::bindDescriptorHeaps() {
 	mCommandList->SetDescriptorHeaps(descHeaps.size(), descHeaps.data());
 }
 
+std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> PipelineStage::getRequiredResourceStates() {
+	return descriptorManager.requiredResourceStates();
+}
+
 void PipelineStage::setResourceStates() {
-	auto stateResourcePairVector = descriptorManager.requiredResourceStates();
+	auto stateResourcePairVector = getRequiredResourceStates();
 	for (auto& stateResourcePair : stateResourcePairVector) {
-		stateResourcePair.second->changeState(mCommandList, stateResourcePair.first);
+		if (stateResourcePair.second->local) {
+			stateResourcePair.second->changeState(mCommandList, stateResourcePair.first);
+		}
 	}
 }

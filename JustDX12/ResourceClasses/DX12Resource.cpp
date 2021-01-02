@@ -53,6 +53,12 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device2> device, DESCRIPTOR_TYPES types,
 		IID_PPV_ARGS(&resource));
 }
 
+void DX12Resource::changeStateDeferred(D3D12_RESOURCE_STATES destState, std::vector<CD3DX12_RESOURCE_BARRIER>& transitionQueue) {
+	if (curState == destState) return;
+
+	transitionQueue.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), curState, destState));
+}
+
 void DX12Resource::changeState(ComPtr<ID3D12GraphicsCommandList5> cmdList, D3D12_RESOURCE_STATES destState) {
 	if (curState == destState) return;
 	
@@ -63,6 +69,10 @@ void DX12Resource::changeState(ComPtr<ID3D12GraphicsCommandList5> cmdList, D3D12
 
 ID3D12Resource* DX12Resource::get() {
 	return resource.Get();
+}
+
+D3D12_RESOURCE_STATES DX12Resource::getState() const {
+	return curState;
 }
 
 DXGI_FORMAT DX12Resource::getFormat() {

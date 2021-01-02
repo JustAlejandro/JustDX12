@@ -64,7 +64,7 @@ struct PipeLineStageDesc {
 class PipelineStage : public TaskQueueThread {
 public:
 	void deferSetup(PipeLineStageDesc stageDesc);
-	int deferExecute();
+	HANDLE deferExecute();
 	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex = 0);
 	void updateConstantBuffer(IndexedName indexName);
 	int triggerFence();
@@ -72,11 +72,13 @@ public:
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
 	DX12Resource* getResource(std::string name);
 
+	static std::vector<CD3DX12_RESOURCE_BARRIER> setupResourceTransitions(std::vector<PipelineStage*> stages);
+
 	virtual void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;
 
 protected:
-	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice);
+	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
 	void LoadTextures(std::vector<std::pair<std::string, std::string>> textureFiles);
 	void BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSig, std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr);
 	void BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs);
@@ -86,6 +88,11 @@ protected:
 	virtual void BuildInputLayout();
 	virtual void BuildPSO();
 
+	void PerformTransitionsIn();
+	void PerformTransitionsOut();
+	void AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
+	void AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
+
 	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
 	std::wstring getCompileTargetFromType(SHADER_TYPE type);
 	ROOT_PARAMETER_TYPE getRootParamTypeFromRangeType(D3D12_DESCRIPTOR_RANGE_TYPE range);
@@ -93,6 +100,7 @@ protected:
 	void resetCommandList();
 	void bindDescriptorHeaps();
 	virtual void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr)=0;
+	virtual std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> getRequiredResourceStates();
 	void setResourceStates();
 protected:
 	int frameIndex = 0;
@@ -100,6 +108,9 @@ protected:
 	PipeLineStageDesc stageDesc;
 
 	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;
+
+	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsIn;
+	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsOut;
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
