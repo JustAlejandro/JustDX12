@@ -351,3 +351,12 @@ healthchecksdb
 /Models/head/head.obj.zlib
 /Models/head/head.fbx
 /Models/sponza/sponza.obj.zlib
+/Models/head/headSmall.simplemtl
+/Models/head/headSmall.mtl
+/Models/head/headSmall.fbx
+/Models/head/headSmall.bin
+/Models/head/headReduceUnopt.simplemtl
+/Models/head/headReduceUnopt.bin
+/Models/head/headReduce.simplemtl
+/Models/head/headReduce.mtl
+/Models/head/headReduce.bin
