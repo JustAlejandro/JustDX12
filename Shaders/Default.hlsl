@@ -7,6 +7,7 @@ ConstantBuffer<PerPass> PerPass : register(b1);
 Texture2D gDiffuseMap : register(t0);
 Texture2D gSpecularMap : register(t1);
 Texture2D gNormalMap : register(t2);
+Texture2D gAlphamap : register(t3);
 SamplerState gsamLinear : register(s0);
 SamplerState anisoWrap : register(s4);
 
@@ -59,6 +60,13 @@ VertexOut VS(VertexIn vin)
 PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
+
+	// Only doing transparency in the sense of masking out, not real transparency.
+	float transparency = gAlphamap.Sample(anisoWrap, pin.TexC).x;
+	if (transparency < 0.3f) {
+		discard;
+	}
+
 	if (PerPass.renderVRS) {
 		switch (pin.shadingRate) {
 			case 0x0:

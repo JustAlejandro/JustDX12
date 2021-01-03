@@ -8,6 +8,7 @@ ConstantBuffer<PerPass> PerPass : register(b2);
 Texture2D gDiffuseMap : register(t5);
 Texture2D gSpecularMap : register(t6);
 Texture2D gNormalMap : register(t7);
+Texture2D gAlphamap : register(t8);
 SamplerState anisoWrap : register(s4);
 
 // Flipping tris because the loader defaults to OpenGL winding order.
@@ -88,6 +89,12 @@ PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
 	
+	// Only doing transparency in the sense of masking out, not real transparency.
+	float transparency = gAlphamap.Sample(anisoWrap, pin.TexC).x;
+	if (transparency < 0.3f) {
+		discard;
+	}
+
 	p.color = gDiffuseMap.Sample(anisoWrap, flipYofUV(pin.TexC));
 	
 	p.specular = gSpecularMap.Sample(anisoWrap, flipYofUV(pin.TexC));

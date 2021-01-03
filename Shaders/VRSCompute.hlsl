@@ -1,9 +1,7 @@
 struct Vrs {
 	int vrsAvgLum;
 	int vrsVarLum;
-	float vrsLumHigh;
-	float vrsLumMedium;
-	float vrsLumLow;
+	float vrsAvgCut;
 	float vrsVarianceCut;
 	int vrsVarianceVotes;
 }; 
@@ -32,6 +30,8 @@ void VRSOut(int3 groupID : SV_GroupID, int3 groupThreadID : SV_GroupThreadID, in
 		return;
 	}
 
+	uint vrsOutValue = 0x0;
+
 	int samplesTotal = TILE_SIZE * TILE_SIZE;
 	int samplesByThread = samplesTotal / N;
 	if (samplesTotal % N > groupThreadIndex) {
@@ -55,7 +55,8 @@ void VRSOut(int3 groupID : SV_GroupID, int3 groupThreadID : SV_GroupThreadID, in
 		// Have to sync on the groupMemory, probably needed since WaveActiveSum doesn't guarantee thread-sync(?)
 		GroupMemoryBarrierWithGroupSync();
 
-		int exceedCutoff = 0;
+		int exceedCutoffX = 0;
+		int exceedCutoffY = 0;
 		// Trying to do if neighbors exceed the variance cutoff, they default to 1x1 shading.
 		for (uint j = groupThreadIndex; j < samplesTotal; j += N) {
 			float lumCenter = luminanceSquare[j];
@@ -63,18 +64,21 @@ void VRSOut(int3 groupID : SV_GroupID, int3 groupThreadID : SV_GroupThreadID, in
 			float lumDown = luminanceSquare[min(j + TILE_SIZE, (samplesTotal - 1))];
 
 			if (abs(lumCenter - lumRight) > Vrs.vrsVarianceCut) {
-				exceedCutoff++;
+				exceedCutoffX++;
 			}
 			if (abs(lumCenter - lumDown) > Vrs.vrsVarianceCut) {
-				exceedCutoff++;
+				exceedCutoffY++;
 			}
 		}
 
-		exceedCutoff = WaveActiveSum(exceedCutoff);
+		exceedCutoffX = WaveActiveSum(exceedCutoffX);
+		exceedCutoffY = WaveActiveSum(exceedCutoffY);
 
-		if (exceedCutoff > Vrs.vrsVarianceVotes) {
-			vrsOut[groupID.xy] = 0x0;
-			return;
+		if (exceedCutoffX < Vrs.vrsVarianceVotes) {
+			vrsOutValue += 0x4;
+		}
+		if (exceedCutoffY < Vrs.vrsVarianceVotes) {
+			vrsOutValue += 0x1;
 		}
 	}
 
@@ -82,22 +86,10 @@ void VRSOut(int3 groupID : SV_GroupID, int3 groupThreadID : SV_GroupThreadID, in
 		luminanceTotal = WaveActiveSum(luminanceTotal);
 
 		float luminanceAverage = luminanceTotal / samplesTotal;
-		if (luminanceAverage > Vrs.vrsLumHigh) {
-			vrsOut[groupID.xy] = 0x0;
-			return;
+		if (luminanceAverage < Vrs.vrsAvgCut) {
+			vrsOutValue += 0x5;
 		}
-		if (luminanceAverage > Vrs.vrsLumMedium) {
-			vrsOut[groupID.xy] = 0x4;
-			return;
-		}
-		if (luminanceAverage > Vrs.vrsLumLow) {
-			vrsOut[groupID.xy] = 0x5;
-			return;
-		}
-		vrsOut[groupID.xy] = 0xa;
 	}
-	else {
-		vrsOut[groupID.xy] = 0xa;
-		return;
-	}
+
+	vrsOut[groupID.xy] = vrsOutValue;
 }

@@ -165,6 +165,7 @@ bool DemoApp::initialize() {
 	}
 
 	std::vector<HANDLE> cpuWaitHandles;
+	// Create Render stage first because of dependencies later.
 	{
 		DescriptorJob rtvDescs[6];
 		rtvDescs[0].name = "outTexDesc[0]";
@@ -198,7 +199,7 @@ bool DemoApp::initialize() {
 		RootParamDesc perObjRoot = { "PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT };
 		RootParamDesc perMeshTexRoot = { "texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, DESCRIPTOR_USAGE_PER_MESH };
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH };
 		RootParamDesc perPassRoot = { "PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		ResourceJob vrsTex = { "VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT,
@@ -254,7 +255,8 @@ bool DemoApp::initialize() {
 		rasterDesc.textureFiles = {
 			{"default_normal", "default_bump.dds"},
 			{"default_spec", "default_spec.dds"},
-			{"default_diff", "default_diff.dds"}
+			{"default_diff", "default_diff.dds"},
+			{"default_alpha", "default_alpha.dds"}
 		};
 
 
@@ -287,20 +289,23 @@ bool DemoApp::initialize() {
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "texture_alpha");
 		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
 		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
+		rDesc.defaultTextures[MODEL_FORMAT_OPACITY_TEX] = "default_alpha";
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
+		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "mesh_texture_alpha");
 		rDesc.supportsVRS = true;
 
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
-		cpuWaitHandles.push_back(renderStage->deferSetCpuEvent());
 	}
-
+	cpuWaitHandles.push_back(renderStage->deferSetCpuEvent());
+	// Create SSAO/Screen Space Shadow Pass.
 	{
 		DescriptorJob depthTex("inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV, false, 0, DESCRIPTOR_USAGE_PER_PASS);
 		depthTex.view.srvDesc = DEFAULT_SRV_DESC();
@@ -375,9 +380,9 @@ bool DemoApp::initialize() {
 		computeStage = new ComputePipelineStage(md3dDevice, cDesc);
 		computeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(computeStage->getFence(), computeStage->triggerFence());
-		cpuWaitHandles.push_back(computeStage->deferSetCpuEvent());
 	}
-
+	cpuWaitHandles.push_back(computeStage->deferSetCpuEvent());
+	// Perform deferred shading/merge.
 	{
 		DescriptorJob outDepthTex = { "outputDepth", "outputDepthTex" , DESCRIPTOR_TYPE_DSV,
 			{}, 0, DESCRIPTOR_USAGE_ALL };
@@ -458,9 +463,9 @@ bool DemoApp::initialize() {
 		mergeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(mergeStage->getFence(), mergeStage->triggerFence());
 		mergeStage->frustrumCull = false;
-		cpuWaitHandles.push_back(mergeStage->deferSetCpuEvent());
 	}
-
+	cpuWaitHandles.push_back(mergeStage->deferSetCpuEvent());
+	// Compute the VRS image for the next frame.
 	{
 		DescriptorJob depthTex;
 		depthTex.name = "inputDepth";
@@ -524,8 +529,8 @@ bool DemoApp::initialize() {
 		
 		vrsComputeStage = new ComputePipelineStage(md3dDevice, cDesc);
 		vrsComputeStage->deferSetup(stageDesc);
-		cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 	}
+	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 
 	modelLoader = new ModelLoader(md3dDevice);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
@@ -689,9 +694,7 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
 		ImGui::SliderFloat("VRS Medium", &mainPassCB.data.VrsMedium, 0.0f, 2000.0f);
 		ImGui::SliderFloat("VRS Long", &mainPassCB.data.VrsLong, 0.0f, 2000.0f);
-		ImGui::SliderFloat("VRS Low Lum", &vrsCB.data.vrsLumLow, 0.0f, 1.0f);
-		ImGui::SliderFloat("VRS Medium Lum", &vrsCB.data.vrsLumMedium, 0.0f, 1.0f);
-		ImGui::SliderFloat("VRS High Lum", &vrsCB.data.vrsLumHigh, 0.0f, 1.0f);
+		ImGui::SliderFloat("VRS Avg Lum Cutoff", &vrsCB.data.vrsAvgCut, 0.0f, 1.0f);
 		ImGui::SliderFloat("VRS Lum Variance", &vrsCB.data.vrsVarianceCut, 0.0f, 1.0f);
 		ImGui::SliderInt("VRS Lum Variance Voters", &vrsCB.data.vrsVarianceVotes, 0, vrsSupport.ShadingRateImageTileSize * vrsSupport.ShadingRateImageTileSize);
 		ImGui::EndTabItem();
