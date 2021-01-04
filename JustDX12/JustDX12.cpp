@@ -677,14 +677,17 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("VRS", &VRS);
 	ImGui::Checkbox("Render VRS", &renderVRS);
 	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);
-	ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
-	ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 10.0f);
 	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
-	ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
-	ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
-	ImGui::BeginTabBar("VRS Ranges");
+	ImGui::BeginTabBar("Adjustable Params");
+	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
+		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
+		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 10.0f);
+		ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
+		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
+		ImGui::EndTabItem();
+	}
 	if (ImGui::BeginTabItem("VRS Ranges")) {
 		ImGui::SliderFloat("VRS Short", &mainPassCB.data.VrsShort, 0.0f, 2000.0f);
 		ImGui::SliderFloat("VRS Medium", &mainPassCB.data.VrsMedium, 0.0f, 2000.0f);
