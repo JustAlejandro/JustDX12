@@ -112,10 +112,6 @@ private:
 	float mRadius = 10.0f;
 
 	POINT lastMousePos;
-
-	std::random_device rd;
-	std::uniform_real_distribution<float> distro;
-	std::ranlux24_base gen;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
@@ -135,15 +131,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 }
 
 DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
-	gen = std::ranlux24_base(rd());
-	distro = std::uniform_real_distribution<float>(-1.0, 1.0);
-
-	for (int i = 0; i < 10; i++) {
-		ssaoConstantCB.data.rand[i].x = distro(gen);
-		ssaoConstantCB.data.rand[i].y = distro(gen);
-		ssaoConstantCB.data.rand[i].z = abs(distro(gen)) + 0.2;
-		ssaoConstantCB.data.rand[i].w = abs(distro(gen));
-	}
 }
 
 DemoApp::~DemoApp() {
@@ -307,6 +294,7 @@ bool DemoApp::initialize() {
 	cpuWaitHandles.push_back(renderStage->deferSetCpuEvent());
 	// Create SSAO/Screen Space Shadow Pass.
 	{
+		DescriptorJob noiseTex("noise_texDesc", "noise_tex", DESCRIPTOR_TYPE_SRV, true);
 		DescriptorJob depthTex("inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV, false, 0, DESCRIPTOR_USAGE_PER_PASS);
 		depthTex.view.srvDesc = DEFAULT_SRV_DESC();
 		depthTex.view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
@@ -333,24 +321,26 @@ bool DemoApp::initialize() {
 		outTexDesc.usageIndex = 0;
 		RootParamDesc cbvPDesc = { "SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc rootPDesc = { "inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+		RootParamDesc noisePDesc = { "noise_texDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc colorPDesc = { "colorTex", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+		RootParamDesc rootPDesc = { "inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
 			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
+		RootParamDesc colorPDesc = { "colorTex", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+			3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		RootParamDesc normalPDesc = colorPDesc;
 		normalPDesc.name = "normalTex";
-		normalPDesc.slot = 3;
+		normalPDesc.slot = 4;
 		RootParamDesc tangentPDesc = normalPDesc;
 		tangentPDesc.name = "tangentTex";
-		tangentPDesc.slot = 4;
+		tangentPDesc.slot = 5;
 		RootParamDesc binormalPDesc = normalPDesc;
 		binormalPDesc.name = "binormalTex";
-		binormalPDesc.slot = 5;
+		binormalPDesc.slot = 6;
 		RootParamDesc worldPDesc = normalPDesc;
 		worldPDesc.name = "worldTex";
-		worldPDesc.slot = 6;
+		worldPDesc.slot = 7;
 		RootParamDesc uavPDesc = { "SSAOOut", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			7, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, DESCRIPTOR_USAGE_PER_PASS };
+			8, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, DESCRIPTOR_USAGE_PER_PASS };
 		ResourceJob outTex;
 		outTex.name = "SSAOOutTexture";
 		outTex.types = DESCRIPTOR_TYPE_UAV;
@@ -359,8 +349,8 @@ bool DemoApp::initialize() {
 		ShaderDesc SSAOShaders = { "SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {} };
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { {depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc} };
-		stageDesc.rootSigDesc = { cbvPDesc, rootPDesc, colorPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
+		stageDesc.descriptorJobs = { { noiseTex, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc } };
+		stageDesc.rootSigDesc = { cbvPDesc, noisePDesc, rootPDesc, colorPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
 		stageDesc.resourceJobs = { outTex };
 		stageDesc.shaderFiles = { SSAOShaders };
 		stageDesc.constantBufferJobs = { cbOut };
@@ -373,6 +363,7 @@ bool DemoApp::initialize() {
 			std::make_pair("renderOutputBinormals",renderStage->getResource("outTexArray[4]")),
 			std::make_pair("renderOutputPosition",renderStage->getResource("outTexArray[5]"))
 		};
+		stageDesc.textureFiles = { {"noise_tex", "default_noise.dds"} };
 		ComputePipelineDesc cDesc;
 		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
 		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
@@ -686,7 +677,11 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("VRS", &VRS);
 	ImGui::Checkbox("Render VRS", &renderVRS);
 	ImGui::Checkbox("SSAO", (bool*)&ssaoConstantCB.data.showSSAO);
+	ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
+	ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 10.0f);
 	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
+	ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
+	ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
 	ImGui::BeginTabBar("VRS Ranges");
@@ -832,7 +827,7 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.renderVRS = renderVRS;
 
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
-	ssaoConstantCB.data.rangeXnear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
+	ssaoConstantCB.data.rangeXNear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
 	ssaoConstantCB.data.lightPos = { mergeConstantCB.data.lights[0].pos.x, mergeConstantCB.data.lights[0].pos.y, mergeConstantCB.data.lights[0].pos.z, 1.0f };
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 

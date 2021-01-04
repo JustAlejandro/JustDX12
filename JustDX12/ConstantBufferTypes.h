@@ -13,12 +13,14 @@ public:
 		BOOL showSSShadows = true;
 		DirectX::XMFLOAT2 padding = {0.0f, 0.0f};
 		DirectX::XMFLOAT4X4 viewProj = Identity();
-		int rayCount = 10;
+		int rayCount = 30;
+		float rayLength = 3.0f;
 		int TAA = 0;
 		float range = 0.0f;
-		float rangeXnear = 0.0f;
+		float rangeXNear = 0.0f;
+		int shadowSteps = 20;
+		float shadowStepSize = 0.05f;
 		DirectX::XMFLOAT4 lightPos = {};
-		DirectX::XMFLOAT4 rand[10] = {};
 	};
 
 	SSAOConstantsStruct data;
