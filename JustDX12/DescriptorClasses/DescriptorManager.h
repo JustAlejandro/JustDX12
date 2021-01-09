@@ -17,7 +17,7 @@ union ViewDesc {
 
 struct DescriptorJob {
 	DescriptorJob() = default;
-	DescriptorJob(std::string name, DX12Resource* directBindingTarget, DESCRIPTOR_TYPE type, bool autoDesc = true, int usageIndex = 0, DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS) {
+	DescriptorJob(std::string name, DX12Resource* directBindingTarget, DESCRIPTOR_TYPE type, bool autoDesc = true, int usageIndex = 0, DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_ALL) {
 		this->name = name;
 		this->directBinding = true;
 		this->directBindingTarget = directBindingTarget;
@@ -27,7 +27,7 @@ struct DescriptorJob {
 		this->usage = usage;
 		this->view.srvDesc = {};
 	}
-	DescriptorJob(std::string name, std::string targetResourceName, DESCRIPTOR_TYPE type, bool autoDesc = true, int usageIndex = 0, DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS) {
+	DescriptorJob(std::string name, std::string targetResourceName, DESCRIPTOR_TYPE type, bool autoDesc = true, int usageIndex = 0, DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_ALL) {
 		this->name = name;
 		this->directBinding = false;
 		this->indirectTarget = targetResourceName;

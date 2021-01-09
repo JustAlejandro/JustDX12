@@ -11,6 +11,12 @@ struct ConstantBufferJob {
 	std::string name;
 	ConstantBufferData* initialData;
 	int usageIndex = 0;
+	ConstantBufferJob() = default;
+	ConstantBufferJob(std::string name, ConstantBufferData* initialData, int usageIndex = 0) {
+		this->name = name;
+		this->initialData = initialData;
+		this->usageIndex = usageIndex;
+	}
 };
 
 class DX12ConstantBuffer {

@@ -484,61 +484,28 @@ bool DemoApp::initialize() {
 	cpuWaitHandles.push_back(mergeStage->deferSetCpuEvent());
 	// Compute the VRS image for the next frame.
 	{
-		DescriptorJob depthTex;
-		depthTex.name = "inputDepth";
-		depthTex.indirectTarget = "renderOutputTex";
-		depthTex.type = DESCRIPTOR_TYPE_SRV;
-		depthTex.view.srvDesc = DEFAULT_SRV_DESC();
-		depthTex.usage = DESCRIPTOR_USAGE_PER_PASS;
-		depthTex.usageIndex = 0;
-		DescriptorJob outTexDesc;
-		outTexDesc.name = "VrsOut";
-		outTexDesc.indirectTarget = "VrsOutTexture";
-		outTexDesc.type = DESCRIPTOR_TYPE_UAV;
-		outTexDesc.view.uavDesc = DEFAULT_UAV_DESC();
-		outTexDesc.view.uavDesc.Format = DXGI_FORMAT_R8_UINT;
-		outTexDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
-		outTexDesc.usageIndex = 0;
-		RootParamDesc rootPDesc;
-		rootPDesc.name = "inputDepth";
-		rootPDesc.type = ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		rootPDesc.numConstants = 1;
-		rootPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-		rootPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
-		rootPDesc.slot = 0;
-		RootParamDesc uavPDesc;
-		uavPDesc.name = "VrsOut";
-		uavPDesc.type = ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		uavPDesc.numConstants = 1;
-		uavPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-		uavPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
-		uavPDesc.slot = 1;
 		std::vector<DXDefine> defines = {
 			// Processing in square wavefronts, so have to round down.
 			{L"N", std::to_wstring(waveSupport.WaveLaneCountMax)},
 			{L"TILE_SIZE", std::to_wstring(vrsSupport.ShadingRateImageTileSize)},
 			{L"EXTRA_SAMPLES", L"0"} };
-		ShaderDesc VrsShader = { "..\\Shaders\\VRSCompute.hlsl", "VRS Compute", 
-			"VRSOut", SHADER_TYPE_CS, defines };
-
-		ConstantBufferJob VrsConst = { "VrsConstants", new VrsConstants() };
-		RootParamDesc VrsConstPDesc;
-		VrsConstPDesc.name = "VrsConstants";
-		VrsConstPDesc.type = ROOT_PARAMETER_TYPE_CONSTANT_BUFFER;
-		VrsConstPDesc.numConstants = 1;
-		VrsConstPDesc.rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-		VrsConstPDesc.usagePattern = DESCRIPTOR_USAGE_PER_PASS;
-		VrsConstPDesc.slot = 2;
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { depthTex, outTexDesc };
-		stageDesc.rootSigDesc = { rootPDesc, uavPDesc, VrsConstPDesc };
-		stageDesc.shaderFiles = { VrsShader };
-		stageDesc.constantBufferJobs = { VrsConst };
-		stageDesc.externalResources = {
-			std::make_pair("renderOutputTex", mergeStage->getResource("mergedTex")),
-			std::make_pair("VrsOutTexture", renderStage->getResource("VRS"))
-		};
+
+		stageDesc.constantBufferJobs.push_back(ConstantBufferJob("VrsConstants", new VrsConstants()));
+
+		stageDesc.descriptorJobs.push_back(DescriptorJob("inputColor", "renderOutputTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("VrsOut", "VrsOutTexture", DESCRIPTOR_TYPE_UAV));
+
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputTex", mergeStage->getResource("mergedTex")));
+		stageDesc.externalResources.push_back(std::make_pair("VrsOutTexture", renderStage->getResource("VRS")));
+
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputColor", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("VrsOut", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("VrsConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+
+		stageDesc.shaderFiles.push_back(ShaderDesc("VRSCompute.hlsl", "VRS Compute", "VRSOut", SHADER_TYPE_CS, defines));
+
 		ComputePipelineDesc cDesc;
 		cDesc.groupCount[0] = DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize);
 		cDesc.groupCount[1] = DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize);

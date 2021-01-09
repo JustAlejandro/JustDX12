@@ -44,10 +44,7 @@ void ComputePipelineStage::BuildPSO() {
 		shadersByType[SHADER_TYPE_CS]->GetBufferSize() };
 	computePSO.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-	if (md3dDevice->CreateComputePipelineState(&computePSO, IID_PPV_ARGS(&PSO)) < 0) {
-		OutputDebugStringA("Compute PSO Setup Failed");
-		throw "Compute PSO setup fail";
-	}
+	ThrowIfFailed(md3dDevice->CreateComputePipelineState(&computePSO, IID_PPV_ARGS(&PSO)));
 }
 
 void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
