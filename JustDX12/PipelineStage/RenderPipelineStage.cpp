@@ -97,6 +97,7 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	graphicsPSO.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	graphicsPSO.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	graphicsPSO.DepthStencilState.DepthEnable = renderStageDesc.usesDepthTex;
 	graphicsPSO.SampleMask = UINT_MAX;
 	graphicsPSO.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	graphicsPSO.NumRenderTargets = renderTargetDescs.size();
@@ -105,7 +106,8 @@ void RenderPipelineStage::BuildPSO() {
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
-	graphicsPSO.DSVFormat = DEPTH_TEXTURE_DSV_FORMAT;
+	graphicsPSO.DSVFormat = renderStageDesc.usesDepthTex ? DEPTH_TEXTURE_DSV_FORMAT : DXGI_FORMAT_UNKNOWN;
+
 	if (FAILED(md3dDevice->CreateGraphicsPipelineState(&graphicsPSO, IID_PPV_ARGS(&PSO)))) {
 		OutputDebugStringA("PSO Setup Failed");
 		throw "PSO FAIL";
@@ -256,10 +258,16 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 }
 
 void RenderPipelineStage::bindRenderTarget() {
-	mCommandList->ClearDepthStencilView(
-		descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle,
-		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-		1.0f, 0, 0, nullptr);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE* depthHandle = nullptr;
+	if (renderStageDesc.usesDepthTex) {
+		depthHandle = &descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle;
+
+		mCommandList->ClearDepthStencilView(
+			*depthHandle,
+			D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+			1.0f, 0, 0, nullptr);
+	}
 
 #ifdef DEBUG
 	float clear[4] = { 0.0f,0.0f,0.0f,0.0f };
@@ -270,15 +278,15 @@ void RenderPipelineStage::bindRenderTarget() {
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
 		&descriptorManager.getDescriptor(IndexedName(renderTargetDescs[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
-		&descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle);
+		depthHandle);
 }
 
 void RenderPipelineStage::drawRenderObjects() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	int meshIndex = 0;
 	int modelIndex = 0;
-	if (VRS) {
-		mCommandList->RSSetShadingRateImage(resourceManager.getResource("VRS")->get());
+	if (renderStageDesc.supportsVRS && VRS) {
+		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
@@ -339,7 +347,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	mCommandList->SetGraphicsRootSignature(meshRootSignature.Get());
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL, 0, meshRootParameterDescs);
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS, 0, meshRootParameterDescs);
-	if (VRS) {
+	if (renderStageDesc.supportsVRS && VRS) {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	int modelIndex = 0;
@@ -474,7 +482,9 @@ void RenderPipelineStage::setupRenderObjects() {
 		index++;
 	}
 
-	setupOcclusionBoundingBoxes();
+	if (renderStageDesc.supportsCulling) {
+		setupOcclusionBoundingBoxes();
+	}
 
 	BuildDescriptors(renderingDescriptorJobs);
 	BuildQueryHeap();

@@ -83,6 +83,10 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::
 	return states;
 }
 
+bool DescriptorManager::containsDescriptorsOfType(DESCRIPTOR_TYPE type) {
+	return descriptorsByType.find(type) != descriptorsByType.end();
+}
+
 std::vector<DX12Descriptor*>* DescriptorManager::getAllDescriptorsOfType(DESCRIPTOR_TYPE type) {
 	return &descriptorsByType.at(type);
 }

@@ -32,9 +32,6 @@ public:
 	DirectX::XMFLOAT3 maxPoint;
 	DirectX::XMFLOAT3 minPoint;
 
-	Microsoft::WRL::ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
-	Microsoft::WRL::ComPtr<ID3DBlob> indexBufferCPU = nullptr;
-
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 

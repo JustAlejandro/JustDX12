@@ -10,6 +10,7 @@ class MeshletModel;
 struct RenderPipelineDesc {
 	std::vector<std::pair<MODEL_FORMAT, std::string>> textureToDescriptor;
 	std::unordered_map<MODEL_FORMAT, std::string> defaultTextures;
+	bool usesDepthTex = true;
 	bool supportsCulling = false;
 	bool supportsVRS = false;
 	std::string VrsTextureName = "VRS";

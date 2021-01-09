@@ -85,6 +85,7 @@ private:
 	ComputePipelineStage* computeStage = nullptr;
 	ComputePipelineStage* vrsComputeStage = nullptr;
 	RenderPipelineStage* renderStage = nullptr;
+	RenderPipelineStage* deferStage = nullptr;
 	RenderPipelineStage* mergeStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
 	TextureLoader* textureLoader = nullptr;
@@ -139,6 +140,7 @@ DemoApp::~DemoApp() {
 	delete modelLoader;
 	delete computeStage;
 	delete renderStage;
+	delete deferStage;
 	delete mergeStage;
 	delete vrsComputeStage;
 	ImGui_ImplDX12_Shutdown();
@@ -372,18 +374,10 @@ bool DemoApp::initialize() {
 		computeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(computeStage->getFence(), computeStage->triggerFence());
 	}
+
 	cpuWaitHandles.push_back(computeStage->deferSetCpuEvent());
-	// Perform deferred shading/merge.
+	// Perform deferred shading.
 	{
-		DescriptorJob outDepthTex = { "outputDepth", "outputDepthTex" , DESCRIPTOR_TYPE_DSV,
-			{}, 0, DESCRIPTOR_USAGE_ALL };
-		outDepthTex.view.dsvDesc = DEFAULT_DSV_DESC();
-		DescriptorJob ssaoTex;
-		ssaoTex.name = "SSAOTexDesc";
-		ssaoTex.indirectTarget = "SSAOTex";
-		ssaoTex.view.srvDesc = DEFAULT_SRV_DESC();
-		ssaoTex.view.srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-		ssaoTex.type = DESCRIPTOR_TYPE_SRV;
 		DescriptorJob colorTex;
 		colorTex.name = "colorTexDesc";
 		colorTex.indirectTarget = "colorTex";
@@ -404,37 +398,35 @@ bool DemoApp::initialize() {
 		DescriptorJob worldTex = colorTex;
 		worldTex.name = "worldTexDesc";
 		worldTex.indirectTarget = "worldTex";
-		DescriptorJob mergedTex;
-		mergedTex.name = "mergedTexDesc";
-		mergedTex.indirectTarget = "mergedTex";
-		mergedTex.type = DESCRIPTOR_TYPE_RTV;
-		mergedTex.view.rtvDesc = DEFAULT_RTV_DESC();
+		DescriptorJob deferTexDesc;
+		deferTexDesc.name = "deferTexDesc";
+		deferTexDesc.indirectTarget = "deferTex";
+		deferTexDesc.type = DESCRIPTOR_TYPE_RTV;
+		deferTexDesc.view.rtvDesc = DEFAULT_RTV_DESC();
 		std::vector<RootParamDesc> params;
 		params.push_back({ "MergeConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
 			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_ALL });
 		// Trying to bind all textures at once to be efficient.
-		params.push_back({ "SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7, DESCRIPTOR_USAGE_ALL });
-		RenderTargetDesc mergedTarget = { "mergedTexDesc", 0 };
+		params.push_back({ "colorTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6, DESCRIPTOR_USAGE_ALL });
+		RenderTargetDesc deferTarget = { "deferTexDesc", 0 };
 		ConstantBufferJob mergedCB = { "MergeConstants", new MergeConstants() };
-		ResourceJob mergedTexRes = { "mergedTex", DESCRIPTOR_TYPE_RTV };
-		ResourceJob outDepthTexRes = { "outputDepthTex", DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT };
+		ResourceJob deferTexRes = { "deferTex", DESCRIPTOR_TYPE_RTV };
 		std::vector<DXDefine> defines = {
 			{L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)}
 		};
-		ShaderDesc mergeShaderVS = { "Merge.hlsl", "Merge Shader VS", "MergeVS", SHADER_TYPE_VS, defines };
-		ShaderDesc mergeShaderPS = { "Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, defines };
+		ShaderDesc deferShaderVS = { "DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines };
+		ShaderDesc deferShaderPS = { "DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines };
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { outDepthTex, ssaoTex, colorTex, specTex,
-			normalTex, tangentTex, biNormalTex, worldTex, mergedTex };
+		stageDesc.descriptorJobs = { colorTex, specTex,
+			normalTex, tangentTex, biNormalTex, worldTex, deferTexDesc };
 		stageDesc.constantBufferJobs = { mergedCB };
-		stageDesc.renderTargets = { mergedTarget };
-		stageDesc.resourceJobs = { mergedTexRes, outDepthTexRes };
+		stageDesc.renderTargets = { deferTarget };
+		stageDesc.resourceJobs = { deferTexRes };
 		stageDesc.rootSigDesc = params;
-		stageDesc.shaderFiles = { mergeShaderVS, mergeShaderPS };
+		stageDesc.shaderFiles = { deferShaderVS, deferShaderPS };
 		stageDesc.externalResources = {
-			{"SSAOTex", computeStage->getResource("SSAOOutTexture")},
 			{"colorTex", renderStage->getResource("outTexArray[0]")},
 			{"specularTex", renderStage->getResource("outTexArray[1]")},
 			{"normalTex", renderStage->getResource("outTexArray[2]")},
@@ -450,10 +442,44 @@ bool DemoApp::initialize() {
 
 		RenderPipelineDesc mergeRDesc;
 		mergeRDesc.supportsVRS = true;
-		mergeStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		mergeRDesc.supportsCulling = false;
+		mergeRDesc.usesMeshlets = false;
+		mergeRDesc.usesDepthTex = false;
+		deferStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		deferStage->deferSetup(stageDesc);
+		WaitOnFenceForever(deferStage->getFence(), deferStage->triggerFence());
+		deferStage->frustrumCull = false;
+	}
+
+	cpuWaitHandles.push_back(deferStage->deferSetCpuEvent());
+	// Merge deferred shading with SSAO/Shadows
+	{
+		PipeLineStageDesc stageDesc;
+		stageDesc.descriptorJobs.push_back(DescriptorJob("SSAOTexDesc", "SSAOTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("colorTexDesc", "colorTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("mergedTexDesc", "mergedTex", DESCRIPTOR_TYPE_RTV));
+
+		stageDesc.externalResources.push_back(std::make_pair("colorTex", deferStage->getResource("deferTex")));
+		stageDesc.externalResources.push_back(std::make_pair("SSAOTex", computeStage->getResource("SSAOOutTexture")));
+
+		stageDesc.renderTargets.push_back(RenderTargetDesc("mergedTexDesc", 0));
+
+		stageDesc.resourceJobs.push_back(ResourceJob("mergedTex", DESCRIPTOR_TYPE_RTV));
+
+		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2));
+
+		stageDesc.shaderFiles.push_back(ShaderDesc("Merge.hlsl", "Merge Shader VS", "MergeVS", SHADER_TYPE_VS, { DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)) }));
+		stageDesc.shaderFiles.push_back(ShaderDesc("Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, { DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)) }));
+
+		RenderPipelineDesc rDesc;
+		rDesc.supportsCulling = false;
+		rDesc.supportsVRS = false;
+		rDesc.usesMeshlets = false;
+		rDesc.usesDepthTex = false;
+
+		mergeStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		mergeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(mergeStage->getFence(), mergeStage->triggerFence());
-		mergeStage->frustrumCull = false;
 	}
 	cpuWaitHandles.push_back(mergeStage->deferSetCpuEvent());
 	// Compute the VRS image for the next frame.
@@ -489,7 +515,7 @@ bool DemoApp::initialize() {
 		uavPDesc.slot = 1;
 		std::vector<DXDefine> defines = {
 			// Processing in square wavefronts, so have to round down.
-			{L"N", std::to_wstring(waveSupport.WaveLaneCountMax)},// vrsSupport.ShadingRateImageTileSize) },
+			{L"N", std::to_wstring(waveSupport.WaveLaneCountMax)},
 			{L"TILE_SIZE", std::to_wstring(vrsSupport.ShadingRateImageTileSize)},
 			{L"EXTRA_SAMPLES", L"0"} };
 		ShaderDesc VrsShader = { "..\\Shaders\\VRSCompute.hlsl", "VRS Compute", 
@@ -524,14 +550,15 @@ bool DemoApp::initialize() {
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 
 	modelLoader = new ModelLoader(md3dDevice);
+	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
+	renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
-	renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
 	//renderStage->LoadMeshletModel(modelLoader, headMeshlet, headDir);
 	//renderStage->LoadModel(modelLoader, headSmallFile, headDir);
 	//renderStage->LoadModel(modelLoader, headFile, headDir);
-	renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	//renderStage->LoadModel(modelLoader, armorFile, armorDir);
 
 	
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -540,7 +567,7 @@ bool DemoApp::initialize() {
 
 	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
 	WaitForMultipleObjects(cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
-	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ renderStage, computeStage, mergeStage, vrsComputeStage });
+	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ renderStage, computeStage, deferStage, mergeStage, vrsComputeStage });
 	mCommandList->ResourceBarrier(initialTransitions.size(), initialTransitions.data());
 
 	mCommandList->Close();
@@ -571,6 +598,7 @@ void DemoApp::update() {
 
 	renderStage->nextFrame();
 	computeStage->nextFrame();
+	deferStage->nextFrame();
 	mergeStage->nextFrame();
 	vrsComputeStage->nextFrame();
 
@@ -607,6 +635,7 @@ void DemoApp::draw() {
 	std::vector<HANDLE> eventHandles;
 	eventHandles.push_back(renderStage->deferExecute());
 	eventHandles.push_back(computeStage->deferExecute());
+	eventHandles.push_back(deferStage->deferExecute());
 	eventHandles.push_back(mergeStage->deferExecute());
 	eventHandles.push_back(vrsComputeStage->deferExecute());
 
@@ -640,7 +669,7 @@ void DemoApp::draw() {
 	
 	mCommandList->Close();
 
-	ID3D12CommandList* cmdList[] = { renderStage->mCommandList.Get(), computeStage->mCommandList.Get(), mergeStage->mCommandList.Get(), vrsComputeStage->mCommandList.Get(), mCommandList.Get() };
+	ID3D12CommandList* cmdList[] = { renderStage->mCommandList.Get(), computeStage->mCommandList.Get(), deferStage->mCommandList.Get(), mergeStage->mCommandList.Get(), vrsComputeStage->mCommandList.Get(), mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
 
 	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
@@ -840,7 +869,7 @@ void DemoApp::UpdateMainPassCB() {
 	mergeConstantCB.data.numPointLights = 1;
 
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
-	mergeStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
+	deferStage->deferUpdateConstantBuffer("MergeConstants", mergeConstantCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 	if (!freezeCull) {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);
@@ -848,5 +877,5 @@ void DemoApp::UpdateMainPassCB() {
 	}
 	renderStage->eyePos = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
 	renderStage->VRS = VRS;
-	mergeStage->VRS = VRS;
+	deferStage->VRS = VRS;
 }

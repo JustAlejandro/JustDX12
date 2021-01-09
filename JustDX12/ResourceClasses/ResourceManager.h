@@ -10,6 +10,14 @@ struct ResourceJob {
 	DXGI_FORMAT format = COLOR_TEXTURE_FORMAT;
 	UINT texHeight = SCREEN_HEIGHT;
 	UINT texWidth = SCREEN_WIDTH;
+	ResourceJob() = default;
+	ResourceJob(std::string name, DESCRIPTOR_TYPES types, DXGI_FORMAT format = COLOR_TEXTURE_FORMAT, UINT texHeight = SCREEN_HEIGHT, UINT texWidth = SCREEN_WIDTH) {
+		this->name = name;
+		this->types = types;
+		this->format = format;
+		this->texHeight = texHeight;
+		this->texWidth = texWidth;
+	}
 };
 
 class ResourceManager {

@@ -32,12 +32,6 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	vertexBufferByteSize = (unsigned int)vertices.size() * sizeof(Vertex);
 	indexBufferByteSize = (unsigned int)indices.size() * sizeof(unsigned int);
 
-	D3DCreateBlob(vertexBufferByteSize, &vertexBufferCPU);
-	CopyMemory(vertexBufferCPU->GetBufferPointer(), vertices.data(), vertexBufferByteSize);
-
-	D3DCreateBlob(indexBufferByteSize, &indexBufferCPU);
-	CopyMemory(indexBufferCPU->GetBufferPointer(), indices.data(), indexBufferByteSize);
-
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
 

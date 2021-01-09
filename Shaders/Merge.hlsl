@@ -22,12 +22,7 @@ struct PixelOutMerge {
 ConstantBuffer<Merge> Merge : register(b0);
 
 Texture2D ssaoTex : register(t0);
-Texture2D colorTex : register(t1);
-Texture2D specTex : register(t2);
-Texture2D normalTex : register(t3);
-Texture2D tangentTex : register(t4);
-Texture2D biNormalTex : register(t5);
-Texture2D worldTex : register(t6);
+Texture2D deferTex : register(t1);
 
 SamplerState gsamPoint : register(s1);
 
@@ -42,24 +37,8 @@ VertexOutMerge MergeVS(VertexIn vin)
 PixelOutMerge MergePS(VertexOutMerge vout) 
 {
 	PixelOutMerge pout;
-	float3 col = colorTex.Sample(gsamPoint, vout.TexC).xyz;
-	float3 diffuse = 0.0f;
-	float3 spec = 0.0f;
-	float3 worldPos = worldTex.Sample(gsamPoint, vout.TexC).xyz;
-	for (int i = 0; i < Merge.numPointLights; i++) {
-		float3 lightVec = Merge.lights[i].pos - worldPos;
-		float3 lightDir = normalize(lightVec);
-		float3 reflectDir = reflect(-lightDir, normalTex.Sample(gsamPoint, vout.TexC).xyz);
-		float attenuation = clamp(1.0 - dot(lightVec,lightVec) / (Merge.lights[i].strength * Merge.lights[i].strength), 0.0, 1.0);
-		diffuse += clamp(Merge.lights[i].color * attenuation 
-			* max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0), 0.0, 1.0);	
-		spec += clamp(Merge.lights[i].color * attenuation
-			* specTex.Sample(gsamPoint, vout.TexC).x
-			* pow(max(dot(reflectDir, normalize(Merge.viewPos - worldPos)), 0.0f), 32.0), 0.0, 1.0);
-	}
-	diffuse = clamp(diffuse + 0.005, 0.0f, 1.0f);
-	spec = 0.0 * clamp(spec, 0.0f, 1.0f);
-	float3 totalLight = clamp(diffuse + spec, 0.0f, 1.0f);
-	pout.color = float4(ssaoTex.Sample(gsamPoint, vout.TexC).x * (totalLight * colorTex.Sample(gsamPoint, vout.TexC).xyz), 1.0f);
+	float3 col = deferTex.Sample(gsamPoint, vout.TexC).xyz;
+	float ssaoOut = ssaoTex.Sample(gsamPoint, vout.TexC).x;
+	pout.color = float4(col * ssaoOut, 1.0f);
 	return pout;
 }

@@ -16,6 +16,11 @@ struct DXDefine {
 	std::wstring name;
 	std::wstring value;
 	static std::vector<DxcDefine> DXDefineToDxcDefine(const std::vector<DXDefine>& defines);
+	DXDefine() = default;
+	DXDefine(std::wstring name, std::wstring value) {
+		this->name = name;
+		this->value = value;
+	}
 };
 
 template <typename T, typename U>

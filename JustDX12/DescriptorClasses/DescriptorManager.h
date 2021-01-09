@@ -65,6 +65,7 @@ public:
 	DX12Descriptor* getDescriptor(const IndexedName& indexedName, const DESCRIPTOR_TYPE& type);
 	std::vector<ID3D12DescriptorHeap*> getAllBindableHeaps();
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();
+	bool containsDescriptorsOfType(DESCRIPTOR_TYPE type);
 	std::vector<DX12Descriptor*>* getAllDescriptorsOfType(DESCRIPTOR_TYPE type);
 	D3D12_DESCRIPTOR_HEAP_TYPE heapTypeFromDescriptorType(DESCRIPTOR_TYPE type);
 

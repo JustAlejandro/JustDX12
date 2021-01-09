@@ -35,11 +35,25 @@ struct RootParamDesc {
 	D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	int numConstants = 1;
 	DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL;
+	RootParamDesc() = default;
+	RootParamDesc(std::string name, ROOT_PARAMETER_TYPE type, int slot = 0, D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV, int numConstants = 1, DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL) {
+		this->name = name;
+		this->type = type;
+		this->slot = slot;
+		this->rangeType = rangeType;
+		this->numConstants = numConstants;
+		this->usagePattern = usagePattern;
+	}
 };
 
 struct RenderTargetDesc {
 	std::string descriptorName;
 	int slot;
+	RenderTargetDesc() = default;
+	RenderTargetDesc(std::string descriptorName, int slot) {
+		this->descriptorName = descriptorName;
+		this->slot = slot;
+	}
 };
 
 struct ShaderDesc {
@@ -48,6 +62,14 @@ struct ShaderDesc {
 	std::string methodName;
 	SHADER_TYPE type;
 	std::vector<DXDefine> defines;
+	ShaderDesc() = default;
+	ShaderDesc(std::string fileName, std::string shaderName, std::string methodName, SHADER_TYPE type, std::vector<DXDefine> defines) {
+		this->fileName = fileName;
+		this->shaderName = shaderName;
+		this->methodName = methodName;
+		this->type = type;
+		this->defines = defines;
+	}
 };
 
 struct PipeLineStageDesc {
