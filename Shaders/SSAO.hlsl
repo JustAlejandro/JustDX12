@@ -3,6 +3,7 @@
 // TAA Flag is included because ray sampling
 // should be random if we denoise and constant
 // if we don't, to avoid shimmering
+#include "Common.hlsl"
 
 cbuffer cbSSAOSettings : register(b0)
 {
@@ -19,6 +20,8 @@ cbuffer cbSSAOSettings : register(b0)
 	float shadowStepSize;
 	float4 lightPos;
 };
+
+ConstantBuffer<LightData> LightData : register(b1);
 
 Texture2D noiseTex : register(t0);
 Texture2D depthTex : register(t1);
@@ -83,7 +86,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 		}
 	}
 	outCol = !showSSAO + (outCol * (float)showSSAO);
-	float3 lightDir = normalize(lightPos.xyz - worldPos.xyz);
+	float3 lightDir = normalize(LightData.lights[0].pos.xyz - worldPos.xyz);
 	float resColor = 1.0;
 	int occludeCount = 20;
 	for (int j = 0; j < shadowSteps; j++)

@@ -13,14 +13,13 @@ public:
 		BOOL showSSShadows = true;
 		DirectX::XMFLOAT2 padding = {0.0f, 0.0f};
 		DirectX::XMFLOAT4X4 viewProj = Identity();
-		int rayCount = 30;
+		int rayCount = 10;
 		float rayLength = 3.0f;
 		int TAA = 0;
 		float range = 0.0f;
 		float rangeXNear = 0.0f;
 		int shadowSteps = 20;
 		float shadowStepSize = 0.05f;
-		DirectX::XMFLOAT4 lightPos = {};
 	};
 
 	SSAOConstantsStruct data;
@@ -103,9 +102,9 @@ public:
 	virtual ~PerPassConstants() override {}
 };
 
-class MergeConstants : public ConstantBufferData {
+class LightData : public ConstantBufferData {
 public:
-	struct MergeConstantsStruct {
+	struct LightDataStruct {
 		DirectX::XMFLOAT3 viewPos;
 		int ipadding;
 		int numPointLights = 0;
@@ -115,18 +114,18 @@ public:
 		Light lights[MAX_LIGHTS];
 	};
 
-	MergeConstantsStruct data;
+	LightDataStruct data;
 
 	virtual UINT byteSize() const override {
-		return sizeof(MergeConstantsStruct);
+		return sizeof(LightDataStruct);
 	}
 	virtual std::unique_ptr<ConstantBufferData> clone() const override {
-		return std::make_unique<MergeConstants>(*this);
+		return std::make_unique<LightData>(*this);
 	}
 	void* getData() override {
 		return &data;
 	}
-	virtual ~MergeConstants() override {};
+	virtual ~LightData() override {};
 };
 
 class VrsConstants : public ConstantBufferData {
@@ -135,7 +134,7 @@ public:
 	struct VrsConstantsStruct {
 		BOOL vrsAvgLum = true;
 		BOOL vrsVarLum = true;
-		float vrsAvgCut = 0.03f;
+		float vrsAvgCut = 0.007f;
 		float vrsVarianceCut = 0.007f;
 		int vrsVarianceVotes = 67;
 	};

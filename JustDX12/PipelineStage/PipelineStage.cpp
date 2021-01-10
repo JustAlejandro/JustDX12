@@ -53,6 +53,10 @@ void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, 
 	enqueue(new PipelineStageTaskWaitFence(this, val, fence));
 }
 
+DX12ConstantBuffer* PipelineStage::getConstantBuffer(IndexedName indexName) {
+	return constantBufferManager.getConstantBuffer(indexName);
+}
+
 DX12Resource* PipelineStage::getResource(std::string name) {
 	return resourceManager.getResource(name);
 }
@@ -122,6 +126,9 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	//This causes a race condition, if the TextureLoader doesn't finish before the setup() ends.
 	LoadTextures(stageDesc.textureFiles);
+	for (auto& cb : stageDesc.externalConstantBuffers) {
+		constantBufferManager.importConstantBuffer(cb.first, cb.second);
+	}
 	for (std::pair<std::string, DX12Resource*>& res : stageDesc.externalResources) {
 		resourceManager.importResource(res.first, res.second);
 	}

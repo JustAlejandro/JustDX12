@@ -19,7 +19,7 @@ struct PixelOutMerge {
 	float4 color : SV_Target0;
 };
 
-ConstantBuffer<Merge> Merge : register(b0);
+ConstantBuffer<LightData> LightData : register(b0);
 
 Texture2D ssaoTex : register(t0);
 Texture2D deferTex : register(t1);

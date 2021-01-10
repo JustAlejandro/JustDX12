@@ -8,7 +8,7 @@ ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2>
 void ComputePipelineStage::Execute() {
 	resetCommandList();
 
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), "SSAO");
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), stageDesc.name.c_str());
 
 	PerformTransitionsIn();
 

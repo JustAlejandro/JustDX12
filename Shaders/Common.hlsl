@@ -68,7 +68,7 @@ struct Light
 	float fov;
 };
 
-struct Merge
+struct LightData
 {
 	float3 viewPos;
 	int ipadding;

@@ -27,7 +27,7 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 void RenderPipelineStage::Execute() {
 	resetCommandList();
 
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Forward Pass");
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), stageDesc.name.c_str());
 
 	PerformTransitionsIn();
 

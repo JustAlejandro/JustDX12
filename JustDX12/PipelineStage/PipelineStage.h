@@ -73,11 +73,13 @@ struct ShaderDesc {
 };
 
 struct PipeLineStageDesc {
+	std::string name;
 	std::vector<RootParamDesc> rootSigDesc;
 	std::vector<DescriptorJob> descriptorJobs;
 	std::vector<ResourceJob> resourceJobs;
 	std::vector<ConstantBufferJob> constantBufferJobs;
 	std::vector<ShaderDesc> shaderFiles;
+	std::vector<std::pair<IndexedName, DX12ConstantBuffer*>> externalConstantBuffers;
 	std::vector<std::pair<std::string, DX12Resource*>> externalResources;
 	std::vector<std::pair<std::string, std::string>> textureFiles;
 	std::vector<RenderTargetDesc> renderTargets;
@@ -92,6 +94,7 @@ public:
 	int triggerFence();
 	void nextFrame();
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
+	DX12ConstantBuffer* getConstantBuffer(IndexedName indexName);
 	DX12Resource* getResource(std::string name);
 
 	static std::vector<CD3DX12_RESOURCE_BARRIER> setupResourceTransitions(std::vector<PipelineStage*> stages);
