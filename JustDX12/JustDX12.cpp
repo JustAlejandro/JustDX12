@@ -156,138 +156,92 @@ bool DemoApp::initialize() {
 	std::vector<HANDLE> cpuWaitHandles;
 	// Create Render stage first because of dependencies later.
 	{
-		DescriptorJob rtvDescs[6];
-		rtvDescs[0].name = "outTexDesc[0]";
-		rtvDescs[0].indirectTarget = "outTexArray[0]";
-		rtvDescs[0].type = DESCRIPTOR_TYPE_RTV;
-		rtvDescs[0].view.rtvDesc = DEFAULT_RTV_DESC();
-		rtvDescs[0].usage = DESCRIPTOR_USAGE_PER_PASS;
-		rtvDescs[0].usageIndex = 0;
-		rtvDescs[1] = rtvDescs[0];
-		rtvDescs[1].name = "outTexDesc[1]";
-		rtvDescs[1].indirectTarget = "outTexArray[1]";
-		rtvDescs[2] = rtvDescs[0];
-		rtvDescs[2].name = "outTexDesc[2]";
-		rtvDescs[2].indirectTarget = "outTexArray[2]";
-		rtvDescs[3] = rtvDescs[0];
-		rtvDescs[3].name = "outTexDesc[3]";
-		rtvDescs[3].indirectTarget = "outTexArray[3]";
-		rtvDescs[4] = rtvDescs[0];
-		rtvDescs[4].name = "outTexDesc[4]";
-		rtvDescs[4].indirectTarget = "outTexArray[4]";
-		rtvDescs[5] = rtvDescs[0];
-		rtvDescs[5].name = "outTexDesc[5]";
-		rtvDescs[5].indirectTarget = "outTexArray[5]";
-		DescriptorJob dsvDesc;
-		dsvDesc.name = "depthStencilView";
-		dsvDesc.indirectTarget = "depthTex";
-		dsvDesc.type = DESCRIPTOR_TYPE_DSV;
-		dsvDesc.view.dsvDesc = DEFAULT_DSV_DESC();
-		dsvDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
-		dsvDesc.usageIndex = 0;
-		RootParamDesc perObjRoot = { "PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
-			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT };
-		RootParamDesc perMeshTexRoot = { "texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH };
-		RootParamDesc perPassRoot = { "PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
-			2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		ResourceJob vrsTex = { "VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT,
-			(SCREEN_HEIGHT+vrsSupport.ShadingRateImageTileSize-1) / vrsSupport.ShadingRateImageTileSize,
-			(SCREEN_WIDTH+vrsSupport.ShadingRateImageTileSize-1) / vrsSupport.ShadingRateImageTileSize };
-		ResourceJob outTex = { "example", DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_SRV,
-			COLOR_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
-		ResourceJob outTexArray[6] = { outTex,outTex,outTex, outTex, outTex, outTex };
-		// Attachment 0 (color) is used by the SSAO to write the final output (not great)
-		// and VRS compute, so it needs a simul access flag.
-		outTexArray[0].name = "outTexArray[0]";
-		outTexArray[0].types |= DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS;
-		outTexArray[1].name = "outTexArray[1]";
-		outTexArray[2].name = "outTexArray[2]";
-		outTexArray[3].name = "outTexArray[3]";
-		outTexArray[4].name = "outTexArray[4]";
-		outTexArray[5].name = "outTexArray[5]";
-		ResourceJob depthTex = { "depthTex", DESCRIPTOR_TYPE_DSV | DESCRIPTOR_TYPE_SRV,
-			DEPTH_TEXTURE_FORMAT, SCREEN_HEIGHT, SCREEN_WIDTH };
-		ConstantBufferJob perObjectJob0 = { "PerObjectConstants", new PerObjectConstants(), 0 };
-		ConstantBufferJob perObjectJob1 = { "PerObjectConstants", new PerObjectConstants(), 1 };
-		ConstantBufferJob perObjectJob2 = { "PerObjectConstants", new PerObjectConstants(), 2 };
-		ConstantBufferJob perObjectJob3 = { "PerObjectConstants", new PerObjectConstants(), 3 };
-		ConstantBufferJob perObjectJob4 = { "PerObjectConstants", new PerObjectConstants(), 4 };
-		ConstantBufferJob perObjectJob5 = { "PerObjectConstants", new PerObjectConstants(), 5 };
-		ConstantBufferJob perObjectJobMeshlet0 = { "PerObjectConstantsMeshlet", new PerObjectConstants(), 0 };
-		ConstantBufferJob perPassJob = { "PerPassConstants", new PerPassConstants() };
-		std::vector<DXDefine> defines = { 
+		PipeLineStageDesc rasterDesc;
+
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 0));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 1));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 2));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 3));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 4));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 5));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstantsMeshlet", new PerObjectConstants(), 0));
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerPassConstants", new PerPassConstants(), 0));
+
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[0]", "outTexArray[0]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[1]", "outTexArray[1]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[2]", "outTexArray[2]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[3]", "outTexArray[3]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[4]", "outTexArray[4]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[5]", "outTexArray[5]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
+		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
+
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[0]", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[1]", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[2]", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[3]", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[4]", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[5]", 0));
+
+		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize), DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize)));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[0]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[1]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[2]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[3]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[4]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[5]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
+		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
+
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
+
+		std::vector<DXDefine> defines = {
 			{L"VRS", L""},
 			{L"VRS_4X4", L""} };
-		ShaderDesc vs = { "Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines };
-		ShaderDesc ps = { "Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines };
-		ShaderDesc as = { "MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {} };
-		ShaderDesc ms = { "MeshletMS.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {} };
-		ShaderDesc psMesh = { "MeshletMS.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {} };
-		RenderTargetDesc renderTargets[6];
-		renderTargets[0] = { "outTexDesc[0]", 0 };
-		renderTargets[1] = { "outTexDesc[1]", 0 };
-		renderTargets[2] = { "outTexDesc[2]", 0 };
-		renderTargets[3] = { "outTexDesc[3]", 0 };
-		renderTargets[4] = { "outTexDesc[4]", 0 };
-		renderTargets[5] = { "outTexDesc[5]", 0 };
 
+		// Shaders are binding order dependent/bound by unique names. This needs to be fixed. Probably add a usage context for shaders?
+		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {}));
+		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {}));
+		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {}));
+		rasterDesc.shaderFiles.push_back(ShaderDesc("Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines));
+		rasterDesc.shaderFiles.push_back(ShaderDesc("Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines));
 
-		PipeLineStageDesc rasterDesc;
-		rasterDesc.constantBufferJobs = { perObjectJob0, perObjectJob1, perObjectJob2, perObjectJob3, perObjectJob4, perObjectJob5, perObjectJobMeshlet0, perPassJob };
-		rasterDesc.descriptorJobs = { rtvDescs[0], rtvDescs[1], rtvDescs[2], rtvDescs[3], rtvDescs[4], rtvDescs[5], dsvDesc };
-		rasterDesc.externalResources = {};
-		rasterDesc.renderTargets = std::vector<RenderTargetDesc>(std::begin(renderTargets), std::end(renderTargets));
-		rasterDesc.resourceJobs = { outTexArray[0],outTexArray[1],outTexArray[2],outTexArray[3],outTexArray[4],outTexArray[5],depthTex,vrsTex };
-		rasterDesc.rootSigDesc = { perObjRoot, perMeshTexRoot, perPassRoot };
-		rasterDesc.shaderFiles = { vs, psMesh, ps, as, ms };
-		rasterDesc.textureFiles = {
-			{"default_normal", "default_bump.dds"},
-			{"default_spec", "default_spec.dds"},
-			{"default_diff", "default_diff.dds"},
-			{"default_alpha", "default_alpha.dds"}
-		};
-
+		rasterDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "default_diff.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_alpha", "default_alpha.dds"));
 
 		RenderPipelineDesc rDesc;
-		rDesc.supportsCulling = true;
 		rDesc.usesMeshlets = true;
-		// Have to generate meshlet root signature
-		std::vector<RootParamDesc> meshParams;
-		meshParams.push_back({ "MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
-			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "Vertices", ROOT_PARAMETER_TYPE_SRV,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "Meshlets", ROOT_PARAMETER_TYPE_SRV,
-			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV,
-			3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV,
-			4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		meshParams.push_back({ "MeshletCullData", ROOT_PARAMETER_TYPE_SRV,
-			5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET });
-		perObjRoot.name = "PerObjectConstantsMeshlet";
-		perObjRoot.slot += 6;
-		perMeshTexRoot.slot += 6;
-		perMeshTexRoot.name = "mesh_texture_diffuse";
-		perPassRoot.slot += 6;
-		meshParams.push_back(perObjRoot);
-		meshParams.push_back(perMeshTexRoot);
-		meshParams.push_back(perPassRoot);
-		rDesc.meshletRootSignature = meshParams;
-		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
-		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
-		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
-		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "texture_alpha");
+		rDesc.supportsCulling = true;
+		rDesc.supportsVRS = true;
+
 		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
 		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
 		rDesc.defaultTextures[MODEL_FORMAT_OPACITY_TEX] = "default_alpha";
+
+		// Have to generate meshlet root signature
+		rDesc.meshletRootSignature.push_back(RootParamDesc("MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("Vertices", ROOT_PARAMETER_TYPE_SRV, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("Meshlets", ROOT_PARAMETER_TYPE_SRV, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV, 4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("MeshletCullData", ROOT_PARAMETER_TYPE_SRV, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("PerObjectConstantsMeshlet", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 6, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 8, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
+
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "texture_alpha");
+
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "mesh_texture_alpha");
-		rDesc.supportsVRS = true;
 
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
@@ -296,76 +250,40 @@ bool DemoApp::initialize() {
 	cpuWaitHandles.push_back(renderStage->deferSetCpuEvent());
 	// Create SSAO/Screen Space Shadow Pass.
 	{
-		DescriptorJob noiseTex("noise_texDesc", "noise_tex", DESCRIPTOR_TYPE_SRV, true);
-		DescriptorJob depthTex("inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV, false, 0, DESCRIPTOR_USAGE_PER_PASS);
-		depthTex.view.srvDesc = DEFAULT_SRV_DESC();
-		depthTex.view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
-		DescriptorJob normalTex("normalTex", "renderOutputNormals", DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_PER_PASS);
-		DescriptorJob colorTex = normalTex;
-		colorTex.name = "colorTex";
-		colorTex.indirectTarget = "renderOutputColor";
-		DescriptorJob tangentTex = normalTex;
-		tangentTex.name = "tangentTex";
-		tangentTex.indirectTarget = "renderOutputTangents";
-		DescriptorJob binormalTex = normalTex;
-		binormalTex.name = "binormalTex";
-		binormalTex.indirectTarget = "renderOutputBinormals";
-		DescriptorJob worldTex = normalTex;
-		worldTex.name = "worldTex";
-		worldTex.indirectTarget = "renderOutputPosition";
-		DescriptorJob outTexDesc;
-		outTexDesc.name = "SSAOOut";
-		outTexDesc.indirectTarget = "SSAOOutTexture";
-		outTexDesc.type = DESCRIPTOR_TYPE_UAV;
-		outTexDesc.view.uavDesc = DEFAULT_UAV_DESC();
-		outTexDesc.view.uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
-		outTexDesc.usage = DESCRIPTOR_USAGE_PER_PASS;
-		outTexDesc.usageIndex = 0;
-		RootParamDesc cbvPDesc = { "SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
-			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc noisePDesc = { "noise_texDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc rootPDesc = { "inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc colorPDesc = { "colorTex", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		RootParamDesc normalPDesc = colorPDesc;
-		normalPDesc.name = "normalTex";
-		normalPDesc.slot = 4;
-		RootParamDesc tangentPDesc = normalPDesc;
-		tangentPDesc.name = "tangentTex";
-		tangentPDesc.slot = 5;
-		RootParamDesc binormalPDesc = normalPDesc;
-		binormalPDesc.name = "binormalTex";
-		binormalPDesc.slot = 6;
-		RootParamDesc worldPDesc = normalPDesc;
-		worldPDesc.name = "worldTex";
-		worldPDesc.slot = 7;
-		RootParamDesc uavPDesc = { "SSAOOut", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			8, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, DESCRIPTOR_USAGE_PER_PASS };
-		ResourceJob outTex;
-		outTex.name = "SSAOOutTexture";
-		outTex.types = DESCRIPTOR_TYPE_UAV;
-		outTex.format = DXGI_FORMAT_R32_FLOAT;
-		ConstantBufferJob cbOut = { "SSAOConstants", new SSAOConstants() };
-		ShaderDesc SSAOShaders = { "SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {} };
-
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { { noiseTex, depthTex, colorTex, normalTex, tangentTex, binormalTex, worldTex, outTexDesc } };
-		stageDesc.rootSigDesc = { cbvPDesc, noisePDesc, rootPDesc, colorPDesc, normalPDesc, tangentPDesc, binormalPDesc, worldPDesc, uavPDesc };
-		stageDesc.resourceJobs = { outTex };
-		stageDesc.shaderFiles = { SSAOShaders };
-		stageDesc.constantBufferJobs = { cbOut };
-		stageDesc.externalResources = { 
-			std::make_pair("renderOutputTex",renderStage->getResource("depthTex")),
-			std::make_pair("renderOutputColor",renderStage->getResource("outTexArray[0]")),
-			std::make_pair("renderOutputSpec",renderStage->getResource("outTexArray[1]")),
-			std::make_pair("renderOutputNormals",renderStage->getResource("outTexArray[2]")),
-			std::make_pair("renderOutputTangents",renderStage->getResource("outTexArray[3]")),
-			std::make_pair("renderOutputBinormals",renderStage->getResource("outTexArray[4]")),
-			std::make_pair("renderOutputPosition",renderStage->getResource("outTexArray[5]"))
-		};
-		stageDesc.textureFiles = { {"noise_tex", "default_noise.dds"} };
+
+		stageDesc.constantBufferJobs.push_back(ConstantBufferJob("SSAOConstants", new SSAOConstants()));
+
+		stageDesc.descriptorJobs.push_back(DescriptorJob("noise_texDesc", "noise_tex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV, false));
+		stageDesc.descriptorJobs.back().view.srvDesc = DEFAULT_SRV_DESC();
+		stageDesc.descriptorJobs.back().view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
+		stageDesc.descriptorJobs.push_back(DescriptorJob("colorTex", "renderOutputColor", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTex", "renderOutputNormals", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTex", "renderOutputTangents", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("binormalTex", "renderOutputBinormals", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("worldTex", "renderOutputPosition", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("SSAOOut", "SSAOOutTexture", DESCRIPTOR_TYPE_UAV));
+
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputTex", renderStage->getResource("depthTex")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputColor", renderStage->getResource("outTexArray[0]")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputSpec", renderStage->getResource("outTexArray[1]")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputNormals", renderStage->getResource("outTexArray[2]")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("outTexArray[3]")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputBinormals", renderStage->getResource("outTexArray[4]")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputPosition", renderStage->getResource("outTexArray[5]")));
+
+		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R32_FLOAT));
+
+		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("noise_texDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOOut", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 3, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+
+		stageDesc.shaderFiles.push_back(ShaderDesc("SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, {}));
+
+		stageDesc.textureFiles.push_back(std::make_pair("noise_tex", "default_noise.dds"));
+
 		ComputePipelineDesc cDesc;
 		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
 		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
@@ -378,67 +296,43 @@ bool DemoApp::initialize() {
 	cpuWaitHandles.push_back(computeStage->deferSetCpuEvent());
 	// Perform deferred shading.
 	{
-		DescriptorJob colorTex;
-		colorTex.name = "colorTexDesc";
-		colorTex.indirectTarget = "colorTex";
-		colorTex.view.srvDesc = DEFAULT_SRV_DESC();
-		colorTex.type = DESCRIPTOR_TYPE_SRV;
-		DescriptorJob specTex = colorTex;
-		specTex.name = "specTexDesc";
-		specTex.indirectTarget = "specularTex";
-		DescriptorJob normalTex = colorTex;
-		normalTex.name = "normalTexDesc";
-		normalTex.indirectTarget = "normalTex";
-		DescriptorJob tangentTex = colorTex;
-		tangentTex.name = "tangentTexDesc";
-		tangentTex.indirectTarget = "tangentTex";
-		DescriptorJob biNormalTex = colorTex;
-		biNormalTex.name = "biNormalTexDesc";
-		biNormalTex.indirectTarget = "biNormalTex";
-		DescriptorJob worldTex = colorTex;
-		worldTex.name = "worldTexDesc";
-		worldTex.indirectTarget = "worldTex";
-		DescriptorJob deferTexDesc;
-		deferTexDesc.name = "deferTexDesc";
-		deferTexDesc.indirectTarget = "deferTex";
-		deferTexDesc.type = DESCRIPTOR_TYPE_RTV;
-		deferTexDesc.view.rtvDesc = DEFAULT_RTV_DESC();
-		std::vector<RootParamDesc> params;
-		params.push_back({ "MergeConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER,
-			0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_ALL });
-		// Trying to bind all textures at once to be efficient.
-		params.push_back({ "colorTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-			1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6, DESCRIPTOR_USAGE_ALL });
-		RenderTargetDesc deferTarget = { "deferTexDesc", 0 };
-		ConstantBufferJob mergedCB = { "MergeConstants", new MergeConstants() };
-		ResourceJob deferTexRes = { "deferTex", DESCRIPTOR_TYPE_RTV };
 		std::vector<DXDefine> defines = {
 			{L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)}
 		};
-		ShaderDesc deferShaderVS = { "DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines };
-		ShaderDesc deferShaderPS = { "DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines };
 
 		PipeLineStageDesc stageDesc;
-		stageDesc.descriptorJobs = { colorTex, specTex,
-			normalTex, tangentTex, biNormalTex, worldTex, deferTexDesc };
-		stageDesc.constantBufferJobs = { mergedCB };
-		stageDesc.renderTargets = { deferTarget };
-		stageDesc.resourceJobs = { deferTexRes };
-		stageDesc.rootSigDesc = params;
-		stageDesc.shaderFiles = { deferShaderVS, deferShaderPS };
-		stageDesc.externalResources = {
-			{"colorTex", renderStage->getResource("outTexArray[0]")},
-			{"specularTex", renderStage->getResource("outTexArray[1]")},
-			{"normalTex", renderStage->getResource("outTexArray[2]")},
-			{"tangentTex", renderStage->getResource("outTexArray[3]")},
-			{"biNormalTex", renderStage->getResource("outTexArray[4]")},
-			{"worldTex", renderStage->getResource("outTexArray[5]")},
-			{"VRS", renderStage->getResource("VRS")} };
-		stageDesc.textureFiles = {
-			{"default_normal", "default_bump.dds"},
-			{"default_spec", "default_spec.dds"},
-			{"default_diff", "default_diff.dds"}
-		};
+
+		stageDesc.constantBufferJobs.push_back(ConstantBufferJob("MergeConstants", new MergeConstants()));
+
+		stageDesc.descriptorJobs.push_back(DescriptorJob("colorTexDesc", "colorTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("specTexDesc", "specularTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTexDesc", "normalTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTexDesc", "tangentTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("biNormalTexDesc", "biNormalTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("worldTexDesc", "worldTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("deferTexDesc", "deferTex", DESCRIPTOR_TYPE_RTV));
+
+		stageDesc.externalResources.push_back(std::make_pair("colorTex", renderStage->getResource("outTexArray[0]")));
+		stageDesc.externalResources.push_back(std::make_pair("specularTex", renderStage->getResource("outTexArray[1]")));
+		stageDesc.externalResources.push_back(std::make_pair("normalTex", renderStage->getResource("outTexArray[2]")));
+		stageDesc.externalResources.push_back(std::make_pair("tangentTex", renderStage->getResource("outTexArray[3]")));
+		stageDesc.externalResources.push_back(std::make_pair("biNormalTex", renderStage->getResource("outTexArray[4]")));
+		stageDesc.externalResources.push_back(std::make_pair("worldTex", renderStage->getResource("outTexArray[5]")));
+		stageDesc.externalResources.push_back(std::make_pair("VRS", renderStage->getResource("VRS")));
+
+		stageDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
+
+		stageDesc.resourceJobs.push_back(ResourceJob("deferTex", DESCRIPTOR_TYPE_RTV));
+
+		stageDesc.rootSigDesc.push_back(RootParamDesc("MergeConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("colorTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
+
+		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
+		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
+
+		stageDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
+		stageDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec.dds"));
+		stageDesc.textureFiles.push_back(std::make_pair("default_diff", "default_diff.dds"));
 
 		RenderPipelineDesc mergeRDesc;
 		mergeRDesc.supportsVRS = true;
@@ -486,9 +380,9 @@ bool DemoApp::initialize() {
 	{
 		std::vector<DXDefine> defines = {
 			// Processing in square wavefronts, so have to round down.
-			{L"N", std::to_wstring(waveSupport.WaveLaneCountMax)},
-			{L"TILE_SIZE", std::to_wstring(vrsSupport.ShadingRateImageTileSize)},
-			{L"EXTRA_SAMPLES", L"0"} };
+			DXDefine(L"N", std::to_wstring(waveSupport.WaveLaneCountMax)),
+			DXDefine(L"TILE_SIZE", std::to_wstring(vrsSupport.ShadingRateImageTileSize)),
+			DXDefine(L"EXTRA_SAMPLES", L"0") };
 
 		PipeLineStageDesc stageDesc;
 
