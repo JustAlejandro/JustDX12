@@ -71,7 +71,9 @@ private:
 
 private:
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	std::vector<std::unique_ptr<FrameResource>> mComputeFrameResources;
 	FrameResource* mCurrFrameResource = nullptr;
+	FrameResource* mCurrComputeFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
 
 	bool showImgui = true;
@@ -186,11 +188,11 @@ bool DemoApp::initialize() {
 
 		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize), DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize)));
 		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[0]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[1]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[2]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[3]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[4]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[5]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[1]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[2]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[3]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[4]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[5]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
 
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
@@ -438,10 +440,10 @@ bool DemoApp::initialize() {
 
 	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
 	WaitForMultipleObjects(cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
-	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ renderStage, computeStage, deferStage, mergeStage, vrsComputeStage });
+	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage}, {computeStage, deferStage}, {mergeStage}, {vrsComputeStage} });
 	mCommandList->ResourceBarrier(initialTransitions.size(), initialTransitions.data());
 
-	mCommandList->Close();
+	ThrowIfFailed(mCommandList->Close());
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
@@ -466,6 +468,7 @@ void DemoApp::update() {
 
 	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % CPU_FRAME_COUNT;
 	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
+	mCurrComputeFrameResource = mComputeFrameResources[mCurrFrameResourceIndex].get();
 
 	renderStage->nextFrame();
 	computeStage->nextFrame();
@@ -492,10 +495,13 @@ void DemoApp::draw() {
 	std::chrono::high_resolution_clock::time_point startFrameTime = std::chrono::high_resolution_clock::now();
 
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdListAlloc = mCurrFrameResource->CmdListAlloc;
+	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> cmdComputeListAlloc = mCurrComputeFrameResource->CmdListAlloc;
 
 	cmdListAlloc->Reset();
+	cmdComputeListAlloc->Reset();
 
 	mCommandList->Reset(cmdListAlloc.Get(), defaultPSO.Get());
+	// Compute doesn't really need a command list.
 
 	SetName(mCommandList.Get(), L"Meta Command List");
 
@@ -540,8 +546,37 @@ void DemoApp::draw() {
 	
 	mCommandList->Close();
 
-	ID3D12CommandList* cmdList[] = { renderStage->mCommandList.Get(), computeStage->mCommandList.Get(), deferStage->mCommandList.Get(), mergeStage->mCommandList.Get(), vrsComputeStage->mCommandList.Get(), mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdList), cmdList);
+	std::vector<ID3D12CommandList*> cmdList = { renderStage->mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
+
+
+	cmdList = { computeStage->mCommandList.Get() };
+	mComputeCommandQueue->Wait(mFence.Get(), mCurrentFence);
+	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->Signal(mAuxFences[0].Get(), ++mCurrentAuxFence[0]);
+
+
+	cmdList = { deferStage->mCommandList.Get() };
+	mCommandQueue->Wait(mFence.Get(), mCurrentFence);
+	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->Signal(mAuxFences[1].Get(), ++mCurrentAuxFence[1]);
+
+
+	cmdList = { mergeStage->mCommandList.Get() };
+	mCommandQueue->Wait(mAuxFences[0].Get(), mCurrentAuxFence[0]);
+	mCommandQueue->Wait(mAuxFences[1].Get(), mCurrentAuxFence[1]);
+	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
+
+	cmdList = { vrsComputeStage->mCommandList.Get() };
+	mComputeCommandQueue->Wait(mFence.Get(), mCurrentFence);
+	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
+
+	cmdList = { mCommandList.Get() };
+	mCommandQueue->Wait(mFence.Get(), mCurrentFence);
+	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
 
 	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
 	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
@@ -618,6 +653,8 @@ void DemoApp::BuildFrameResources() {
 	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get()));
 		mFrameResources[i].get()->CmdListAlloc->SetName((L"Alloc" + std::to_wstring(i)).c_str());
+		mComputeFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), D3D12_COMMAND_LIST_TYPE_COMPUTE));
+		mComputeFrameResources[i].get()->CmdListAlloc->SetName((L"ComputeAlloc" + std::to_wstring(i)).c_str());
 	}
 }
 

@@ -4,6 +4,7 @@
 #include <dxgi1_6.h>
 #include <d3d12.h>
 #include <d3dx12.h>
+#include <Settings.h>
 
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
@@ -67,9 +68,12 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12Device2> md3dDevice;
 
 	Microsoft::WRL::ComPtr<ID3D12Fence> mFence;
+	std::array<Microsoft::WRL::ComPtr<ID3D12Fence>, AUXILLARY_FENCE_COUNT> mAuxFences;
 	UINT64 mCurrentFence = 0;
+	std::array<UINT64, AUXILLARY_FENCE_COUNT> mCurrentAuxFence = { 0 };
 
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCommandQueue;
+	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mComputeCommandQueue;
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList5> mCommandList;
 

@@ -64,7 +64,7 @@ void RenderPipelineStage::Execute() {
 
 	PIXEndEvent(mCommandList.Get());
 
-	mCommandList->Close();
+	ThrowIfFailed(mCommandList->Close());
 }
 
 void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName) {
@@ -179,6 +179,30 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> RenderPipelineStage
 		requiredStates.push_back(std::make_pair(D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE, resourceManager.getResource(renderStageDesc.VrsTextureName)));
 	}
 	return requiredStates;
+}
+
+bool RenderPipelineStage::PerformsTransitions() {
+	return true;
+}
+
+void RenderPipelineStage::PerformTransitionsIn() {
+	if (transitionsIn.size() > 0) {
+		mCommandList->ResourceBarrier(transitionsIn.size(), transitionsIn.data());
+	}
+}
+
+void RenderPipelineStage::PerformTransitionsOut() {
+	if (transitionsOut.size() > 0) {
+		mCommandList->ResourceBarrier(transitionsOut.size(), transitionsOut.data());
+	}
+}
+
+void RenderPipelineStage::AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	transitionsIn.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+}
+
+void RenderPipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	transitionsOut.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
 }
 
 void RenderPipelineStage::BuildQueryHeap() {

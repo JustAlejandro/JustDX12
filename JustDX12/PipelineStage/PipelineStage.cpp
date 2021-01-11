@@ -63,14 +63,34 @@ DX12Resource* PipelineStage::getResource(std::string name) {
 
 // To be able to build multiple command lists at once we need all the stages to agree on what transitions happen when.
 // Return the initial transistions needed to put us in the cycle we want.
-std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(std::vector<PipelineStage*> stages) {
+std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(std::vector<std::vector<PipelineStage*>> stages) {
 	std::set<DX12Resource*> resourcesToProcess;
-	std::vector<std::unordered_map<DX12Resource*, D3D12_RESOURCE_STATES>> desiredStatesByStage;
+	std::vector<std::unordered_map<DX12Resource*, D3D12_RESOURCE_STATES>> desiredStatesByStageGroup;
 	std::vector<std::pair<DX12Resource*, D3D12_RESOURCE_STATES>> requiredInitialStates;
 
 	// Step 1: find all the resources that need to be transitioned across stages.
-	for (PipelineStage* stage : stages) {
-		auto requiredStates = stage->getRequiredResourceStates();
+	for (std::vector<PipelineStage*>& stageList : stages) {
+		// Using a set so that we don't have duplicates.
+		std::set<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredStates;
+		std::unordered_map<DX12Resource*, D3D12_RESOURCE_STATES> stateMap;
+		for (auto& stage : stageList) {
+			auto states = stage->getRequiredResourceStates();
+			for (auto& state : states) {
+				// Check to make sure that if multiple stages want the same resource, they want the same state.
+				if (stateMap.find(state.second) != stateMap.end()) {
+					if (stateMap[state.second] != state.first) {
+						throw "Can't complete this transition";
+					}
+				}
+				else {
+					stateMap[state.second] = state.first;
+				}
+			}
+			for (auto& state : states) {
+				requiredStates.insert(state);
+			}
+		}
+
 		std::unordered_map<DX12Resource*, D3D12_RESOURCE_STATES> desiredStates;
 		for (auto& state : requiredStates) {
 			if (!state.second->local) {
@@ -78,14 +98,14 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 				resourcesToProcess.insert(state.second);
 			}
 		}
-		desiredStatesByStage.push_back(desiredStates);
+		desiredStatesByStageGroup.push_back(desiredStates);
 	}
 
 	// Step 2: process each resource and its needed transitions
 	for (auto& res : resourcesToProcess) {
 		D3D12_RESOURCE_STATES initState;
 		// Find the last state that the resource will be in per loop and make that the expected initial state.
-		for (auto iter = desiredStatesByStage.rbegin(); iter != desiredStatesByStage.rend(); iter++) {
+		for (auto iter = desiredStatesByStageGroup.rbegin(); iter != desiredStatesByStageGroup.rend(); iter++) {
 			if (iter->find(res) != iter->end()) {
 				initState = iter->at(res);
 				break;
@@ -94,25 +114,55 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 		requiredInitialStates.push_back(std::make_pair(res, initState));
 
 		// Step 2.5: Make each pipeline stage transition into/out of the required states
-		PipelineStage* prevStage = nullptr;
 		D3D12_RESOURCE_STATES prevState = initState;
 		for (int i = 0; i < stages.size(); i++) {
-			auto desiredState = desiredStatesByStage[i].find(res);
-			if (desiredState != desiredStatesByStage[i].end()) {
-				// If the resource is already in the pipeline's desired state, no need to perform a transition.
-				if (desiredState->second != prevState) {
-					if (prevStage == nullptr) {
-						stages[i]->AddTransitionIn(res, prevState, desiredState->second);
-						prevState = desiredState->second;
+			auto desiredState = desiredStatesByStageGroup[i].find(res);
+			if (desiredState != desiredStatesByStageGroup[i].end()) {
+				if (desiredState->second == prevState) {
+					continue;
+				}
+				// Try to see if a prior stage group can handle the transition. (Unless that stage wants the resource)
+				bool found = false;
+				// Trips if triggering a transition would break a stage.
+				bool conflicts = false;
+				for (int j = i-1; j >= 0; j--) {
+					for (auto& stage : stages[j]) {
+						if (!found && !conflicts && stage->PerformsTransitions()) {
+							stage->AddTransitionOut(res, prevState, desiredState->second);
+							prevState = desiredState->second;
+							found = true;
+						}
 					}
-					// Prefer to make the previous stage handle transitions. (If possible)
-					else if (prevStage != nullptr) {
-						prevStage->AddTransitionOut(res, prevState, desiredState->second);
-						prevState = desiredState->second;
+
+					if (desiredStatesByStageGroup[j].find(res) != desiredStatesByStageGroup[j].end()) {
+						conflicts = true;
 					}
 				}
+
+				if (!found) {
+					for (auto& stage : stages[i]) {
+						if (!stage->PerformsTransitions()) {
+							continue;
+						}
+						auto requiredStates = stage->getRequiredResourceStates();
+						for (auto& states : requiredStates) {
+							if (res == states.second) {
+								if (found) {
+									throw "Multiple stages require same state, synchronization required";
+								}
+								stage->AddTransitionIn(res, prevState, desiredState->second);
+								prevState = desiredState->second;
+								found = true;
+								break;
+							}
+						}
+					}
+				}
+
+				if (!found) {
+					throw "Couldn't solve this transition";
+				}
 			}
-			prevStage = stages[i];
 		}
 	}
 
@@ -124,6 +174,10 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 }
 
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
+	SetThreadDescription(GetCurrentThread(), std::wstring(stageDesc.name.begin(), stageDesc.name.end()).c_str());
+	for (auto& frameRes : frameResourceArray) {
+		SetName(frameRes->CmdListAlloc.Get(), (std::wstring(stageDesc.name.begin(), stageDesc.name.end()) + L" Command List Allocator").c_str());
+	}
 	//This causes a race condition, if the TextureLoader doesn't finish before the setup() ends.
 	LoadTextures(stageDesc.textureFiles);
 	for (auto& cb : stageDesc.externalConstantBuffers) {
@@ -220,26 +274,25 @@ void PipelineStage::BuildPSO() {
 	throw "Can't call BuildPSO on PipelineStage object";
 }
 
+bool PipelineStage::PerformsTransitions() {
+	return false;
+}
+
 void PipelineStage::PerformTransitionsIn() {
-	if (transitionsIn.size() > 0) {
-		mCommandList->ResourceBarrier(transitionsIn.size(), transitionsIn.data());
-	}
+	throw "Not Available";
 }
 
 void PipelineStage::PerformTransitionsOut() {
-	if (transitionsOut.size() > 0) {
-		mCommandList->ResourceBarrier(transitionsOut.size(), transitionsOut.data());
-	}
+	throw "Not Available";
 }
 
 void PipelineStage::AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
-	transitionsIn.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+	throw "Not Available";
 }
 
 void PipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
-	transitionsOut.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+	throw "Not Available";
 }
-
 
 void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table) {
 	switch (desc.type) {
@@ -329,6 +382,7 @@ void PipelineStage::resetCommandList() {
 	mDirectCmdListAlloc = frameResourceArray[frameIndex].get()->CmdListAlloc;
 	ThrowIfFailed(mDirectCmdListAlloc->Reset());
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), PSO.Get()));
+	SetName(mCommandList.Get(), (std::wstring(stageDesc.name.begin(), stageDesc.name.end()) + L" Command List").c_str());
 }
 
 void PipelineStage::bindDescriptorHeaps() {
@@ -342,9 +396,13 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> PipelineStage::getR
 
 void PipelineStage::setResourceStates() {
 	auto stateResourcePairVector = getRequiredResourceStates();
+	std::vector<CD3DX12_RESOURCE_BARRIER> transitionQueue;
 	for (auto& stateResourcePair : stateResourcePairVector) {
 		if (stateResourcePair.second->local) {
-			stateResourcePair.second->changeState(mCommandList, stateResourcePair.first);
+			stateResourcePair.second->changeStateDeferred(stateResourcePair.first, transitionQueue);
 		}
+	}
+	if (transitionQueue.size() > 0) {
+		mCommandList->ResourceBarrier(transitionQueue.size(), transitionQueue.data());
 	}
 }

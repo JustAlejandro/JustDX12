@@ -57,6 +57,7 @@ void DX12Resource::changeStateDeferred(D3D12_RESOURCE_STATES destState, std::vec
 	if (curState == destState) return;
 
 	transitionQueue.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), curState, destState));
+	curState = destState;
 }
 
 void DX12Resource::changeState(ComPtr<ID3D12GraphicsCommandList5> cmdList, D3D12_RESOURCE_STATES destState) {

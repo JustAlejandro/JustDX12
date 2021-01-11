@@ -97,7 +97,7 @@ public:
 	DX12ConstantBuffer* getConstantBuffer(IndexedName indexName);
 	DX12Resource* getResource(std::string name);
 
-	static std::vector<CD3DX12_RESOURCE_BARRIER> setupResourceTransitions(std::vector<PipelineStage*> stages);
+	static std::vector<CD3DX12_RESOURCE_BARRIER> setupResourceTransitions(std::vector<std::vector<PipelineStage*>> stages);
 
 	virtual void setup(PipeLineStageDesc stageDesc);
 	virtual void Execute() = 0;
@@ -113,10 +113,11 @@ protected:
 	virtual void BuildInputLayout();
 	virtual void BuildPSO();
 
-	void PerformTransitionsIn();
-	void PerformTransitionsOut();
-	void AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
-	void AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
+	virtual bool PerformsTransitions();
+	virtual void PerformTransitionsIn();
+	virtual void PerformTransitionsOut();
+	virtual void AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
+	virtual void AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
 
 	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
 	std::wstring getCompileTargetFromType(SHADER_TYPE type);
@@ -133,9 +134,6 @@ protected:
 	PipeLineStageDesc stageDesc;
 
 	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;
-
-	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsIn;
-	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsOut;
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;

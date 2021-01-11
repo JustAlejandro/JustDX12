@@ -37,6 +37,13 @@ protected:
 	RenderPipelineDesc renderStageDesc;
 	void BuildPSO() override;
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> getRequiredResourceStates() override;
+
+	bool PerformsTransitions() override;
+	void PerformTransitionsIn() override;
+	void PerformTransitionsOut() override;
+	void AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) override;
+	void AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) override;
+
 	void BuildQueryHeap();
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;
 	void bindRenderTarget();
@@ -56,6 +63,9 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionQueryResultBuffer;
 	Microsoft::WRL::ComPtr<ID3D12QueryHeap> occlusionQueryHeap;
 	std::vector<DescriptorJob> renderingDescriptorJobs;
+
+	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsIn;
+	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsOut;
 
 	bool allRenderObjectsSetup = false;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> meshletPSO = nullptr;

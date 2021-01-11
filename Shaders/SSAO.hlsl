@@ -89,6 +89,11 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	float3 lightDir = normalize(LightData.lights[0].pos.xyz - worldPos.xyz);
 	float resColor = 1.0;
 	int occludeCount = 20;
+
+	// TODO: FIND A WAY TO DIFFERENCIATE LIGHT OCCLUSION BETWEEN SOURCES
+	// Possibilities (if done here): make another texture that can be bit sliced into 4 bits per light source 'visibility'
+	// Hard and expensive... Probably just do the ScreenSpaceShadows in the deferred lighting shader...
+
 	for (int j = 0; j < shadowSteps; j++)
 	{
 		worldPos.xyz += lightDir * shadowStepSize;
