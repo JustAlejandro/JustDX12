@@ -18,13 +18,15 @@ struct PixelOutMerge {
 };
 
 ConstantBuffer<LightData> LightData : register(b0);
+ConstantBuffer<SSAOSettings> SSAOSettings : register(b1);
 
-Texture2D colorTex : register(t0);
-Texture2D specTex : register(t1);
-Texture2D normalTex : register(t2);
-Texture2D tangentTex : register(t3);
-Texture2D biNormalTex : register(t4);
-Texture2D worldTex : register(t5);
+Texture2D depthTex : register(t0);
+Texture2D colorTex : register(t1);
+Texture2D specTex : register(t2);
+Texture2D normalTex : register(t3);
+Texture2D tangentTex : register(t4);
+Texture2D biNormalTex : register(t5);
+Texture2D worldTex : register(t6);
 
 SamplerState gsamPoint : register(s1);
 
@@ -35,7 +37,40 @@ VertexOutMerge DeferVS(VertexIn vin) {
 	return vout;
 }
 
+
+// Pixel Shader Stuff
+
+static int2 resolution;
+
+int2 clampEdges(int2 index) {
+	return clamp(index, int2(0, 0), resolution - int2(1, 1));
+}
+
+float linDepth(float depth) {
+	return -SSAOSettings.rangeXNear / (depth - SSAOSettings.range);
+}
+
+float shadowAmount(int2 texIndex, float3 lightDir, float3 worldPos, float3 normal) {
+	float occlusion = 0.0f;
+	worldPos += normal;
+	for (int j = 0; j < SSAOSettings.shadowSteps; j++) {
+		worldPos.xyz += lightDir * SSAOSettings.shadowStepSize;
+		float4 result = mul(float4(worldPos, 1.0f), SSAOSettings.ViewProj);
+		result /= result.w;
+		result.xy = result.xy * 0.5 + 0.5;
+		result.y = result.y * -1.0 + 1.0;
+		result.z = linDepth(result.z);
+		float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
+		if (compareDepth < result.z && result.z - compareDepth < 500.0) {
+			occlusion += 1.0f;
+		}
+	}
+	return max(((SSAOSettings.shadowSteps - occlusion) / SSAOSettings.shadowSteps), !SSAOSettings.showSSShadows);
+}
+
 PixelOutMerge DeferPS(VertexOutMerge vout) {
+	depthTex.GetDimensions(resolution.x, resolution.y);
+
 	PixelOutMerge pout;
 	float3 col = colorTex.Sample(gsamPoint, vout.TexC).xyz;
 	float3 diffuse = 0.0f;
@@ -44,11 +79,13 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	for (int i = 0; i < LightData.numPointLights; i++) {
 		float3 lightVec = LightData.lights[i].pos - worldPos;
 		float3 lightDir = normalize(lightVec);
-		float3 reflectDir = reflect(-lightDir, normalTex.Sample(gsamPoint, vout.TexC).xyz);
+		float3 normal = normalTex.Sample(gsamPoint, vout.TexC).xyz;
+		float3 reflectDir = reflect(-lightDir, normal);
 		float attenuation = clamp(1.0 - dot(lightVec, lightVec) / (LightData.lights[i].strength * LightData.lights[i].strength), 0.0, 1.0);
-		diffuse += clamp(LightData.lights[i].color * attenuation
+		float shadowContrib = shadowAmount(vout.TexC, lightDir, worldPos, normal);
+		diffuse += clamp(LightData.lights[i].color * attenuation * shadowContrib
 			* max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0), 0.0, 1.0);
-		spec += clamp(LightData.lights[i].color * attenuation
+		spec += clamp(LightData.lights[i].color * attenuation * shadowContrib
 			* specTex.Sample(gsamPoint, vout.TexC).x
 			* pow(max(dot(reflectDir, normalize(LightData.viewPos - worldPos)), 0.0f), 32.0), 0.0, 1.0);
 	}

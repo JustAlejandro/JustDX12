@@ -5,31 +5,16 @@
 // if we don't, to avoid shimmering
 #include "Common.hlsl"
 
-cbuffer cbSSAOSettings : register(b0)
-{
-	bool showSSAO;
-	bool showSSShadows;
-	int2 padding;
-	float4x4 ViewProj;
-	int rayCount;
-	float rayLength;
-	int TAA;
-	float range;
-	float rangeXNear;
-	int shadowSteps;
-	float shadowStepSize;
-	float4 lightPos;
-};
 
-ConstantBuffer<LightData> LightData : register(b1);
+ConstantBuffer<LightData> LightData : register(b0);
+ConstantBuffer<SSAOSettings> SSAOSettings : register(b1);
 
 Texture2D noiseTex : register(t0);
 Texture2D depthTex : register(t1);
-Texture2D colorTex : register(t2);
-Texture2D normalTex : register(t3);
-Texture2D tangentTex : register(t4);
-Texture2D biNormalTex : register(t5);
-Texture2D worldTex : register(t6);
+Texture2D normalTex : register(t2);
+Texture2D tangentTex : register(t3);
+Texture2D biNormalTex : register(t4);
+Texture2D worldTex : register(t5);
 
 RWTexture2D<float> outTex : register(u0);
 
@@ -49,7 +34,7 @@ int2 wrapNoiseEdges(int2 index) {
 
 float linDepth(float depth)
 {
-	return - rangeXNear / (depth - range);
+	return -SSAOSettings.rangeXNear / (depth - SSAOSettings.range);
 }
 
 [numthreads(N,N,1)]
@@ -67,14 +52,14 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	
 	float outCol = 0.0f;
 	
-	float perSample = 1.0 / rayCount;
+	float perSample = 1.0 / SSAOSettings.rayCount;
 	
-	for (int i = 0; i < rayCount; i++)
+	for (int i = 0; i < SSAOSettings.rayCount; i++)
 	{
-		float3 sample = mul(noiseTex[wrapNoiseEdges(int2(dispatchThreadID.x * rayCount + i,dispatchThreadID.y * rayCount + i))].xyz, TBN);
-		sample = worldPos.xyz + sample * rayLength;
+		float3 sample = mul(noiseTex[wrapNoiseEdges(int2(dispatchThreadID.x * SSAOSettings.rayCount + i,dispatchThreadID.y * SSAOSettings.rayCount + i))].xyz, TBN);
+		sample = worldPos.xyz + sample * SSAOSettings.rayLength;
 		
-		float4 result = mul(float4(sample, 1.0f), ViewProj);
+		float4 result = mul(float4(sample, 1.0f), SSAOSettings.ViewProj);
 		result /= result.w;
 		result.xy = result.xy * 0.5 + 0.5;
 		result.y = result.y * -1.0 + 1.0;
@@ -85,29 +70,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 			outCol += perSample;
 		}
 	}
-	outCol = !showSSAO + (outCol * (float)showSSAO);
-	float3 lightDir = normalize(LightData.lights[0].pos.xyz - worldPos.xyz);
-	float resColor = 1.0;
-	int occludeCount = 20;
+	outCol = !SSAOSettings.showSSAO + (outCol * (float)SSAOSettings.showSSAO);
 
-	// TODO: FIND A WAY TO DIFFERENCIATE LIGHT OCCLUSION BETWEEN SOURCES
-	// Possibilities (if done here): make another texture that can be bit sliced into 4 bits per light source 'visibility'
-	// Hard and expensive... Probably just do the ScreenSpaceShadows in the deferred lighting shader...
-
-	for (int j = 0; j < shadowSteps; j++)
-	{
-		worldPos.xyz += lightDir * shadowStepSize;
-		float4 result = mul(worldPos, ViewProj);
-		result /= result.w;
-		result.xy = result.xy * 0.5 + 0.5;
-		result.y = result.y * -1.0 + 1.0;
-		result.z = linDepth(result.z);
-		float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-		if (compareDepth < result.z && result.z - compareDepth < 60.0)
-		{
-			occludeCount--;
-		}
-	}
-	outCol *= (!showSSShadows + ((occludeCount / 20.0f) * (float)showSSShadows));
 	outTex[dispatchThreadID.xy] = outCol;
 }

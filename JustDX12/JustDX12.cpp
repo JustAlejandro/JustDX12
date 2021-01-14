@@ -261,7 +261,11 @@ bool DemoApp::initialize() {
 		stageDesc.name = "Deferred Shading";
 
 		stageDesc.constantBufferJobs.push_back(ConstantBufferJob("LightData", new LightData()));
+		stageDesc.constantBufferJobs.push_back(ConstantBufferJob("SSAOConstants", new SSAOConstants()));
 
+		stageDesc.descriptorJobs.push_back(DescriptorJob("inputDepth", "renderDepthTex", DESCRIPTOR_TYPE_SRV, false));
+		stageDesc.descriptorJobs.back().view.srvDesc = DEFAULT_SRV_DESC();
+		stageDesc.descriptorJobs.back().view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
 		stageDesc.descriptorJobs.push_back(DescriptorJob("colorTexDesc", "colorTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("specTexDesc", "specularTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTexDesc", "normalTex", DESCRIPTOR_TYPE_SRV));
@@ -270,6 +274,7 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("worldTexDesc", "worldTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("deferTexDesc", "deferTex", DESCRIPTOR_TYPE_RTV));
 
+		stageDesc.externalResources.push_back(std::make_pair("renderDepthTex", renderStage->getResource("depthTex")));
 		stageDesc.externalResources.push_back(std::make_pair("colorTex", renderStage->getResource("outTexArray[0]")));
 		stageDesc.externalResources.push_back(std::make_pair("specularTex", renderStage->getResource("outTexArray[1]")));
 		stageDesc.externalResources.push_back(std::make_pair("normalTex", renderStage->getResource("outTexArray[2]")));
@@ -283,7 +288,8 @@ bool DemoApp::initialize() {
 		stageDesc.resourceJobs.push_back(ResourceJob("deferTex", DESCRIPTOR_TYPE_RTV));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("colorTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
@@ -312,13 +318,10 @@ bool DemoApp::initialize() {
 		PipeLineStageDesc stageDesc;
 		stageDesc.name = "SSAO/Shadows";
 
-		stageDesc.constantBufferJobs.push_back(ConstantBufferJob("SSAOConstants", new SSAOConstants()));
-
 		stageDesc.descriptorJobs.push_back(DescriptorJob("noise_texDesc", "noise_tex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("inputDepth", "renderOutputTex", DESCRIPTOR_TYPE_SRV, false));
 		stageDesc.descriptorJobs.back().view.srvDesc = DEFAULT_SRV_DESC();
 		stageDesc.descriptorJobs.back().view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
-		stageDesc.descriptorJobs.push_back(DescriptorJob("colorTex", "renderOutputColor", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTex", "renderOutputNormals", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTex", "renderOutputTangents", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("binormalTex", "renderOutputBinormals", DESCRIPTOR_TYPE_SRV));
@@ -326,6 +329,7 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("SSAOOut", "SSAOOutTexture", DESCRIPTOR_TYPE_UAV));
 
 		stageDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("LightData", 0), deferStage->getConstantBuffer(IndexedName("LightData", 0))));
+		stageDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("SSAOConstants", 0), deferStage->getConstantBuffer(IndexedName("SSAOConstants", 0))));
 
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputTex", renderStage->getResource("depthTex")));
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputColor", renderStage->getResource("outTexArray[0]")));
@@ -337,10 +341,10 @@ bool DemoApp::initialize() {
 
 		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R32_FLOAT));
 
-		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("noise_texDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOOut", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 4, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("SSAO.hlsl", "SSAO", "SSAO", SHADER_TYPE_CS, defines));
@@ -620,7 +624,7 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
 		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 10.0f);
 		ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
-		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
+		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 1.0f);
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("VRS Ranges")) {
@@ -770,7 +774,7 @@ void DemoApp::UpdateMainPassCB() {
 	ssaoConstantCB.data.rangeXNear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
 
-	computeStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
+	deferStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	lightDataCB.data.viewPos = mainPassCB.data.EyePosW;
 	lightDataCB.data.numPointLights = 1;

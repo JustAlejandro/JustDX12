@@ -34,6 +34,21 @@ struct PerPass
 	int renderVRS;
 };
 
+struct SSAOSettings {
+	bool showSSAO;
+	bool showSSShadows;
+	int2 padding;
+	float4x4 ViewProj;
+	int rayCount;
+	float rayLength;
+	int TAA;
+	float range;
+	float rangeXNear;
+	int shadowSteps;
+	float shadowStepSize;
+	float4 lightPos;
+};
+
 struct VertexOut
 {
 	float4 PosH : SV_Position;
