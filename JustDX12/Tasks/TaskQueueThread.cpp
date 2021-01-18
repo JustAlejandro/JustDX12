@@ -1,7 +1,7 @@
 #include "Tasks\TaskQueueThread.h"
 #include "DX12Helper.h"
 
-TaskQueueThread::TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType) : md3dDevice(d3dDevice) {
+TaskQueueThread::TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType) : md3dDevice(d3dDevice) {
 	running = true;
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Type = cmdListType;

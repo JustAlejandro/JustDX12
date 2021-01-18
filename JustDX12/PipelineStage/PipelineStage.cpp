@@ -7,7 +7,7 @@
 
 using namespace Microsoft::WRL;
 
-PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType)
+PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType)
 	: TaskQueueThread(d3dDevice, cmdListType), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
 	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
 		frameResourceArray.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), cmdListType));
@@ -59,6 +59,14 @@ DX12ConstantBuffer* PipelineStage::getConstantBuffer(IndexedName indexName) {
 
 DX12Resource* PipelineStage::getResource(std::string name) {
 	return resourceManager.getResource(name);
+}
+
+void PipelineStage::importResource(std::string name, DX12Resource* resource) {
+	resourceManager.importResource(name, resource);
+}
+
+void PipelineStage::importResource(std::string name, ID3D12Resource* resource) {
+	resourceManager.makeFromExisting(name, DESCRIPTOR_TYPE_FLAG_RT_ACCEL_STRUCT, resource, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
 }
 
 // To be able to build multiple command lists at once we need all the stages to agree on what transitions happen when.
@@ -327,13 +335,13 @@ void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, Roo
 std::wstring PipelineStage::getCompileTargetFromType(SHADER_TYPE type) {
 	switch (type) {
 	case SHADER_TYPE_VS:
-		return L"vs_6_4";
+		return L"vs_6_5";
 	case SHADER_TYPE_PS:
-		return L"ps_6_4";
+		return L"ps_6_5";
 	case SHADER_TYPE_CS:
-		return L"cs_6_4";
+		return L"cs_6_5";
 	case SHADER_TYPE_GS:
-		return L"gs_6_4";
+		return L"gs_6_5";
 	case SHADER_TYPE_AS:
 		return L"as_6_5";
 	case SHADER_TYPE_MS:

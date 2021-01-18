@@ -3,11 +3,14 @@
 #include "ModelLoading\Model.h"
 #include "Tasks\TaskQueueThread.h"
 #include "MeshletModel.h"
+#include "ModelLoading/ModelLoader.h"
 
 #include <iostream>
 #include <assimp/Importer.hpp>		// C++ importer interface
 #include <assimp/scene.h>			// Output data structure
 #include <assimp/postprocess.h>		// Post processing flags
+
+class ModelLoader;
 
 class ModelLoadTask : public Task {
 public:
@@ -70,5 +73,27 @@ public:
 private:
 	MeshletModel* model;
 	TaskQueueThread* taskQueueThread;
+};
+
+class RTStructureLoadTask : public Task {
+public:
+	RTStructureLoadTask(ModelLoader* modelLoader, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) : scratchBuffers(scratchBuffers) {
+		this->modelLoader = modelLoader;
+		this->cmdList = cmdList;
+	}
+
+	void execute() override {
+		modelLoader->mDirectCmdListAlloc->Reset();
+		modelLoader->mCommandList->Reset(modelLoader->mDirectCmdListAlloc.Get(), nullptr);
+
+		modelLoader->buildRTAccelerationStructure(cmdList, scratchBuffers);
+	}
+
+	virtual ~RTStructureLoadTask() override = default;
+
+private:
+	ModelLoader* modelLoader;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
+	std::vector<AccelerationStructureBuffers>& scratchBuffers;
 };
 

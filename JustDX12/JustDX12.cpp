@@ -290,6 +290,7 @@ bool DemoApp::initialize() {
 		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("TLAS", ROOT_PARAMETER_TYPE_SRV, 3));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
@@ -303,6 +304,8 @@ bool DemoApp::initialize() {
 		mergeRDesc.supportsCulling = false;
 		mergeRDesc.usesMeshlets = false;
 		mergeRDesc.usesDepthTex = false;
+		mergeRDesc.supportsRT = true;
+		mergeRDesc.tlasResourceName = "TLAS";
 		deferStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		deferStage->deferSetup(stageDesc);
 		WaitOnFenceForever(deferStage->getFence(), deferStage->triggerFence());
@@ -430,15 +433,14 @@ bool DemoApp::initialize() {
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
-	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir);
-	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir);
-	//renderStage->LoadMeshletModel(modelLoader, headMeshlet, headDir);
-	//renderStage->LoadModel(modelLoader, headSmallFile, headDir);
-	//renderStage->LoadModel(modelLoader, headFile, headDir);
-	//renderStage->LoadModel(modelLoader, armorFile, armorDir);
+	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
+	renderStage->LoadModel(modelLoader, armorFile, armorDir, true);
 
-	
+
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
+
+	std::vector<AccelerationStructureBuffers> scratchBuffers;
+	cpuWaitHandles.push_back(modelLoader->buildRTAccelerationStructureDeferred(mCommandList.Get(), scratchBuffers));
 
 	BuildFrameResources();
 
@@ -453,6 +455,7 @@ bool DemoApp::initialize() {
 
 	FlushCommandQueue();
 
+	deferStage->importResource("TLAS", modelLoader->TLAS.Get());
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();

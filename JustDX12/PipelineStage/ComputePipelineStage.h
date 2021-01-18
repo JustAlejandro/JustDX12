@@ -7,7 +7,7 @@ struct ComputePipelineDesc {
 
 class ComputePipelineStage : public PipelineStage {
 public:
-	ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, ComputePipelineDesc computeDesc);
+	ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, ComputePipelineDesc computeDesc);
 	void Execute() override;
 	void setup(PipeLineStageDesc stageDesc) override;
 private:

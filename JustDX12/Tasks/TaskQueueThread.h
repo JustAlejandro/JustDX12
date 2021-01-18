@@ -9,12 +9,12 @@
 
 class TaskQueueThread {
 protected:
-	TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
+	TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
 	~TaskQueueThread();
 	void enqueue(Task* t);
 
 public:
-	Microsoft::WRL::ComPtr<ID3D12Device2> md3dDevice;
+	Microsoft::WRL::ComPtr<ID3D12Device5> md3dDevice;
 
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCommandQueue;
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;

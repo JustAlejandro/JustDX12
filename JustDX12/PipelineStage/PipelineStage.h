@@ -96,6 +96,8 @@ public:
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
 	DX12ConstantBuffer* getConstantBuffer(IndexedName indexName);
 	DX12Resource* getResource(std::string name);
+	void importResource(std::string name, DX12Resource* resource);
+	void importResource(std::string name, ID3D12Resource* resource);
 
 	static std::vector<CD3DX12_RESOURCE_BARRIER> setupResourceTransitions(std::vector<std::vector<PipelineStage*>> stages);
 
@@ -103,7 +105,7 @@ public:
 	virtual void Execute() = 0;
 
 protected:
-	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
+	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
 	void LoadTextures(std::vector<std::pair<std::string, std::string>> textureFiles);
 	void BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSig, std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr);
 	void BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs);

@@ -268,7 +268,7 @@ HRESULT MeshletModel::LoadFromFile(const std::string fileName) {
 	return S_OK;
 }
 
-HRESULT MeshletModel::UploadGpuResources(ID3D12Device2* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList) {
+HRESULT MeshletModel::UploadGpuResources(ID3D12Device5* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList) {
 	for (UINT32 i = 0; i < m_meshes.size(); ++i) {
 		auto& m = m_meshes[i];
 

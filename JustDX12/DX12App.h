@@ -21,7 +21,7 @@ protected:
 public:
 	static DX12App* getApp();
 
-	static Microsoft::WRL::ComPtr<ID3D12Device2> getDevice();
+	static Microsoft::WRL::ComPtr<ID3D12Device5> getDevice();
 
 	float getAspectRatio()const;
 
@@ -65,7 +65,7 @@ protected:
 
 	Microsoft::WRL::ComPtr<IDXGIFactory6> mdxgiFactory;
 	Microsoft::WRL::ComPtr<IDXGISwapChain> mSwapChain;
-	Microsoft::WRL::ComPtr<ID3D12Device2> md3dDevice;
+	Microsoft::WRL::ComPtr<ID3D12Device5> md3dDevice;
 
 	Microsoft::WRL::ComPtr<ID3D12Fence> mFence;
 	std::array<Microsoft::WRL::ComPtr<ID3D12Fence>, AUXILLARY_FENCE_COUNT> mAuxFences;
@@ -75,7 +75,7 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCommandQueue;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> mComputeCommandQueue;
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mDirectCmdListAlloc;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList5> mCommandList;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> mCommandList;
 
 	static const int SwapChainBufferCount = 2;
 	int mCurrBackBuffer = 0;

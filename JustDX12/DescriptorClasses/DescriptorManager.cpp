@@ -3,7 +3,7 @@
 #include <string>
 #include "Settings.h"
 
-DescriptorManager::DescriptorManager(ComPtr<ID3D12Device2> device) {
+DescriptorManager::DescriptorManager(ComPtr<ID3D12Device5> device) {
 	this->device = device;
 	makeDescriptorHeaps();
 }

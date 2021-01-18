@@ -1,7 +1,7 @@
 #include "PipelineStage\ComputePipelineStage.h"
 #include "IndexedName.h"
 
-ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, ComputePipelineDesc computeDesc)
+ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, ComputePipelineDesc computeDesc)
 	: PipelineStage(d3dDevice, D3D12_COMMAND_LIST_TYPE_COMPUTE), computeStageDesc(computeDesc) {
 }
 

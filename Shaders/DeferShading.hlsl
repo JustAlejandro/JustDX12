@@ -28,6 +28,8 @@ Texture2D tangentTex : register(t4);
 Texture2D biNormalTex : register(t5);
 Texture2D worldTex : register(t6);
 
+RaytracingAccelerationStructure TLAS : register(t7);
+
 SamplerState gsamPoint : register(s1);
 
 VertexOutMerge DeferVS(VertexIn vin) {
@@ -50,22 +52,44 @@ float linDepth(float depth) {
 	return -SSAOSettings.rangeXNear / (depth - SSAOSettings.range);
 }
 
-float shadowAmount(int2 texIndex, float3 lightDir, float3 worldPos, float3 normal) {
+float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 worldPos, float3 normal) {
 	float occlusion = 0.0f;
 	worldPos += normal;
-	for (int j = 0; j < SSAOSettings.shadowSteps; j++) {
-		worldPos.xyz += lightDir * SSAOSettings.shadowStepSize;
-		float4 result = mul(float4(worldPos, 1.0f), SSAOSettings.ViewProj);
-		result /= result.w;
-		result.xy = result.xy * 0.5 + 0.5;
-		result.y = result.y * -1.0 + 1.0;
-		result.z = linDepth(result.z);
-		float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-		if (compareDepth < result.z && result.z - compareDepth < 500.0) {
-			occlusion += 1.0f;
+	if (SSAOSettings.showSSShadows) {
+		for (int j = 0; j < SSAOSettings.shadowSteps; j++) {
+			worldPos.xyz += lightDir * SSAOSettings.shadowStepSize;
+			float4 result = mul(float4(worldPos, 1.0f), SSAOSettings.ViewProj);
+			result /= result.w;
+			result.xy = result.xy * 0.5 + 0.5;
+			result.y = result.y * -1.0 + 1.0;
+			result.z = linDepth(result.z);
+			float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
+			if (compareDepth < result.z && result.z - compareDepth < 500.0) {
+				occlusion += 1.0f;
+			}
+		}
+		return max(((SSAOSettings.shadowSteps - occlusion) / SSAOSettings.shadowSteps), !SSAOSettings.showSSShadows);
+	}
+	else {
+		RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
+
+		uint ray_flags = 0; // Any this ray requires in addition those above.
+		uint ray_instance_mask = 0xffffffff;
+
+		RayDesc ray;
+		ray.TMin = 1e-5f;
+		ray.TMax = distance(lightPos, worldPos);
+		ray.Origin = worldPos;
+		ray.Direction = lightDir;
+		query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
+
+		query.Proceed();
+
+		if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
+			return 0.0f;
 		}
 	}
-	return max(((SSAOSettings.shadowSteps - occlusion) / SSAOSettings.shadowSteps), !SSAOSettings.showSSShadows);
+	return 1.0f;
 }
 
 PixelOutMerge DeferPS(VertexOutMerge vout) {
@@ -82,7 +106,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 		float3 normal = normalTex.Sample(gsamPoint, vout.TexC).xyz;
 		float3 reflectDir = reflect(-lightDir, normal);
 		float attenuation = clamp(1.0 - dot(lightVec, lightVec) / (LightData.lights[i].strength * LightData.lights[i].strength), 0.0, 1.0);
-		float shadowContrib = shadowAmount(vout.TexC, lightDir, worldPos, normal);
+		float shadowContrib = shadowAmount(vout.TexC, lightDir, LightData.lights[i].pos, worldPos, normal);
 		diffuse += clamp(LightData.lights[i].color * attenuation * shadowContrib
 			* max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0), 0.0, 1.0);
 		spec += clamp(LightData.lights[i].color * attenuation * shadowContrib

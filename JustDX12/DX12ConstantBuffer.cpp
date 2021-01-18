@@ -1,6 +1,6 @@
 #include "DX12ConstantBuffer.h"
 
-DX12ConstantBuffer::DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device2* device) {
+DX12ConstantBuffer::DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device5* device) {
 	this->data = data->clone();
 	elementByteSize = CalcConstantBufferByteSize(data->byteSize());
 

@@ -14,16 +14,20 @@ public:
 	DirectX::XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
 
 	bool loaded;
+	bool usesRT;
 	std::string name;
 	std::string dir;
 	std::vector<Mesh> meshes;
 
+	unsigned int vertexCount;
 	std::vector<Vertex> vertices;
+	unsigned int indexCount;
 	std::vector<unsigned int> indices;
 
 	unsigned int vertexByteStride;
 	unsigned int vertexBufferByteSize;
 	unsigned int indexBufferByteSize;
+	DXGI_FORMAT vertexFormat;
 	DXGI_FORMAT indexFormat;
 	INT boundingBoxVertexLocation = 0;
 	UINT boundingBoxIndexLocation = 0;
@@ -35,7 +39,8 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 
-	Model(std::string name, std::string dir);
+	Model() = default;
+	Model(std::string name, std::string dir, bool usesRT = false);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 	void addBoundingBoxesToVertexBuffer();
 	void processNode(aiNode* node, const aiScene* scene);

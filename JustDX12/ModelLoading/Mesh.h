@@ -30,6 +30,7 @@ struct Vertex {
 struct Mesh {
 	UINT typeFlags = 0;
 	UINT indexCount = 0;
+	UINT vertexCount = 0;
 	UINT startIndexLocation = 0;
 	INT baseVertexLocation = 0;
 	INT boundingBoxVertexLocation = 0;

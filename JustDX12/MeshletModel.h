@@ -117,9 +117,10 @@ struct MeshletMesh {
 
 class MeshletModel {
 public:
+	MeshletModel() = default;
 	MeshletModel(std::string name, std::string dir);
 	HRESULT LoadFromFile(const std::string fileName);
-	HRESULT UploadGpuResources(ID3D12Device2* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList);
+	HRESULT UploadGpuResources(ID3D12Device5* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList);
 	
 
 	UINT32 GetMeshCount() const { return static_cast<UINT32>(m_meshes.size()); }

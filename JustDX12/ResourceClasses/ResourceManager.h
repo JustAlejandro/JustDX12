@@ -22,7 +22,7 @@ struct ResourceJob {
 
 class ResourceManager {
 public:
-	ResourceManager(ComPtr<ID3D12Device2> device);
+	ResourceManager(ComPtr<ID3D12Device5> device);
 	DX12Resource* getResource(std::string name);
 	DX12Resource* importResource(std::string name, DX12Resource* externalResource);
 	DX12Resource* makeFromExisting(std::string name, DESCRIPTOR_TYPES types, ID3D12Resource* res, D3D12_RESOURCE_STATES state);
@@ -32,5 +32,5 @@ public:
 private:
 	std::unordered_map<std::string, DX12Resource> resources;
 	std::unordered_map<std::string, DX12Resource*> externalResources;
-	ComPtr<ID3D12Device2> device = nullptr;
+	ComPtr<ID3D12Device5> device = nullptr;
 };

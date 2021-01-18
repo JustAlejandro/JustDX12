@@ -8,7 +8,7 @@
 #include <d3dx12.h>
 #include <DirectXCollision.h>
 
-RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
+RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
 	: PipelineStage(d3dDevice), renderStageDesc(renderDesc) {
 	this->viewport = viewport;
 	this->scissorRect = scissorRect;
@@ -67,21 +67,19 @@ void RenderPipelineStage::Execute() {
 	ThrowIfFailed(mCommandList->Close());
 }
 
-void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName) {
-	renderObjects.push_back(loader->loadModel(fileName, dirName));
+void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT) {
+	renderObjects.push_back(loader->loadModel(fileName, dirName, usesRT));
 }
 
 void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName) {
 	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName));
 }
 
+void RenderPipelineStage::setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS) {
+	this->TLAS = TLAS;
+}
+
 RenderPipelineStage::~RenderPipelineStage() {
-	for (Model* m : renderObjects) {
-		delete m;
-	}
-	for (MeshletModel* mm : meshletRenderObjects) {
-		delete mm;
-	}
 }
 
 void RenderPipelineStage::BuildPSO() {

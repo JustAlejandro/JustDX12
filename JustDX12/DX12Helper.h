@@ -30,8 +30,16 @@ constexpr T DivRoundUp(T num, U denom) {
 
 UINT32 GetFormatSize(DXGI_FORMAT format);
 
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateBlankBuffer(
+	ID3D12Device5* device,
+	ID3D12GraphicsCommandList5* cmdList,
+	UINT64 byteSize,
+	D3D12_RESOURCE_FLAGS flags,
+	D3D12_RESOURCE_STATES initState,
+	const D3D12_HEAP_PROPERTIES& heapProps);
+
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
-	ID3D12Device2* device,
+	ID3D12Device5* device,
 	ID3D12GraphicsCommandList5* cmdList,
 	const void* initData,
 	UINT64 byteSize,

@@ -60,7 +60,7 @@ struct hash_pair {
 
 class DescriptorManager {
 public:
-	DescriptorManager(ComPtr<ID3D12Device2> device);
+	DescriptorManager(ComPtr<ID3D12Device5> device);
 	void makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager);
 	DX12Descriptor* getDescriptor(const IndexedName& indexedName, const DESCRIPTOR_TYPE& type);
 	std::vector<ID3D12DescriptorHeap*> getAllBindableHeaps();
@@ -78,5 +78,5 @@ private:
 	DX12DescriptorHeap heaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	std::unordered_map<DESCRIPTOR_TYPE, std::vector<DX12Descriptor*>> descriptorsByType;
 	std::unordered_map<std::pair<IndexedName, DESCRIPTOR_TYPE>, DX12Descriptor, hash_pair> descriptors;
-	ComPtr<ID3D12Device2> device = nullptr;
+	ComPtr<ID3D12Device5> device = nullptr;
 };

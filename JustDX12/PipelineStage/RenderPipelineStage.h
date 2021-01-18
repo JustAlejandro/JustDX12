@@ -13,6 +13,8 @@ struct RenderPipelineDesc {
 	bool usesDepthTex = true;
 	bool supportsCulling = false;
 	bool supportsVRS = false;
+	bool supportsRT = false;
+	std::string tlasResourceName = "TLAS";
 	std::string VrsTextureName = "VRS";
 	bool usesMeshlets = false;
 	std::vector<RootParamDesc> meshletRootSignature;
@@ -21,11 +23,12 @@ struct RenderPipelineDesc {
 
 class RenderPipelineStage : public PipelineStage {
 public:
-	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device2> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
+	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 	void setup(PipeLineStageDesc stageDesc) override;
 	void Execute() override;
-	void LoadModel(ModelLoader* loader, std::string fileName, std::string dirName);
+	void LoadModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
 	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName);
+	void setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS);
 	~RenderPipelineStage();
 
 	DirectX::BoundingFrustum frustrum;
@@ -57,6 +60,8 @@ protected:
 	void setupOcclusionBoundingBoxes();
 
 	void addDescriptorJob(DescriptorJob j);
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS;
 
 	std::vector<Model*> renderObjects;
 	std::vector<MeshletModel*> meshletRenderObjects;

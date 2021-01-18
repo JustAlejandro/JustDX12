@@ -6,7 +6,7 @@
 
 class ConstantBufferManager {
 public:
-	ConstantBufferManager(ComPtr<ID3D12Device2> device);
+	ConstantBufferManager(ComPtr<ID3D12Device5> device);
 
 	DX12ConstantBuffer* getConstantBuffer(IndexedName indexedName);
 
@@ -16,6 +16,6 @@ public:
 private:
 	std::unordered_map<IndexedName, DX12ConstantBuffer> buffers;
 	std::unordered_map<IndexedName, DX12ConstantBuffer*> externalBuffers;
-	ComPtr<ID3D12Device2> device = nullptr;
+	ComPtr<ID3D12Device5> device = nullptr;
 };
 

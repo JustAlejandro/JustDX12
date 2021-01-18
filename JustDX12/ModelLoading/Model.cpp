@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
-Model::Model(std::string name, std::string dir) {
+Model::Model(std::string name, std::string dir, bool usesRT) {
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
@@ -18,6 +18,7 @@ Model::Model(std::string name, std::string dir) {
 	maxPoint = { std::numeric_limits<FLOAT>::min(),
 				 std::numeric_limits<FLOAT>::min(),
 				 std::numeric_limits<FLOAT>::min() };
+	this->usesRT = usesRT;
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
@@ -27,10 +28,13 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 
 	addBoundingBoxesToVertexBuffer();
 
+	indexCount = indices.size();
+	vertexCount = vertices.size();
+
 	vertexByteStride = sizeof(Vertex);
 	indexFormat = DXGI_FORMAT_R32_UINT;
-	vertexBufferByteSize = (unsigned int)vertices.size() * sizeof(Vertex);
-	indexBufferByteSize = (unsigned int)indices.size() * sizeof(unsigned int);
+	vertexBufferByteSize = vertexCount * sizeof(Vertex);
+	indexBufferByteSize = indexCount * sizeof(unsigned int);
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
@@ -163,6 +167,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		}
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
+	meshStorage.vertexCount = mesh->mNumVertices;
 	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
 	return meshStorage;
 }

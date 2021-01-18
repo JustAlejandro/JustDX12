@@ -144,6 +144,6 @@ void TextureLoader::loadMip(int mipLevel, DX12Texture* texture) {
 	// TODO
 }
 
-TextureLoader::TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device2> dev) :
+TextureLoader::TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device5> dev) :
 	TaskQueueThread(dev, D3D12_COMMAND_LIST_TYPE_COPY) {
 }
