@@ -75,7 +75,7 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 }
 
 AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
-	std::vector< D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs;
+	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs;
 	for (auto& mesh : model->meshes) {
 		D3D12_RAYTRACING_GEOMETRY_DESC geomDesc = {};
 		geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;

@@ -33,8 +33,7 @@ bool IsVisible(CullData c, float4x4 world, float3 viewPos)
 	
 	float4 normalCone = UnpackCone(c.NormalCone);
 	
-	//float3 axis = normalize(mul(float4(normalCone.xyz, 0), world)).xyz;
-	float3 axis = normalize(float4(normalCone.xyz, 0)).xyz;
+	float3 axis = normalize(mul(float4(normalCone.xyz, 0), world)).xyz;
 	
 	float3 apex = center.xyz - axis * c.ApexOffset;
 	

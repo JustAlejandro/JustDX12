@@ -433,9 +433,20 @@ bool DemoApp::initialize() {
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
+	//renderStage->LoadModel(modelLoader, headSmallFile, headDir, true);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
-	renderStage->LoadModel(modelLoader, armorFile, armorDir, true);
+	//renderStage->LoadModel(modelLoader, armorFile, armorDir, true);
 
+	lightDataCB.data.numPointLights = 3;
+	lightDataCB.data.lights[0].color = { 0.0f, 1.0f, 0.0f };
+	lightDataCB.data.lights[0].pos = { 0.0f, 200.0f, 40.0f };
+	lightDataCB.data.lights[0].strength = 800.0f;
+	lightDataCB.data.lights[1].color = { 0.0f, 0.0f, 1.0f };
+	lightDataCB.data.lights[1].pos = { -400.0f, 200.0f, 40.0f };
+	lightDataCB.data.lights[1].strength = 800.0f;
+	lightDataCB.data.lights[2].color = { 1.0f, 0.0f, 0.0f };
+	lightDataCB.data.lights[2].pos = { 400.0f, 200.0f, 40.0f };
+	lightDataCB.data.lights[2].strength = 800.0f;
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -765,6 +776,7 @@ void DemoApp::UpdateMainPassCB() {
 	if (!freezeCull) {
 		mainPassCB.data.EyePosW = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
 	}
+
 	mainPassCB.data.RenderTargetSize = DirectX::XMFLOAT2((float)mClientWidth, (float)mClientHeight);
 	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
 	mainPassCB.data.NearZ = 1.0f;
@@ -780,7 +792,6 @@ void DemoApp::UpdateMainPassCB() {
 	deferStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	lightDataCB.data.viewPos = mainPassCB.data.EyePosW;
-	lightDataCB.data.numPointLights = 1;
 
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);

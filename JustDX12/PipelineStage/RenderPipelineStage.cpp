@@ -390,6 +390,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 		else {
 			mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 		}
+		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, modelIndex, meshRootParameterDescs);
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, modelIndex, meshRootParameterDescs);
 		for (auto& mesh : *model) {
 			mCommandList->SetGraphicsRootConstantBufferView(0, mesh.MeshInfoResource->GetGPUVirtualAddress());

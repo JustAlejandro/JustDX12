@@ -113,7 +113,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 			* specTex.Sample(gsamPoint, vout.TexC).x
 			* pow(max(dot(reflectDir, normalize(LightData.viewPos - worldPos)), 0.0f), 32.0), 0.0, 1.0);
 	}
-	diffuse = clamp(diffuse + 0.01, 0.0f, 1.0f);
+	diffuse = clamp(diffuse + 0.005, 0.0f, 1.0f);
 	spec = 1.0 * clamp(spec, 0.0f, 1.0f);
 	float3 totalLight = clamp(diffuse + spec, 0.0f, 1.0f);
 	pout.color = float4(totalLight * col, 1.0f);
