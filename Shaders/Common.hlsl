@@ -9,7 +9,7 @@ float2 flipYofUV(float2 uv) {
 
 struct PerObject
 {
-	float4x4 world;
+	float4x4 world[16];
 };
 
 struct PerPass

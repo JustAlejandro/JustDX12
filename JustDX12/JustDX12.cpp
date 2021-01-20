@@ -100,6 +100,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> ssaoPSO = nullptr;
 
 	PerPassConstants mainPassCB;
+	PerObjectConstants perObjCB;
 	VrsConstants vrsCB;
 	SSAOConstants ssaoConstantCB;
 	LightData lightDataCB;
@@ -432,13 +433,25 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
-	renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
-	//renderStage->LoadModel(modelLoader, headSmallFile, headDir, true);
+	//renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
+	renderStage->LoadModel(modelLoader, headSmallFile, headDir, true);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
 	//renderStage->LoadModel(modelLoader, armorFile, armorDir, true);
 
+	//Can't really update at runtime due to the limitations of the RT generation at the moment.
+	renderStage->updateInstanceCount(0, 5);
+	perObjCB.data.World[0] = Identity();
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[1], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-100.0f, 0.0f, 0.0f)));
+	renderStage->updateInstanceTransform(0, 1, (DirectX::XMMatrixTranslation(-100.0f, 0.0f, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[2], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(100.0f, 0.0f, 0.0f)));
+	renderStage->updateInstanceTransform(0, 2, (DirectX::XMMatrixTranslation(100.0f, 0.0f, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[3], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-200.0f, 0.0f, 0.0f)));
+	renderStage->updateInstanceTransform(0, 3, (DirectX::XMMatrixTranslation(-200.0f, 0.0f, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[4], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
+	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
+
 	lightDataCB.data.numPointLights = 3;
-	lightDataCB.data.lights[0].color = { 0.0f, 1.0f, 0.0f };
+	lightDataCB.data.lights[0].color = { 1.0f, 1.0f, 1.0f };
 	lightDataCB.data.lights[0].pos = { 0.0f, 200.0f, 40.0f };
 	lightDataCB.data.lights[0].strength = 800.0f;
 	lightDataCB.data.lights[1].color = { 0.0f, 0.0f, 1.0f };
@@ -785,6 +798,7 @@ void DemoApp::UpdateMainPassCB() {
 	mainPassCB.data.TotalTime += mainPassCB.data.DeltaTime;
 	mainPassCB.data.renderVRS = renderVRS;
 
+
 	ssaoConstantCB.data.range = mainPassCB.data.FarZ / (mainPassCB.data.FarZ - mainPassCB.data.NearZ);
 	ssaoConstantCB.data.rangeXNear = ssaoConstantCB.data.range * mainPassCB.data.NearZ;
 	ssaoConstantCB.data.viewProj = mainPassCB.data.viewProj;
@@ -796,6 +810,7 @@ void DemoApp::UpdateMainPassCB() {
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
+	renderStage->deferUpdateConstantBuffer("PerObjectConstants", perObjCB);
 	if (!freezeCull) {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);
 		renderStage->frustrum.Transform(renderStage->frustrum, invView);

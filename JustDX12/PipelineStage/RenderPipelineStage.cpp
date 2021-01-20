@@ -75,6 +75,25 @@ void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string file
 	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName));
 }
 
+void RenderPipelineStage::updateInstanceCount(UINT modelIndex, UINT instanceCount) {
+	renderObjects[modelIndex]->transform.resize(instanceCount, Identity());
+	renderObjects[modelIndex]->instanceCount = instanceCount;
+}
+
+void RenderPipelineStage::updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMFLOAT4X4 transform) {
+	if (modelIndex > renderObjects[modelIndex]->instanceCount) {
+		throw "Out of Bounds: Index " + std::to_string(modelIndex) + " requested exceeds max of " + std::to_string(renderObjects[modelIndex]->instanceCount);
+	}
+	renderObjects[modelIndex]->transform[instanceIndex] = transform;
+}
+
+void RenderPipelineStage::updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMMATRIX transform) {
+	if (modelIndex > renderObjects[modelIndex]->instanceCount) {
+		throw "Out of Bounds: Index " + std::to_string(modelIndex) + " requested exceeds max of " + std::to_string(renderObjects[modelIndex]->instanceCount);
+	}
+	DirectX::XMStoreFloat4x4(&renderObjects[modelIndex]->transform[instanceIndex], transform);
+}
+
 void RenderPipelineStage::setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS) {
 	this->TLAS = TLAS;
 }
@@ -313,7 +332,14 @@ void RenderPipelineStage::drawRenderObjects() {
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
 
-		if (frustrumCull && (frustrum.Contains(model->boundingBox) == DirectX::ContainmentType::DISJOINT)) {
+		std::vector<DirectX::BoundingBox> boundingBoxes;
+		for (UINT i = 0; i < model->instanceCount; i++) {
+			DirectX::BoundingBox instanceBB;
+			model->boundingBox.Transform(instanceBB, DirectX::XMLoadFloat4x4(&model->transform[i]));
+			boundingBoxes.push_back(instanceBB);
+		}
+
+		if (frustrumCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this] (DirectX::BoundingBox b) { return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
 			meshIndex += model->meshes.size();
 			modelIndex++;
 			continue;
@@ -341,8 +367,13 @@ void RenderPipelineStage::drawRenderObjects() {
 		}
 
 		for (Mesh& m : model->meshes) {
-			DirectX::ContainmentType frustrumCullResult = frustrum.Contains(m.boundingBox);
-			if (frustrumCull && (frustrumCullResult == DirectX::ContainmentType::DISJOINT)) {
+			std::vector<DirectX::BoundingBox> meshBoundingBoxes;
+			for (UINT i = 0; i < model->instanceCount; i++) {
+				DirectX::BoundingBox instanceMeshBB;
+				m.boundingBox.Transform(instanceMeshBB, DirectX::XMLoadFloat4x4(&model->transform[i]));
+				meshBoundingBoxes.push_back(instanceMeshBB);
+			}
+			if (frustrumCull && std::all_of(meshBoundingBoxes.begin(), meshBoundingBoxes.end(), [this](DirectX::BoundingBox b) {return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
 				meshIndex++;
 				continue;
 			}
@@ -355,7 +386,7 @@ void RenderPipelineStage::drawRenderObjects() {
 			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 
 			mCommandList->DrawIndexedInstanced(m.indexCount,
-				1, m.startIndexLocation, m.baseVertexLocation, 0);
+				model->instanceCount, m.startIndexLocation, m.baseVertexLocation, 0);
 
 			meshIndex++;
 		}
@@ -421,7 +452,7 @@ void RenderPipelineStage::drawOcclusionQuery() {
 
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
-		mCommandList->DrawInstanced(1, 1, i, 0);
+		mCommandList->DrawInstanced(1, i >= renderObjects.size() ? 1 : renderObjects[i]->instanceCount, i, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
 	auto copyTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST);

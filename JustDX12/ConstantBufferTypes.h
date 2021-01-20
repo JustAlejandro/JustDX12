@@ -36,10 +36,11 @@ public:
 	virtual ~SSAOConstants() override {}
 };
 
+
 class PerObjectConstants : public ConstantBufferData {
 public:
 	struct PerObjectConstantsStruct {
-		DirectX::XMFLOAT4X4 World = Identity();
+		DirectX::XMFLOAT4X4 World[MAX_INSTANCES] = { Identity() };
 	};
 
 	PerObjectConstantsStruct data;

@@ -28,7 +28,7 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS;
 private:
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-	AccelerationStructureBuffers createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	AccelerationStructureBuffers createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;

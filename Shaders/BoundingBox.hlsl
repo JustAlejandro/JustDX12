@@ -26,11 +26,11 @@ struct PBoundingBoxOut
 	float4 col : SV_Target0;	
 };
 
-VBoundingBoxOut VS(VBoundingBoxIn vin) 
+VBoundingBoxOut VS(VBoundingBoxIn vin, uint instance : SV_InstanceID)
 {
 	VBoundingBoxOut vout;
-	vout.center = mul(float4(vin.center, 1.0f), PerObject.world).xyz;
-	vout.extents = mul(float4(vin.extents, 0.0f), PerObject.world).xyz;
+	vout.center = mul(float4(vin.center, 1.0f), PerObject.world[instance]).xyz;
+	vout.extents = mul(float4(vin.extents, 0.0f), PerObject.world[instance]).xyz;
 	return vout;
 }
 

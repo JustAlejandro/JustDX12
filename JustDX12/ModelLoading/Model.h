@@ -15,6 +15,8 @@ public:
 
 	bool loaded;
 	bool usesRT;
+	unsigned int instanceCount;
+	std::vector<DirectX::XMFLOAT4X4> transform;
 	std::string name;
 	std::string dir;
 	std::vector<Mesh> meshes;

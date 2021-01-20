@@ -20,15 +20,15 @@ struct VertexIn
 	float2 TexC : TEXCOORD;
 };
 
-VertexOut VS(VertexIn vin)
+VertexOut VS(VertexIn vin, uint instance : SV_InstanceID)
 {
 	VertexOut vout = (VertexOut) 0.0f;
     
-	vout.PosW = mul(float4(vin.PosL, 1.0f), PerObject.world).xyz;
+	vout.PosW = mul(float4(vin.PosL, 1.0f), PerObject.world[instance]).xyz;
     
-	vout.NormalW = mul(vin.NormalL, (float3x3) PerObject.world);
-	vout.TangentW = mul(vin.TangentL, (float3x3) PerObject.world);
-	vout.BiNormalW = mul(vin.BiNormalL, (float3x3) PerObject.world);
+	vout.NormalW = mul(vin.NormalL, (float3x3) PerObject.world[instance]);
+	vout.TangentW = mul(vin.TangentL, (float3x3) PerObject.world[instance]);
+	vout.BiNormalW = mul(vin.BiNormalL, (float3x3) PerObject.world[instance]);
     
 	vout.PosH = mul(float4(vout.PosW, 1.0f), PerPass.ViewProj);
     

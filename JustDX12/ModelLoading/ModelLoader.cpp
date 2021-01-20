@@ -55,13 +55,15 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	waitOnFence();
 
 	std::vector<AccelerationStructureBuffers> blasVec;
+	std::vector<Model*> models;
 	for (auto& model : loadedModels) {
 		if (model.second.usesRT) {
 			blasVec.push_back(createBLAS(&model.second, cmdList));
+			models.push_back(&model.second);
 		}
 	}
 
-	AccelerationStructureBuffers tlas = createTLAS(blasVec, tlasSize, cmdList);
+	AccelerationStructureBuffers tlas = createTLAS(blasVec, tlasSize, models, cmdList);
 
 	TLAS = tlas.pResult;
 	SetName(TLAS.Get(), L"TLAS Structure");
@@ -123,12 +125,18 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	return buffers;
 }
 
-AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+	// Find the total number of models.
+	UINT totalDescs = 0;
+	for (const auto& m : models) {
+		totalDescs += m->instanceCount;
+	}
+
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
 	// Normally this is larger because of instancing, but for now we don't have instancing
-	inputs.NumDescs = blasVec.size();
+	inputs.NumDescs = totalDescs;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
@@ -140,21 +148,27 @@ AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStr
 	tlasSize = info.ResultDataMaxSizeInBytes;
 
 	// Have to tell the TLAS what instances are where (thing like instanced draw calls)
-	buffers.pInstanceDesc = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * blasVec.size(), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, gUploadHeapDesc);
+	buffers.pInstanceDesc = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, gUploadHeapDesc);
 	D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs;
 	buffers.pInstanceDesc->Map(0, nullptr, (void**)&instanceDescs);
-	ZeroMemory(instanceDescs, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * blasVec.size());
-
+	ZeroMemory(instanceDescs, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs);
+	
 	DirectX::XMFLOAT4X4 identity;
 	DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixIdentity());
 
+	int instanceIndex = 0;
 	for (int i = 0; i < blasVec.size(); i++) {
-		instanceDescs[i].InstanceID = i;
-		instanceDescs[i].InstanceContributionToHitGroupIndex = i;
-		instanceDescs[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
-		memcpy(instanceDescs[i].Transform, &identity, sizeof(instanceDescs[i].Transform));
-		instanceDescs[i].AccelerationStructure = blasVec[i].pResult->GetGPUVirtualAddress();
-		instanceDescs[i].InstanceMask = 0xFF;
+		for (int j = 0; j < models[i]->instanceCount; j++) {
+			DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&models[i]->transform[j])));
+			instanceDescs[instanceIndex].InstanceID = instanceIndex;
+			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
+			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+			memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
+			instanceDescs[instanceIndex].AccelerationStructure = blasVec[i].pResult->GetGPUVirtualAddress();
+			instanceDescs[instanceIndex].InstanceMask = 0xFF;
+
+			instanceIndex++;
+		}
 	}
 
 	buffers.pInstanceDesc->Unmap(0, nullptr);

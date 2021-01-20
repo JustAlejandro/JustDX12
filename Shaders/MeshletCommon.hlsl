@@ -22,6 +22,7 @@ struct Vertex
 
 struct Payload
 {
+    uint instanceID;
     uint MeshletIndices[GROUP_SIZE];
 };
 

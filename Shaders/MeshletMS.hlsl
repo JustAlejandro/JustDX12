@@ -43,14 +43,14 @@ uint3 GetPrimitive(Meshlet m, uint index) {
 VertexOut GetVertexAttributes(uint meshletIndex, uint vertexIndex) {
 	Vertex v = Vertices[vertexIndex];
 	
-	float4 pos = mul(float4(v.Position,1.0f), PerObject.world);//mul(float4(v.Position, 1.0f), PerObject.world);
+	float4 pos = mul(float4(v.Position,1.0f), PerObject.world[0]);//mul(float4(v.Position, 1.0f), PerObject.world);
 	
 	VertexOut vout;
 	vout.PosW = pos.xyz;
 	vout.PosH = mul(pos, PerPass.ViewProj);
-	vout.NormalW = mul(v.Normal, (float3x3) PerObject.world);
-	vout.BiNormalW = mul(v.Bitangent, (float3x3) PerObject.world);
-	vout.TangentW = mul(v.Tangent, (float3x3) PerObject.world);
+	vout.NormalW = mul(v.Normal, (float3x3) PerObject.world[0]);
+	vout.BiNormalW = mul(v.Bitangent, (float3x3) PerObject.world[0]);
+	vout.TangentW = mul(v.Tangent, (float3x3) PerObject.world[0]);
 	vout.TexC = v.Texcoord;
 	
 	return vout;

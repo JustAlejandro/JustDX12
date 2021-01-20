@@ -19,6 +19,8 @@ Model::Model(std::string name, std::string dir, bool usesRT) {
 				 std::numeric_limits<FLOAT>::min(),
 				 std::numeric_limits<FLOAT>::min() };
 	this->usesRT = usesRT;
+	instanceCount = 1;
+	transform.push_back(Identity());
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {

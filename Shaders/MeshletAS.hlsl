@@ -51,10 +51,10 @@ bool IsVisible(CullData c, float4x4 world, float3 viewPos)
 void AS(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
 {
 	bool visible = false;
-	
+
 	if (dtid < MeshInfo.MeshletCount)
 	{
-		visible = IsVisible(MeshletCullData[dtid], PerObject.world, PerPass.EyePosW);
+		visible = IsVisible(MeshletCullData[dtid], PerObject.world[0], PerPass.EyePosW);
 	}
 	
 	if (visible) {
