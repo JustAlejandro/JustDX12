@@ -21,14 +21,14 @@ class ModelLoader: public TaskQueueThread {
 public:
 	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
 	Model* loadModel(std::string name, std::string dir, bool usesRT);
-	MeshletModel* loadMeshletModel(std::string name, std::string dir);
+	MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
 	HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
 	void buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS;
 private:
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-	AccelerationStructureBuffers createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	AccelerationStructureBuffers createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;

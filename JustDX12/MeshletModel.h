@@ -118,7 +118,7 @@ struct MeshletMesh {
 class MeshletModel {
 public:
 	MeshletModel() = default;
-	MeshletModel(std::string name, std::string dir);
+	MeshletModel(std::string name, std::string dir, bool usesRT);
 	HRESULT LoadFromFile(const std::string fileName);
 	HRESULT UploadGpuResources(ID3D12Device5* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList);
 	
@@ -133,6 +133,8 @@ public:
 	auto end() { return m_meshes.end(); }
 
 	bool loaded = false;
+	bool usesRT = false;
+	DirectX::XMFLOAT4X4 transform;
 	std::string name;
 	std::string dir;
 

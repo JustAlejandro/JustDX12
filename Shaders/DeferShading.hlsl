@@ -64,8 +64,8 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 			result.y = result.y * -1.0 + 1.0;
 			result.z = linDepth(result.z);
 			float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-			if (compareDepth < result.z && result.z - compareDepth < 500.0) {
-				occlusion += 1.0f;
+			if (compareDepth < result.z && result.z - compareDepth < 10.0) {
+				occlusion = SSAOSettings.shadowSteps;
 			}
 		}
 		return max(((SSAOSettings.shadowSteps - occlusion) / SSAOSettings.shadowSteps), !SSAOSettings.showSSShadows);

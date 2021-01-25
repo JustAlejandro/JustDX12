@@ -24,11 +24,11 @@ Model::Model(std::string name, std::string dir, bool usesRT) {
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
-	processNode(node, scene);
+	std::vector<Vertex> vertices;
+	std::vector<unsigned int> indices;
+	processNode(node, scene, vertices, indices);
 
 	boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
-
-	addBoundingBoxesToVertexBuffer();
 
 	indexCount = indices.size();
 	vertexCount = vertices.size();
@@ -64,40 +64,20 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 #endif // CLEAR_MODEL_MEMORY
 }
 
-void Model::addBoundingBoxesToVertexBuffer() {
-	for (auto& mesh : meshes) {
-		// Add Bounding Box to index/vertex list
-		Vertex BB;
-		BB.pos = { mesh.boundingBox.Center.x, mesh.boundingBox.Center.y, mesh.boundingBox.Center.z };
-		// Using the normal position to store the extents
-		BB.norm = { mesh.boundingBox.Extents.x, mesh.boundingBox.Extents.y, mesh.boundingBox.Extents.z };
-		vertices.push_back(BB);
-		mesh.boundingBoxVertexLocation = vertices.size() - 1;
-		mesh.boundingBoxIndexLocation = 0;
-	}
-	Vertex BB;
-	BB.pos = { boundingBox.Center.x, boundingBox.Center.y, boundingBox.Center.z };
-	// Using the normal position to store the extents
-	BB.norm = { boundingBox.Extents.x, boundingBox.Extents.y, boundingBox.Extents.z };
-	vertices.push_back(BB);
-	boundingBoxVertexLocation = vertices.size() - 1;
-	boundingBoxIndexLocation = 0;
-}
-
-void Model::processNode(aiNode* node, const aiScene* scene) {
+void Model::processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
 	// Assuming 1 Model per scene (can contain multiple meshes)
 
 	for (int i = 0; i < node->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-		meshes.push_back(processMesh(mesh, scene));
+		meshes.push_back(processMesh(mesh, scene, vertices, indices));
 	}
 
 	for (int i = 0; i < node->mNumChildren; i++) {
-		processNode(node->mChildren[i], scene);
+		processNode(node->mChildren[i], scene, vertices, indices);
 	}
 }
 
-Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
+Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
 	Mesh meshStorage;
 	meshStorage.minPoint = { std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max(),
@@ -129,7 +109,6 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		else {
 			vertex.texC = { 0.0f, 0.0f };
 		}
-
 		updateBoundingBoxMinMax(meshStorage.minPoint, meshStorage.maxPoint, vertex.pos);
 		updateBoundingBoxMinMax(minPoint, maxPoint, vertex.pos);
 

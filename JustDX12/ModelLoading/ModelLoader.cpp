@@ -23,13 +23,13 @@ Model* ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = f
 	return model;
 }
 
-MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir) {
+MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, bool usesRT) {
 	std::lock_guard<std::mutex> lk(databaseLock);
 
 	auto findModel = loadedMeshlets.find(dir + name);
 	MeshletModel* meshletModel;
 	if (findModel == loadedMeshlets.end()) {
-		loadedMeshlets[dir + name] = MeshletModel(name, dir);
+		loadedMeshlets[dir + name] = MeshletModel(name, dir, usesRT);
 		meshletModel = &loadedMeshlets[dir + name];
 		enqueue(new MeshletModelLoadTask(this, meshletModel));
 	}
@@ -62,8 +62,16 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 			models.push_back(&model.second);
 		}
 	}
+	std::vector<MeshletModel*> meshletModels;
+	for (auto& meshletModel : loadedMeshlets) {
+		if (meshletModel.second.usesRT) {
+			std::string modelFileName = meshletModel.second.dir + meshletModel.second.name.substr(0, meshletModel.second.name.find_last_of('.')) + ".fbx";
+			blasVec.push_back(createBLAS(&loadedModels[modelFileName], cmdList));
+			meshletModels.push_back(&meshletModel.second);
+		}
+	}
 
-	AccelerationStructureBuffers tlas = createTLAS(blasVec, tlasSize, models, cmdList);
+	AccelerationStructureBuffers tlas = createTLAS(blasVec, tlasSize, models, meshletModels, cmdList);
 
 	TLAS = tlas.pResult;
 	SetName(TLAS.Get(), L"TLAS Structure");
@@ -125,12 +133,13 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	return buffers;
 }
 
-AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	// Find the total number of models.
 	UINT totalDescs = 0;
 	for (const auto& m : models) {
 		totalDescs += m->instanceCount;
 	}
+	totalDescs += meshletModels.size();
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
@@ -157,7 +166,7 @@ AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStr
 	DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixIdentity());
 
 	int instanceIndex = 0;
-	for (int i = 0; i < blasVec.size(); i++) {
+	for (int i = 0; i < models.size(); i++) {
 		for (int j = 0; j < models[i]->instanceCount; j++) {
 			DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&models[i]->transform[j])));
 			instanceDescs[instanceIndex].InstanceID = instanceIndex;
@@ -169,6 +178,17 @@ AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStr
 
 			instanceIndex++;
 		}
+	}
+	for (int i = 0; i < meshletModels.size(); i++) {
+		DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&meshletModels[i]->transform)));
+		instanceDescs[instanceIndex].InstanceID = instanceIndex;
+		instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
+		instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+		memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
+		instanceDescs[instanceIndex].AccelerationStructure = blasVec[models.size() + i].pResult->GetGPUVirtualAddress();
+		instanceDescs[instanceIndex].InstanceMask = 0xFF;
+
+		instanceIndex++;
 	}
 
 	buffers.pInstanceDesc->Unmap(0, nullptr);

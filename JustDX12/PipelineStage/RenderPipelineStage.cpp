@@ -71,8 +71,8 @@ void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, s
 	renderObjects.push_back(loader->loadModel(fileName, dirName, usesRT));
 }
 
-void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName) {
-	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName));
+void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT) {
+	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName, usesRT));
 }
 
 void RenderPipelineStage::updateInstanceCount(UINT modelIndex, UINT instanceCount) {
@@ -92,6 +92,14 @@ void RenderPipelineStage::updateInstanceTransform(UINT modelIndex, UINT instance
 		throw "Out of Bounds: Index " + std::to_string(modelIndex) + " requested exceeds max of " + std::to_string(renderObjects[modelIndex]->instanceCount);
 	}
 	DirectX::XMStoreFloat4x4(&renderObjects[modelIndex]->transform[instanceIndex], transform);
+}
+
+void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform) {
+	meshletRenderObjects[modelIndex]->transform = transform;
+}
+
+void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMMATRIX transform) {
+	DirectX::XMStoreFloat4x4(&meshletRenderObjects[modelIndex]->transform, transform);
 }
 
 void RenderPipelineStage::setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS) {
@@ -405,13 +413,15 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	}
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
-		DirectX::ContainmentType containType = frustrum.Contains(model->GetBoundingBox());
+		DirectX::BoundingBox modelBB;
+		model->GetBoundingBox().Transform(modelBB, DirectX::XMLoadFloat4x4(&model->transform));
+		DirectX::ContainmentType containType = frustrum.Contains(modelBB);
 		if (containType == DirectX::ContainmentType::DISJOINT) {
 			modelIndex++;
 			continue;
 		}
 		if (renderStageDesc.supportsCulling && occlusionCull && containType != (DirectX::ContainmentType::INTERSECTS)) {
-			if (model->GetBoundingBox().Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS) {
+			if (modelBB.Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS) {
 				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)(modelIndex + renderObjects.size()) * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
 			else {

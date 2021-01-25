@@ -21,17 +21,13 @@
 
 
 std::string baseDir = "..\\Models";
-std::string inputfile = "teapot.obj";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
-std::string armorFile = "armor2.fbx";
+std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
 std::string headFile = "head.fbx";
-std::string headSmallFile = "headSmall.fbx";
-std::string headSmallMeshlet = "headSmall.bin";
 std::string armorMeshlet = "armor.bin";
-std::string headMeshlet = "headReduce.bin";
 
 std::string warn;
 std::string err;
@@ -101,6 +97,7 @@ private:
 
 	PerPassConstants mainPassCB;
 	PerObjectConstants perObjCB;
+	PerObjectConstants perMeshletObjCB;
 	VrsConstants vrsCB;
 	SSAOConstants ssaoConstantCB;
 	LightData lightDataCB;
@@ -433,10 +430,12 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
-	//renderStage->LoadMeshletModel(modelLoader, headSmallMeshlet, headDir);
-	renderStage->LoadModel(modelLoader, headSmallFile, headDir, true);
+	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
+	renderStage->LoadModel(modelLoader, headFile, headDir, true);
 	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
-	//renderStage->LoadModel(modelLoader, armorFile, armorDir, true);
+
+	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
+	modelLoader->loadModel(armorFile, armorDir, false);
 
 	//Can't really update at runtime due to the limitations of the RT generation at the moment.
 	renderStage->updateInstanceCount(0, 5);
@@ -450,8 +449,11 @@ bool DemoApp::initialize() {
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[4], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
 	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
 
+	DirectX::XMStoreFloat4x4(&perMeshletObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));
+	renderStage->updateMeshletTransform(0, (DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));
+
 	lightDataCB.data.numPointLights = 3;
-	lightDataCB.data.lights[0].color = { 1.0f, 1.0f, 1.0f };
+	lightDataCB.data.lights[0].color = { 0.0f, 1.0f, 0.0f };
 	lightDataCB.data.lights[0].pos = { 0.0f, 200.0f, 40.0f };
 	lightDataCB.data.lights[0].strength = 800.0f;
 	lightDataCB.data.lights[1].color = { 0.0f, 0.0f, 1.0f };
@@ -651,7 +653,7 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
 		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 10.0f);
 		ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
-		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 1.0f);
+		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 10.0f);
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("VRS Ranges")) {
@@ -811,6 +813,7 @@ void DemoApp::UpdateMainPassCB() {
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 	renderStage->deferUpdateConstantBuffer("PerObjectConstants", perObjCB);
+	renderStage->deferUpdateConstantBuffer("PerObjectConstantsMeshlet", perMeshletObjCB);
 	if (!freezeCull) {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);
 		renderStage->frustrum.Transform(renderStage->frustrum, invView);

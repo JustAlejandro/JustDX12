@@ -1,6 +1,11 @@
 #include "MeshletModel.h"
 #include "DX12Helper.h"
 
+#include <assimp/Importer.hpp>		// C++ importer interface
+#include <assimp/scene.h>			// Output data structure
+#include <assimp/postprocess.h>		// Post processing flags
+#include "Model.h"
+
 #include <iostream>
 #include <fstream>
 #include <ModelLoading\TextureLoader.h>
@@ -63,10 +68,12 @@ struct Accessor {
 	UINT32 Count;
 };
 
-MeshletModel::MeshletModel(std::string name, std::string dir) {
+MeshletModel::MeshletModel(std::string name, std::string dir, bool usesRT) {
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
+	this->usesRT = usesRT;
+	transform = Identity();
 }
 
 HRESULT MeshletModel::LoadFromFile(const std::string fileName) {
@@ -430,6 +437,7 @@ HRESULT MeshletModel::UploadGpuResources(ID3D12Device5* device, ID3D12CommandQue
 			CloseHandle(event);
 		}
 	}
+	
 	loaded = true;
 
 	return S_OK;

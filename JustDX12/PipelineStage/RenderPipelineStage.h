@@ -27,10 +27,12 @@ public:
 	void setup(PipeLineStageDesc stageDesc) override;
 	void Execute() override;
 	void LoadModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
-	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName);
+	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
 	void updateInstanceCount(UINT modelIndex, UINT instanceCount);
 	void updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
 	void updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMMATRIX transform);
+	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);
+	void updateMeshletTransform(UINT modelIndex, DirectX::XMMATRIX transform);
 	void setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS);
 	~RenderPipelineStage();
 

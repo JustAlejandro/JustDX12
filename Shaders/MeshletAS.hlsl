@@ -29,7 +29,7 @@ bool IsVisible(CullData c, float4x4 world, float3 viewPos)
 	// the DX12 graphics samples from Microsoft, we'll see how well it performs in
 	// a real world environment and see if we can make the culling more aggressive.
 	//float4 center = mul(float4(c.BoundingSphere.xyz, 1), world);
-	float4 center = float4(c.BoundingSphere.xyz, 1);
+	float4 center = mul(float4(c.BoundingSphere.xyz, 1), world);
 	
 	float4 normalCone = UnpackCone(c.NormalCone);
 	

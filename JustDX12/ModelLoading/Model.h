@@ -11,8 +11,6 @@ class DX12Texture;
 
 class Model {
 public:
-	DirectX::XMFLOAT3 pos = { 0.0f, 0.0f, 0.0f };
-
 	bool loaded;
 	bool usesRT;
 	unsigned int instanceCount;
@@ -22,17 +20,13 @@ public:
 	std::vector<Mesh> meshes;
 
 	unsigned int vertexCount;
-	std::vector<Vertex> vertices;
 	unsigned int indexCount;
-	std::vector<unsigned int> indices;
 
 	unsigned int vertexByteStride;
 	unsigned int vertexBufferByteSize;
 	unsigned int indexBufferByteSize;
 	DXGI_FORMAT vertexFormat;
 	DXGI_FORMAT indexFormat;
-	INT boundingBoxVertexLocation = 0;
-	UINT boundingBoxIndexLocation = 0;
 
 	DirectX::BoundingBox boundingBox;
 	DirectX::XMFLOAT3 maxPoint;
@@ -44,9 +38,8 @@ public:
 	Model() = default;
 	Model(std::string name, std::string dir, bool usesRT = false);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
-	void addBoundingBoxesToVertexBuffer();
-	void processNode(aiNode* node, const aiScene* scene);
-	Mesh processMesh(aiMesh* mesh, const aiScene* scene);
+	void processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
+	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
 	DX12Texture* loadMaterialTexture(aiMaterial* mat, aiTextureType type);
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView()const;
