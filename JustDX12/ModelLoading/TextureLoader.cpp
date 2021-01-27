@@ -73,16 +73,17 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 		0, layouts, numRows, rowSizesInBytes, &textureMemorySize);
 
 	// Create the upload heap for the texture data
+	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 	auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(CalcBufferByteSize(textureMemorySize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT));
 	md3dDevice->CreateCommittedResource(&gUploadHeapDesc,
 		D3D12_HEAP_FLAG_NONE,
 		&bufferDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
-		IID_PPV_ARGS(&tex->UploadHeap));
+		IID_PPV_ARGS(&UploadHeap));
 
 	UINT8* mappedData;
-	tex->UploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&mappedData));
+	UploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&mappedData));
 
 	for (int i = 0; i < tex->MetaData.DepthOrArraySize; i++) {
 		for (int mipIndex = 0; mipIndex < tex->MetaData.MipLevels; mipIndex++) {
@@ -116,7 +117,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 		dest.SubresourceIndex = subResourceIndex;
 
 		D3D12_TEXTURE_COPY_LOCATION source = {};
-		source.pResource = tex->UploadHeap.Get();
+		source.pResource = UploadHeap.Get();
 		source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
 		source.PlacedFootprint = layouts[subResourceIndex];
 		source.PlacedFootprint.Offset = layouts[subResourceIndex].Offset;

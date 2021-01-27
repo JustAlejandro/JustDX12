@@ -26,6 +26,4 @@ public:
 	using DX12Resource::curState;
 	using DX12Resource::format;
 	using DX12Resource::type;
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 };
