@@ -71,17 +71,45 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 		}
 	}
 
-	AccelerationStructureBuffers tlas = createTLAS(blasVec, tlasSize, models, meshletModels, cmdList);
-
-	TLAS = tlas.pResult;
-	SetName(TLAS.Get(), L"TLAS Structure");
-
 	for (int i = 0; i < blasVec.size(); i++) {
 		BLAS.push_back(blasVec[i].pResult);
 		SetName(BLAS[i].Get(), L"BLAS");
 	}
+
+	createTLAS(tlasSize, models, meshletModels, cmdList);
+
+	TLAS = tlasScratch.pResult;
+	SetName(TLAS.Get(), L"TLAS Structure");
 	scratchBuffers = blasVec;
-	scratchBuffers.push_back(tlas);
+}
+
+HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+	enqueue(new RTStructureUpdateTask(this, cmdList));
+	HANDLE ev = CreateEvent(
+		NULL,
+		FALSE,
+		FALSE,
+		NULL);
+	enqueue(new SetCpuEventTask(ev));
+	return ev;
+}
+
+void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+	std::vector<Model*> models;
+	for (auto& model : loadedModels) {
+		if (model.second.usesRT) {
+			models.push_back(&model.second);
+		}
+	}
+	std::vector<MeshletModel*> meshletModels;
+	for (auto& meshletModel : loadedMeshlets) {
+		if (meshletModel.second.usesRT) {
+			std::string modelFileName = meshletModel.second.dir + meshletModel.second.name.substr(0, meshletModel.second.name.find_last_of('.')) + ".fbx";
+			meshletModels.push_back(&meshletModel.second);
+		}
+	}
+	createTLAS(tlasSize, models, meshletModels, cmdList);
+	frame++;
 }
 
 AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
@@ -133,7 +161,7 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	return buffers;
 }
 
-AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStructureBuffers>& blasVec, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	// Find the total number of models.
 	UINT totalDescs = 0;
 	for (const auto& m : models) {
@@ -143,23 +171,29 @@ AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStr
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
-	// Normally this is larger because of instancing, but for now we don't have instancing
+	inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE;
 	inputs.NumDescs = totalDescs;
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
 	md3dDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &info);
 
-	AccelerationStructureBuffers buffers;
-	buffers.pScratch = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), info.ScratchDataSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, gDefaultHeapDesc);
-	buffers.pResult = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), info.ResultDataMaxSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, gDefaultHeapDesc);
-	tlasSize = info.ResultDataMaxSizeInBytes;
+	// Update or create
+	if (TLAS.Get() != nullptr) {
+		D3D12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(TLAS.Get());
+		cmdList->ResourceBarrier(1, &uavBarrier);
+	}
+	else {
+		tlasScratch.pScratch = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), info.ScratchDataSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, gDefaultHeapDesc);
+		tlasScratch.pResult = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), info.ResultDataMaxSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, gDefaultHeapDesc);
+		tlasSize = info.ResultDataMaxSizeInBytes;
+	}
 
 	// Have to tell the TLAS what instances are where (thing like instanced draw calls)
-	buffers.pInstanceDesc = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, gUploadHeapDesc);
+	tlasScratch.pInstanceDesc = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, gUploadHeapDesc);
+	instanceScratch[frame % CPU_FRAME_COUNT] = tlasScratch.pInstanceDesc;
 	D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs;
-	buffers.pInstanceDesc->Map(0, nullptr, (void**)&instanceDescs);
+	ThrowIfFailed(tlasScratch.pInstanceDesc->Map(0, nullptr, (void**)&instanceDescs));
 	ZeroMemory(instanceDescs, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs);
 	
 	DirectX::XMFLOAT4X4 identity;
@@ -173,7 +207,7 @@ AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStr
 			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 			memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
-			instanceDescs[instanceIndex].AccelerationStructure = blasVec[i].pResult->GetGPUVirtualAddress();
+			instanceDescs[instanceIndex].AccelerationStructure = BLAS[i]->GetGPUVirtualAddress();
 			instanceDescs[instanceIndex].InstanceMask = 0xFF;
 
 			instanceIndex++;
@@ -185,25 +219,27 @@ AccelerationStructureBuffers ModelLoader::createTLAS(std::vector<AccelerationStr
 		instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 		instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 		memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
-		instanceDescs[instanceIndex].AccelerationStructure = blasVec[models.size() + i].pResult->GetGPUVirtualAddress();
+		instanceDescs[instanceIndex].AccelerationStructure = BLAS[models.size() + i]->GetGPUVirtualAddress();
 		instanceDescs[instanceIndex].InstanceMask = 0xFF;
 
 		instanceIndex++;
 	}
 
-	buffers.pInstanceDesc->Unmap(0, nullptr);
+	tlasScratch.pInstanceDesc->Unmap(0, nullptr);
 
 	// Create the TLAS
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC asDesc = {};
 	asDesc.Inputs = inputs;
-	asDesc.Inputs.InstanceDescs = buffers.pInstanceDesc->GetGPUVirtualAddress();
-	asDesc.DestAccelerationStructureData = buffers.pResult->GetGPUVirtualAddress();
-	asDesc.ScratchAccelerationStructureData = buffers.pScratch->GetGPUVirtualAddress();
+	asDesc.Inputs.InstanceDescs = tlasScratch.pInstanceDesc->GetGPUVirtualAddress();
+	asDesc.DestAccelerationStructureData = tlasScratch.pResult->GetGPUVirtualAddress();
+	asDesc.ScratchAccelerationStructureData = tlasScratch.pScratch->GetGPUVirtualAddress();
+	if (TLAS.Get() != nullptr) {
+		asDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
+		asDesc.SourceAccelerationStructureData = TLAS->GetGPUVirtualAddress();
+	}
 
 	cmdList->BuildRaytracingAccelerationStructure(&asDesc, 0, nullptr);
 
-	auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(buffers.pResult.Get());
+	auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(tlasScratch.pResult.Get());
 	cmdList->ResourceBarrier(1, &uavBarrier);
-	
-	return buffers;
 }

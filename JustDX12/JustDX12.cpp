@@ -1,7 +1,6 @@
 #include <iostream>
 #include <chrono>
 #include "ModelLoading\ModelLoader.h"
-#include "ModelLoading\TextureLoader.h"
 #include "ModelLoading\Model.h"
 #include "DX12App.h"
 #include <d3dx12.h>
@@ -86,7 +85,6 @@ private:
 	RenderPipelineStage* deferStage = nullptr;
 	RenderPipelineStage* mergeStage = nullptr;
 	ModelLoader* modelLoader = nullptr;
-	TextureLoader* textureLoader = nullptr;
 	KeyboardWrapper keyboard;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> mSSAORootSignature = nullptr;
@@ -548,10 +546,11 @@ void DemoApp::draw() {
 	eventHandles.push_back(deferStage->deferExecute());
 	eventHandles.push_back(mergeStage->deferExecute());
 	eventHandles.push_back(vrsComputeStage->deferExecute());
-
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
+	eventHandles.push_back(modelLoader->updateRTAccelerationStructureDeferred(mCommandList.Get()));
 
 	WaitForMultipleObjects(eventHandles.size(), eventHandles.data(), TRUE, INFINITE);
+
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
 
 	// TODO: FIND A WAY TO MAKE SURE THIS RESOURCE ALWAYS GOES BACK TO THE CORRECT STATE
 	DX12Resource* mergeOut = mergeStage->getResource("mergedTex");
@@ -808,6 +807,19 @@ void DemoApp::UpdateMainPassCB() {
 	deferStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	lightDataCB.data.viewPos = mainPassCB.data.EyePosW;
+
+	float waveHeight = 20.0f;
+	float os = 0.3f;
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(0.0f, (sin(mainPassCB.data.TotalTime) + 1.0f) * waveHeight, 0.0f)));
+	renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranslation(0.0f, (sin(mainPassCB.data.TotalTime) + 1.0f) * waveHeight, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[1], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-100.0f, (sin(mainPassCB.data.TotalTime - os) + 1.0f) * waveHeight, 0.0f)));
+	renderStage->updateInstanceTransform(0, 1, (DirectX::XMMatrixTranslation(-100.0f, (sin(mainPassCB.data.TotalTime - os) + 1.0f) * waveHeight, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[2], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(100.0f, (sin(mainPassCB.data.TotalTime + os) + 1.0f) * waveHeight, 0.0f)));
+	renderStage->updateInstanceTransform(0, 2, (DirectX::XMMatrixTranslation(100.0f, (sin(mainPassCB.data.TotalTime + os) + 1.0f) * waveHeight, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[3], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-200.0f, (sin(mainPassCB.data.TotalTime - 2 * os) + 1.0f) * waveHeight, 0.0f)));
+	renderStage->updateInstanceTransform(0, 3, (DirectX::XMMatrixTranslation(-200.0f, (sin(mainPassCB.data.TotalTime - 2 * os) + 1.0f) * waveHeight, 0.0f)));
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[4], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));
+	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));
 
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);

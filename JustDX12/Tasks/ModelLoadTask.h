@@ -83,9 +83,6 @@ public:
 	}
 
 	void execute() override {
-		modelLoader->mDirectCmdListAlloc->Reset();
-		modelLoader->mCommandList->Reset(modelLoader->mDirectCmdListAlloc.Get(), nullptr);
-
 		modelLoader->buildRTAccelerationStructure(cmdList, scratchBuffers);
 	}
 
@@ -95,5 +92,24 @@ private:
 	ModelLoader* modelLoader;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
 	std::vector<AccelerationStructureBuffers>& scratchBuffers;
+};
+
+
+class RTStructureUpdateTask : public Task {
+public:
+	RTStructureUpdateTask(ModelLoader* modelLoader, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+		this->modelLoader = modelLoader;
+		this->cmdList = cmdList;
+	}
+
+	void execute() override {
+		modelLoader->updateRTAccelerationStructure(cmdList);
+	}
+
+	virtual ~RTStructureUpdateTask() override = default;
+
+private:
+	ModelLoader* modelLoader;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
 };
 
