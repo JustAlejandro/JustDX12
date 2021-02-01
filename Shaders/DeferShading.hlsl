@@ -53,7 +53,7 @@ float linDepth(float depth) {
 }
 
 float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 worldPos, float3 normal) {
-	float occlusion = 0.0f;
+	bool unoccluded = true;
 	worldPos += normal;
 	if (SSAOSettings.showSSShadows) {
 		for (int j = 0; j < SSAOSettings.shadowSteps; j++) {
@@ -65,10 +65,9 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 			result.z = linDepth(result.z);
 			float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
 			if (compareDepth < result.z && result.z - compareDepth < 10.0) {
-				occlusion = SSAOSettings.shadowSteps;
+				unoccluded = false;
 			}
 		}
-		return max(((SSAOSettings.shadowSteps - occlusion) / SSAOSettings.shadowSteps), !SSAOSettings.showSSShadows);
 	}
 	else {
 		RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
@@ -86,10 +85,10 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		query.Proceed();
 
 		if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
-			return 0.0f;
+			unoccluded = false;
 		}
 	}
-	return 1.0f;
+	return (float) unoccluded;
 }
 
 PixelOutMerge DeferPS(VertexOutMerge vout) {
@@ -108,10 +107,10 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 		float attenuation = clamp(1.0 - dot(lightVec, lightVec) / (LightData.lights[i].strength * LightData.lights[i].strength), 0.0, 1.0);
 		float shadowContrib = shadowAmount(vout.TexC, lightDir, LightData.lights[i].pos, worldPos, normal);
 		diffuse += clamp(LightData.lights[i].color * attenuation * shadowContrib
-			* max(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0), 0.0, 1.0);
+			* clamp(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0, 1.0), 0.0, 1.0);
 		spec += clamp(LightData.lights[i].color * attenuation * shadowContrib
 			* specTex.Sample(gsamPoint, vout.TexC).x
-			* pow(max(dot(reflectDir, normalize(LightData.viewPos - worldPos)), 0.0f), 32.0), 0.0, 1.0);
+			* pow(clamp(dot(reflectDir, normalize(LightData.viewPos - worldPos)), 0.0f, 1.0f), 32.0), 0.0, 1.0);
 	}
 	diffuse = clamp(diffuse + 0.005, 0.0f, 1.0f);
 	spec = 1.0 * clamp(spec, 0.0f, 1.0f);

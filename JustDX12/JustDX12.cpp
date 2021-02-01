@@ -22,6 +22,8 @@
 std::string baseDir = "..\\Models";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
+std::string bistroDir = baseDir + "\\bistro";
+std::string bistroFile = "BistroExteriorRedux.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
@@ -100,7 +102,7 @@ private:
 	SSAOConstants ssaoConstantCB;
 	LightData lightDataCB;
 
-	DirectX::XMFLOAT4 eyePos = { 0.0f,70.0f,40.0f, 1.0f };
+	DirectX::XMFLOAT4 eyePos = { -500.0f,70.0f,0.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
 	DirectX::XMFLOAT4X4 proj = Identity();
 
@@ -114,7 +116,7 @@ private:
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
-#if defined(DEBUG) | defined(_DEBUG)
+#if defined(DEBUG) | defined(_DEBUG) || GPU_DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 	try {
@@ -208,7 +210,7 @@ bool DemoApp::initialize() {
 
 		rasterDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec.dds"));
-		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "default_diff.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_alpha", "default_alpha.dds"));
 
 		RenderPipelineDesc rDesc;
@@ -428,15 +430,20 @@ bool DemoApp::initialize() {
 	modelLoader = new ModelLoader(md3dDevice);
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
-	renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
-	renderStage->LoadModel(modelLoader, headFile, headDir, true);
-	renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
+	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
+	//renderStage->LoadModel(modelLoader, headFile, headDir, true);
+	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
+	renderStage->LoadModel(modelLoader, bistroFile, bistroDir, true);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
-	modelLoader->loadModel(armorFile, armorDir, false);
+	//modelLoader->loadModel(armorFile, armorDir, false);
+
+
+	//DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-750.0f, 0.0f, -120.0f)));
+	//renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranslation(-750.0f, 0.0f, -120.0f)));
 
 	//Can't really update at runtime due to the limitations of the RT generation at the moment.
-	renderStage->updateInstanceCount(0, 5);
+	/*renderStage->updateInstanceCount(0, 5);
 	perObjCB.data.World[0] = Identity();
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[1], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-100.0f, 0.0f, 0.0f)));
 	renderStage->updateInstanceTransform(0, 1, (DirectX::XMMatrixTranslation(-100.0f, 0.0f, 0.0f)));
@@ -448,18 +455,17 @@ bool DemoApp::initialize() {
 	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
 
 	DirectX::XMStoreFloat4x4(&perMeshletObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));
-	renderStage->updateMeshletTransform(0, (DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));
+	renderStage->updateMeshletTransform(0, (DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));*/
 
-	lightDataCB.data.numPointLights = 3;
-	lightDataCB.data.lights[0].color = { 0.0f, 1.0f, 0.0f };
-	lightDataCB.data.lights[0].pos = { 0.0f, 200.0f, 40.0f };
-	lightDataCB.data.lights[0].strength = 800.0f;
-	lightDataCB.data.lights[1].color = { 0.0f, 0.0f, 1.0f };
-	lightDataCB.data.lights[1].pos = { -400.0f, 200.0f, 40.0f };
-	lightDataCB.data.lights[1].strength = 800.0f;
-	lightDataCB.data.lights[2].color = { 1.0f, 0.0f, 0.0f };
-	lightDataCB.data.lights[2].pos = { 400.0f, 200.0f, 40.0f };
-	lightDataCB.data.lights[2].strength = 800.0f;
+	perObjCB.data.World[0] = Identity();
+	float scale = 30.0f;
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale)));
+	renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale))));
+
+	lightDataCB.data.numPointLights = 1;
+	lightDataCB.data.lights[0].color = { 1.0f, 1.0f, 1.0f };
+	lightDataCB.data.lights[0].pos = { -500.0f, 200.0f, 0.0f };
+	lightDataCB.data.lights[0].strength = 2000.0f;
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -637,6 +643,7 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Text("Last 1000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
 	ImGui::PlotLines("CPU Frame Times (ms)", cpuFrametimeVec.data(), cpuFrametimeVec.size(), 0, "CPU Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
 	ImGui::Text("Last 1000 CPU Frame Average %.3f ms/frame", AverageVector(cpuFrametimeVec));
+	ImGui::Text("Position: %.3f %.3f %.3f", eyePos.x, eyePos.y, eyePos.z);
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);
 	ImGui::Checkbox("Freeze Culling", &freezeCull);
 	ImGui::Checkbox("Occlusion Predication Culling", &renderStage->occlusionCull);
@@ -807,6 +814,7 @@ void DemoApp::UpdateMainPassCB() {
 	deferStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	lightDataCB.data.viewPos = mainPassCB.data.EyePosW;
+	/*
 
 	float waveHeight = 20.0f;
 	float os = 0.3f;
@@ -819,7 +827,7 @@ void DemoApp::UpdateMainPassCB() {
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[3], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-200.0f, (sin(mainPassCB.data.TotalTime - 2 * os) + 1.0f) * waveHeight, 0.0f)));
 	renderStage->updateInstanceTransform(0, 3, (DirectX::XMMatrixTranslation(-200.0f, (sin(mainPassCB.data.TotalTime - 2 * os) + 1.0f) * waveHeight, 0.0f)));
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[4], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));
-	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));
+	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));*/
 
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);

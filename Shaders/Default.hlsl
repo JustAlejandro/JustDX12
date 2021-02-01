@@ -61,9 +61,9 @@ PixelOut PS(VertexOut pin)
 {
 	PixelOut p;
 
-	// Only doing transparency in the sense of masking out, not real transparency.
-	float transparency = gAlphamap.Sample(anisoWrap, pin.TexC).x;
-	if (transparency < 0.3f) {
+	p.color = gDiffuseMap.Sample(anisoWrap, pin.TexC);
+
+	if (p.color.a < 0.3f) {
 		discard;
 	}
 
@@ -81,9 +81,6 @@ PixelOut PS(VertexOut pin)
 			default:
 				p.color = float4(0.0,1.0,0.0,1.0);
 		}
-	}
-	else {
-		p.color = gDiffuseMap.Sample(anisoWrap, pin.TexC);
 	}
 	
 	

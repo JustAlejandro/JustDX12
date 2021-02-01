@@ -13,6 +13,8 @@
 #define CPU_FRAME_COUNT 3
 #define AUXILLARY_FENCE_COUNT 5
 
+#define GPU_DEBUG true
+
 #define SCREEN_WIDTH 3200
 #define SCREEN_HEIGHT 1800
 
@@ -194,9 +196,9 @@ inline std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers() {
 	const CD3DX12_STATIC_SAMPLER_DESC anisotropicWrap(
 		4, // shaderRegister
 		D3D12_FILTER_ANISOTROPIC, // filter
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressW
+		D3D12_TEXTURE_ADDRESS_MODE_MIRROR,  // addressU
+		D3D12_TEXTURE_ADDRESS_MODE_MIRROR,  // addressV
+		D3D12_TEXTURE_ADDRESS_MODE_MIRROR,  // addressW
 		0.0f,							  // mipLODBias
 		8);								  // maxAnisotropy
 

@@ -318,12 +318,6 @@ void RenderPipelineStage::bindRenderTarget() {
 			1.0f, 0, 0, nullptr);
 	}
 
-#ifdef DEBUG
-	float clear[4] = { 0.0f,0.0f,0.0f,0.0f };
-	mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(renderTargetDescs[0].descriptorName + "0", DESCRIPTOR_TYPE_RTV)->cpuHandle,
-		clear, 0, nullptr);
-#endif // DEBUG
-
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
 		&descriptorManager.getDescriptor(IndexedName(renderTargetDescs[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
@@ -361,9 +355,9 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->IASetIndexBuffer(&indexBufferView);
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		if (renderStageDesc.supportsCulling && occlusionCull && frustrum.Contains(model->boundingBox) != (DirectX::ContainmentType::INTERSECTS)) {
+		if (renderStageDesc.supportsCulling && occlusionCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(b) != DirectX::ContainmentType::INTERSECTS; })) {
 			DirectX::ContainmentType containType =  frustrum.Contains(model->boundingBox);
-			if (model->boundingBox.Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS) {
+			if (std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS; })) {
 				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)modelIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
 			else {

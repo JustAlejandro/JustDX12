@@ -66,7 +66,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device5* device
 
 Microsoft::WRL::ComPtr<IDxcBlob> compileShader(const std::wstring& filename, const std::vector<DxcDefine>& defines, const std::wstring& entryPoint, const std::wstring& target) {
 	std::vector<LPCWSTR> arguements;
-#if defined(DEBUG) || defined(_DEBUG)
+#if defined(DEBUG) || defined(_DEBUG) || GPU_DEBUG
 	arguements.push_back(L"-Zi");
 	arguements.push_back(L"-Od");
 	arguements.push_back(L"-Qembed_debug");

@@ -125,7 +125,7 @@ bool DX12App::initWindow() {
 }
 
 bool DX12App::initDX12() {
-#if defined(DEBUG) || defined(_DEBUG)
+#if defined(DEBUG) || defined(_DEBUG) || GPU_DEBUG
 	ComPtr<ID3D12Debug> debug;
 	if (D3D12GetDebugInterface(IID_PPV_ARGS(&debug)) < 0) {
 		OutputDebugStringA("COULDN'T CREATE DEBUG INTERFACE\n");
