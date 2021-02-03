@@ -318,6 +318,14 @@ void RenderPipelineStage::bindRenderTarget() {
 			1.0f, 0, 0, nullptr);
 	}
 
+	float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	for (auto& target : renderTargetDescs) {
+		mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(IndexedName(target.descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
+			clearColor,
+			0,
+			nullptr);
+	}
+
 	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
 		&descriptorManager.getDescriptor(IndexedName(renderTargetDescs[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,

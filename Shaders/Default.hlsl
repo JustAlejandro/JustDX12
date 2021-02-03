@@ -26,9 +26,9 @@ VertexOut VS(VertexIn vin, uint instance : SV_InstanceID)
     
 	vout.PosW = mul(float4(vin.PosL, 1.0f), PerObject.world[instance]).xyz;
     
-	vout.NormalW = mul(vin.NormalL, (float3x3) PerObject.world[instance]);
-	vout.TangentW = mul(vin.TangentL, (float3x3) PerObject.world[instance]);
-	vout.BiNormalW = mul(vin.BiNormalL, (float3x3) PerObject.world[instance]);
+	vout.NormalW = normalize(mul(vin.NormalL, (float3x3) PerObject.world[instance]));
+	vout.TangentW = normalize(mul(vin.TangentL, (float3x3) PerObject.world[instance]));
+	vout.BiNormalW = normalize(mul(vin.BiNormalL, (float3x3) PerObject.world[instance]));
     
 	vout.PosH = mul(float4(vout.PosW, 1.0f), PerPass.ViewProj);
     
@@ -84,10 +84,11 @@ PixelOut PS(VertexOut pin)
 	}
 	
 	
-	float3 inNormal = normalize(gNormalMap.Sample(anisoWrap, pin.TexC).xyz);
+	float2 texNormal = (gNormalMap.Sample(anisoWrap, pin.TexC).xy);
+	float3 inNormal = normalize(float3(texNormal.xy * 2.0 - 1.0, 1.0f));
 	float3x3 TBN = float3x3(pin.TangentW, pin.BiNormalW, pin.NormalW);
 	
-	p.specular = float4((float3)gSpecularMap.Sample(anisoWrap, pin.TexC).x, 1.0f);
+	p.specular = float4(gSpecularMap.Sample(anisoWrap, pin.TexC).xyz, 1.0f);
 	p.normal = float4(normalize(mul(inNormal,TBN)), 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	p.binormal = float4(pin.BiNormalW, 0.0);

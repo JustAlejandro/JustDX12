@@ -44,6 +44,10 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 	tex->MetaData.Format = texMetaData.format;
 	tex->MetaData.Width = texMetaData.width;
 	tex->MetaData.Height = texMetaData.height;
+	if (texMetaData.format == DXGI_FORMAT_BC5_UNORM) {
+		tex->MetaData.Width = DivRoundUp(texMetaData.width, 4) * 4;
+		tex->MetaData.Height = DivRoundUp(texMetaData.height, 4) * 4;
+	}
 	tex->MetaData.Flags = D3D12_RESOURCE_FLAG_NONE;
 	tex->MetaData.DepthOrArraySize = texMetaData.arraySize;
 	tex->MetaData.MipLevels = (UINT16)texMetaData.mipLevels;

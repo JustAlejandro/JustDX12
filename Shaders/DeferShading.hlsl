@@ -40,6 +40,40 @@ VertexOutMerge DeferVS(VertexIn vin) {
 }
 
 
+// Trowbridge-Reitz GGX (from LearnOpenGL)
+float DistributionGGX(float3 N, float3 H, float roughness) {
+	float a = roughness * roughness;
+	float a2 = a * a;
+	float NdotH = max(dot(N, H), 0.0f);
+	float NdotH2 = NdotH * NdotH;
+
+	float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);
+	denom = 3.14159 * denom * denom;
+
+	return a2 / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness) {
+	float r = roughness + 1.0f;
+	float k = (r * r) / 8.0f;
+
+	return NdotV / (NdotV * (1.0f - k) + k);
+}
+
+float GeometrySmith(float3 N, float3 V, float3 L, float roughness) {
+	float NdotV = max(dot(N, V), 0.0f);
+	float NdotL = max(dot(N, L), 0.0f);
+	float ggx1 = GeometrySchlickGGX(NdotV, roughness);
+	float ggx2 = GeometrySchlickGGX(NdotL, roughness);
+
+	return ggx1 * ggx2;
+}
+
+float3 fresnelSchlick(float cosTheta, float3 F0) {
+	return F0 + (1.0f - F0) * pow(max(1.0f - cosTheta, 0.0f), 5.0f);
+}
+
+
 // Pixel Shader Stuff
 
 static int2 resolution;
@@ -95,26 +129,58 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	depthTex.GetDimensions(resolution.x, resolution.y);
 
 	PixelOutMerge pout;
-	float3 col = colorTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 albedo = colorTex.Sample(gsamPoint, vout.TexC).xyz;
+	float occlusion = specTex.Sample(gsamPoint, vout.TexC).x;
+	float roughness = specTex.Sample(gsamPoint, vout.TexC).y;
+	float metallic = specTex.Sample(gsamPoint, vout.TexC).z;
+
 	float3 diffuse = 0.0f;
 	float3 spec = 0.0f;
 	float3 worldPos = worldTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 viewDir = normalize(LightData.viewPos - worldPos);
+	float3 normal = normalTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 viewReflect = reflect(-viewDir, normal);
+
+	float3 F0 = 0.04f;
+	F0 = lerp(F0, albedo, metallic);
+
+	// Reflectance equation
+	float3 Lo = 0.0f;
+
 	for (int i = 0; i < LightData.numPointLights; i++) {
 		float3 lightVec = LightData.lights[i].pos - worldPos;
 		float3 lightDir = normalize(lightVec);
-		float3 normal = normalTex.Sample(gsamPoint, vout.TexC).xyz;
+		float3 H = normalize(viewDir + lightDir);
 		float3 reflectDir = reflect(-lightDir, normal);
 		float attenuation = clamp(1.0 - dot(lightVec, lightVec) / (LightData.lights[i].strength * LightData.lights[i].strength), 0.0, 1.0);
+
+		float3 radiance = LightData.lights[i].color * attenuation;
+
+		float NDF = DistributionGGX(normal, H, roughness);
+		float G = GeometrySmith(normal, viewDir, lightDir, roughness);
+		float3 F = fresnelSchlick(max(dot(H, viewDir), 0.0f), F0);
+
+		float3 nominator = NDF * G * F;
+		float denominator = 4 * max(dot(normal, viewDir), 0.0f) * max(dot(normal, lightDir), 0.0f) + 0.001f;
+		float3 specular = nominator / denominator;
+
+		float3 kS = F;
+
+		float3 kD = 1.0 - kS;
+
+		kD *= (1.0 - metallic);
+
+		float NdotL = max(dot(normal, lightDir), 0.0f);
+
 		float shadowContrib = shadowAmount(vout.TexC, lightDir, LightData.lights[i].pos, worldPos, normal);
-		diffuse += clamp(LightData.lights[i].color * attenuation * shadowContrib
-			* clamp(dot(normalTex.Sample(gsamPoint, vout.TexC).xyz, lightDir), 0.0, 1.0), 0.0, 1.0);
-		spec += clamp(LightData.lights[i].color * attenuation * shadowContrib
-			* specTex.Sample(gsamPoint, vout.TexC).x
-			* pow(clamp(dot(reflectDir, normalize(LightData.viewPos - worldPos)), 0.0f, 1.0f), 32.0), 0.0, 1.0);
+
+		Lo += (kD * albedo / 3.14159 + specular) * radiance * NdotL * shadowContrib;
 	}
-	diffuse = clamp(diffuse + 0.005, 0.0f, 1.0f);
-	spec = 1.0 * clamp(spec, 0.0f, 1.0f);
-	float3 totalLight = clamp(diffuse + spec, 0.0f, 1.0f);
-	pout.color = float4(totalLight * col, 1.0f);
+	
+	float3 ambient = 0.003 * albedo;
+
+	float3 color = ambient + Lo;
+
+	pout.color = float4(color, 1.0f);
 	return pout;
 }

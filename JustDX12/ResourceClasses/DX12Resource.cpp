@@ -26,12 +26,19 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device5> device, DESCRIPTOR_TYPES types,
 	texDesc.SampleDesc.Quality = 0;
 	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
+	D3D12_CLEAR_VALUE* clearVal = nullptr;
+	D3D12_CLEAR_VALUE defaultDepthClear = DEFAULT_CLEAR_VALUE_DEPTH_STENCIL();
+	D3D12_CLEAR_VALUE defaultRtvClear = DEFAULT_CLEAR_VALUE();
+	defaultRtvClear.Format = format;
+
 	D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
 	if (types & DESCRIPTOR_TYPE_RTV) {
 		flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+		clearVal = &defaultRtvClear;
 	}
 	if (types & DESCRIPTOR_TYPE_DSV) {
 		flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+		clearVal = &defaultDepthClear;
 	}
 	if (types & DESCRIPTOR_TYPE_UAV) {
 		flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -42,8 +49,6 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device5> device, DESCRIPTOR_TYPES types,
 
 	texDesc.Flags = flags;
 
-	D3D12_CLEAR_VALUE defaultDepthClear = DEFAULT_CLEAR_VALUE_DEPTH_STENCIL();
-	D3D12_CLEAR_VALUE* clearVal = (types & DESCRIPTOR_TYPE_DSV) ? &defaultDepthClear : nullptr;
 	device->CreateCommittedResource(
 		&gDefaultHeapDesc,
 		D3D12_HEAP_FLAG_NONE,

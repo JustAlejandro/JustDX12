@@ -131,9 +131,9 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 				aiTextureType_DIFFUSE);
 			meshStorage.typeFlags |= MODEL_FORMAT_DIFFUSE_TEX;
 		}
-		if (material->GetTextureCount(aiTextureType_HEIGHT)) {
+		if (material->GetTextureCount(aiTextureType_NORMALS)) {
 			meshStorage.textures[MODEL_FORMAT_NORMAL_TEX] = loadMaterialTexture(material,
-				aiTextureType_HEIGHT);
+				aiTextureType_NORMALS);
 			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL_TEX;
 		}
 		if (material->GetTextureCount(aiTextureType_SPECULAR)) {
