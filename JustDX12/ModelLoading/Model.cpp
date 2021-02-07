@@ -27,6 +27,9 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 	processNode(node, scene, vertices, indices);
+	if (scene->HasLights()) {
+		processLights(scene);
+	}
 
 	boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
 
@@ -62,6 +65,12 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<unsigned int>().swap(indices);
 	indices.shrink_to_fit();
 #endif // CLEAR_MODEL_MEMORY
+}
+
+void Model::processLights(const aiScene* scene) {
+	for (int i = 0; i < scene->mNumLights; i++) {
+		lights.push_back(scene->mLights[0][i]);
+	}
 }
 
 void Model::processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {

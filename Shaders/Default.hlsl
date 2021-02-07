@@ -85,13 +85,13 @@ PixelOut PS(VertexOut pin)
 	
 	
 	float2 texNormal = (gNormalMap.Sample(anisoWrap, pin.TexC).xy);
-	float3 inNormal = normalize(float3(texNormal.xy * 2.0 - 1.0, 1.0f));
+	texNormal = texNormal * 2.0f - 1.0f;
+	float3 inNormal = (float3(texNormal.xy, 1.0f - dot(texNormal, texNormal)));
 	float3x3 TBN = float3x3(pin.TangentW, pin.BiNormalW, pin.NormalW);
 	
 	p.specular = float4(gSpecularMap.Sample(anisoWrap, pin.TexC).xyz, 1.0f);
 	p.normal = float4(normalize(mul(inNormal,TBN)), 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
-	p.binormal = float4(pin.BiNormalW, 0.0);
 	p.world = float4(pin.PosW, 1.0f);
 	return p;
 }

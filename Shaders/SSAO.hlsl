@@ -13,8 +13,7 @@ Texture2D noiseTex : register(t0);
 Texture2D depthTex : register(t1);
 Texture2D normalTex : register(t2);
 Texture2D tangentTex : register(t3);
-Texture2D biNormalTex : register(t4);
-Texture2D worldTex : register(t5);
+Texture2D worldTex : register(t4);
 
 RWTexture2D<float> outTex : register(u0);
 
@@ -45,7 +44,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	
 	float3 inNormal = normalize(normalTex[dispatchThreadID.xy].xyz);
 	float3 inTan = normalize(tangentTex[dispatchThreadID.xy].xyz);
-	float3 inBinormal = normalize(biNormalTex[dispatchThreadID.xy].xyz);
+	float3 inBinormal = normalize(cross(inNormal, inTan));
 	float3x3 TBN = float3x3(inTan, inBinormal, inNormal);
 	
 	float4 worldPos = worldTex[dispatchThreadID.xy] + float4(inNormal, 0.0);
@@ -65,7 +64,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 		result.y = result.y * -1.0 + 1.0;
 		result.z = linDepth(result.z);
 		float depthSample = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-		if (depthSample >= result.z || result.z - depthSample > 30.0)
+		if (depthSample >= result.z || result.z - depthSample > 5.0)
 		{
 			outCol += perSample;
 		}

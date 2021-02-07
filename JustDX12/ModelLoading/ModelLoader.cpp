@@ -6,6 +6,54 @@ ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
 
 }
+std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot) {
+	std::vector<Light> pointLights;
+	std::vector<Light> directionalLights;
+	std::vector<Light> spotLights;
+	for (const auto& model : loadedModels) {
+		for (const auto& light : model.second.lights) {
+			for (int i = 0; i < model.second.instanceCount; i++) {
+				Light l;
+
+				l.color = DirectX::XMFLOAT3(light.mColorDiffuse.r, light.mColorDiffuse.g, light.mColorDiffuse.b);
+
+				DirectX::XMVECTOR lightPos = DirectX::XMVectorSet(light.mPosition.x, light.mPosition.y, light.mPosition.z, 1.0f);
+				DirectX::XMVECTOR lightDir = DirectX::XMVectorSet(light.mDirection.x, light.mDirection.y, light.mDirection.z, 0.0f);
+
+				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, DirectX::XMLoadFloat4x4(&model.second.transform[i])));
+				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, DirectX::XMLoadFloat4x4(&model.second.transform[i])));
+
+				l.fov = light.mAngleInnerCone;
+				l.strength = light.mAttenuationQuadratic;
+
+				switch (light.mType) {
+				case aiLightSource_POINT:
+					pointLights.push_back(l);
+					break;
+				case aiLightSource_DIRECTIONAL:
+					directionalLights.push_back(l);
+					break;
+				case aiLightSource_SPOT:
+					spotLights.push_back(l);
+					break;
+				default:
+					throw "Unknown Light source found";
+					break;
+				}
+			}
+		}
+	}
+	numPoint = pointLights.size();
+	numDir = directionalLights.size();
+	numSpot = spotLights.size();
+
+	std::vector<Light> outVec;
+	outVec.reserve((UINT64)numPoint + numDir + numSpot);
+	outVec.insert(outVec.end(), pointLights.begin(), pointLights.end());
+	outVec.insert(outVec.end(), directionalLights.begin(), directionalLights.end());
+	outVec.insert(outVec.end(), spotLights.begin(), spotLights.end());
+	return outVec;
+}
 
 Model* ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
 	std::lock_guard<std::mutex> lk(databaseLock);

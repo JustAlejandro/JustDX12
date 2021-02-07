@@ -103,6 +103,7 @@
       <Filter>ModelLoading</Filter>
     </ClInclude>
     <ClInclude Include="IndexedName.h" />
+    <ClInclude Include="Common.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

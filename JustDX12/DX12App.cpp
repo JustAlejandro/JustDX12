@@ -4,6 +4,7 @@
 #include <d3dx12.h>
 #include "Settings.h"
 #include "imgui_impl_win32.h"
+#include "DX12Helper.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -227,10 +228,10 @@ void DX12App::createSwapChain() {
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-	mdxgiFactory->CreateSwapChain(
+	ThrowIfFailed(mdxgiFactory->CreateSwapChain(
 		mCommandQueue.Get(),
 		&sd,
-		mSwapChain.GetAddressOf());
+		mSwapChain.GetAddressOf()));
 }
 
 void DX12App::FlushCommandQueue() {

@@ -22,6 +22,7 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 
 	PipelineStage::setup(stageDesc);
 	BuildDescriptors(stageDesc.descriptorJobs);
+	BuildPSO();
 }
 
 void RenderPipelineStage::Execute() {
@@ -127,7 +128,7 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	graphicsPSO.NumRenderTargets = renderTargetDescs.size();
 	for (int i = 0; i < renderTargetDescs.size(); i++) {
-		graphicsPSO.RTVFormats[i] = COLOR_TEXTURE_FORMAT;
+		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderTargetDescs[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
@@ -149,7 +150,7 @@ void RenderPipelineStage::BuildPSO() {
 		meshPSODesc.PS.BytecodeLength = shaders["Mesh Pixel Shader"]->GetBufferSize();
 		meshPSODesc.NumRenderTargets = renderTargetDescs.size();
 		for (int i = 0; i < renderTargetDescs.size(); i++) {
-			meshPSODesc.RTVFormats[i] = COLOR_TEXTURE_FORMAT;
+			meshPSODesc.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderTargetDescs[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 		}
 		meshPSODesc.SampleDesc.Count = 1;
 		meshPSODesc.SampleDesc.Quality = 0;
@@ -348,7 +349,6 @@ void RenderPipelineStage::drawRenderObjects() {
 			model->boundingBox.Transform(instanceBB, DirectX::XMLoadFloat4x4(&model->transform[i]));
 			boundingBoxes.push_back(instanceBB);
 		}
-
 		if (frustrumCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this] (DirectX::BoundingBox b) { return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
 			meshIndex += model->meshes.size();
 			modelIndex++;

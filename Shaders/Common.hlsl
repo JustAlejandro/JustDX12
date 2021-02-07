@@ -67,8 +67,7 @@ struct PixelOut {
 	float4 specular : SV_Target1;
 	float4 normal : SV_Target2;
 	float4 tangent : SV_Target3;
-	float4 binormal : SV_Target4;
-	float4 world : SV_Target5;
+	float4 world : SV_Target4;
 };
 
 
@@ -86,11 +85,11 @@ struct Light
 struct LightData
 {
 	float3 viewPos;
-	int ipadding;
-	int numPointLights;
-	int numDirectionalLights;
-	int numSpotLights;
-	float padding;
+	float exposure;
+	uint numPointLights;
+	uint numDirectionalLights;
+	uint numSpotLights;
+	float gamma;
 	Light lights[MAX_LIGHTS];
 };
 #endif

@@ -23,7 +23,7 @@ std::string baseDir = "..\\Models";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
 std::string bistroDir = baseDir + "\\bistro";
-std::string bistroFile = "BistroExteriorRedux.fbx";
+std::string bistroFile = "BistroExteriorDarker.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
@@ -168,29 +168,26 @@ bool DemoApp::initialize() {
 		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstantsMeshlet", new PerObjectConstants(), 0));
 		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerPassConstants", new PerPassConstants(), 0));
 
-		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[0]", "outTexArray[0]", DESCRIPTOR_TYPE_RTV));
-		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[1]", "outTexArray[1]", DESCRIPTOR_TYPE_RTV));
-		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[2]", "outTexArray[2]", DESCRIPTOR_TYPE_RTV));
-		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[3]", "outTexArray[3]", DESCRIPTOR_TYPE_RTV));
-		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[4]", "outTexArray[4]", DESCRIPTOR_TYPE_RTV));
-		rasterDesc.descriptorJobs.push_back(DescriptorJob("outTexDesc[5]", "outTexArray[5]", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("albedoDesc", "albedo", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("specularDesc", "specular", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("normalDesc", "normal", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("tangentDesc", "tangent", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("worldPosDesc", "worldPos", DESCRIPTOR_TYPE_RTV));
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
 		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
 
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[0]", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[1]", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[2]", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[3]", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[4]", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("outTexDesc[5]", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("albedoDesc", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("specularDesc", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("normalDesc", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("worldPosDesc", 0));
 
 		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize), DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize)));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[0]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[1]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[2]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[3]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[4]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("outTexArray[5]", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("albedo", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("specular", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("normal", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("tangent", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("worldPos", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
 
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
@@ -268,26 +265,24 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("specTexDesc", "specularTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTexDesc", "normalTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTexDesc", "tangentTex", DESCRIPTOR_TYPE_SRV));
-		stageDesc.descriptorJobs.push_back(DescriptorJob("biNormalTexDesc", "biNormalTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("worldTexDesc", "worldTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("deferTexDesc", "deferTex", DESCRIPTOR_TYPE_RTV));
 
 		stageDesc.externalResources.push_back(std::make_pair("renderDepthTex", renderStage->getResource("depthTex")));
-		stageDesc.externalResources.push_back(std::make_pair("colorTex", renderStage->getResource("outTexArray[0]")));
-		stageDesc.externalResources.push_back(std::make_pair("specularTex", renderStage->getResource("outTexArray[1]")));
-		stageDesc.externalResources.push_back(std::make_pair("normalTex", renderStage->getResource("outTexArray[2]")));
-		stageDesc.externalResources.push_back(std::make_pair("tangentTex", renderStage->getResource("outTexArray[3]")));
-		stageDesc.externalResources.push_back(std::make_pair("biNormalTex", renderStage->getResource("outTexArray[4]")));
-		stageDesc.externalResources.push_back(std::make_pair("worldTex", renderStage->getResource("outTexArray[5]")));
+		stageDesc.externalResources.push_back(std::make_pair("colorTex", renderStage->getResource("albedo")));
+		stageDesc.externalResources.push_back(std::make_pair("specularTex", renderStage->getResource("specular")));
+		stageDesc.externalResources.push_back(std::make_pair("normalTex", renderStage->getResource("normal")));
+		stageDesc.externalResources.push_back(std::make_pair("tangentTex", renderStage->getResource("tangent")));
+		stageDesc.externalResources.push_back(std::make_pair("worldTex", renderStage->getResource("worldPos")));
 		stageDesc.externalResources.push_back(std::make_pair("VRS", renderStage->getResource("VRS")));
 
 		stageDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
 
-		stageDesc.resourceJobs.push_back(ResourceJob("deferTex", DESCRIPTOR_TYPE_RTV));
+		stageDesc.resourceJobs.push_back(ResourceJob("deferTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("TLAS", ROOT_PARAMETER_TYPE_SRV, 3));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
@@ -325,7 +320,6 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.back().view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
 		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTex", "renderOutputNormals", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTex", "renderOutputTangents", DESCRIPTOR_TYPE_SRV));
-		stageDesc.descriptorJobs.push_back(DescriptorJob("binormalTex", "renderOutputBinormals", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("worldTex", "renderOutputPosition", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("SSAOOut", "SSAOOutTexture", DESCRIPTOR_TYPE_UAV));
 
@@ -333,12 +327,11 @@ bool DemoApp::initialize() {
 		stageDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("SSAOConstants", 0), deferStage->getConstantBuffer(IndexedName("SSAOConstants", 0))));
 
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputTex", renderStage->getResource("depthTex")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputColor", renderStage->getResource("outTexArray[0]")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputSpec", renderStage->getResource("outTexArray[1]")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputNormals", renderStage->getResource("outTexArray[2]")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("outTexArray[3]")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputBinormals", renderStage->getResource("outTexArray[4]")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputPosition", renderStage->getResource("outTexArray[5]")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputColor", renderStage->getResource("albedo")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputSpec", renderStage->getResource("specular")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputNormals", renderStage->getResource("normal")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("tangent")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputPosition", renderStage->getResource("worldPos")));
 
 		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R32_FLOAT));
 
@@ -374,7 +367,7 @@ bool DemoApp::initialize() {
 
 		stageDesc.renderTargets.push_back(RenderTargetDesc("mergedTexDesc", 0));
 
-		stageDesc.resourceJobs.push_back(ResourceJob("mergedTex", DESCRIPTOR_TYPE_RTV));
+		stageDesc.resourceJobs.push_back(ResourceJob("mergedTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2));
 
@@ -458,13 +451,13 @@ bool DemoApp::initialize() {
 	renderStage->updateMeshletTransform(0, (DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));*/
 
 	perObjCB.data.World[0] = Identity();
-	float scale = 30.0f;
+	float scale = 0.3f;
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale)));
 	renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale))));
 
-	float lightStrength = 1000.0f;
+	float lightStrength = 700.0f;
 	DirectX::XMFLOAT3 lightColor(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f);
-	DirectX::XMFLOAT3 lightColorRed(255.0f / 255.0f, 50.0f / 255.0f, 50.0f / 255.0f);
+	DirectX::XMFLOAT3 lightColorRed(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f);
 
 	lightDataCB.data.numPointLights = 5;
 	lightDataCB.data.lights[0].color = lightColor;
@@ -688,6 +681,8 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("Light Options")) {
+		ImGui::SliderFloat("Exposure", &lightDataCB.data.exposure, 0.0f, 5.0f);
+		ImGui::SliderFloat("Gamma", &lightDataCB.data.gamma, 0.0f, 5.0f);
 		ImGui::SliderFloat3("Light Pos", (float*)&lightDataCB.data.lights[0].pos, -1000.0f, 1000.0f);
 		ImGui::SliderFloat("Light Strength", &lightDataCB.data.lights[0].strength, 0.0f, 5000.0f);
 		ImGui::ColorEdit3("Light Color", (float*)&lightDataCB.data.lights[0].color);
@@ -830,6 +825,9 @@ void DemoApp::UpdateMainPassCB() {
 	deferStage->deferUpdateConstantBuffer("SSAOConstants", ssaoConstantCB);
 
 	lightDataCB.data.viewPos = mainPassCB.data.EyePosW;
+
+	std::vector<Light> lights = modelLoader->getAllLights(lightDataCB.data.numPointLights, lightDataCB.data.numDirectionalLights, lightDataCB.data.numPointLights);
+	memcpy(lightDataCB.data.lights, lights.data(), lights.size() * sizeof(Light));
 	/*
 
 	float waveHeight = 20.0f;

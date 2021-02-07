@@ -105,7 +105,18 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 				UINT8* sourceSubMemory = subImg->pixels;
 
 				for (int height = 0; height < subResourceHeight; height++) {
-					memcpy(destSubMemory, sourceSubMemory, std::min(subResourcePitch, subImg->rowPitch));
+					// If the image isn't properly padded, we can duplicate the pixels to fill (i.e. texture isn't sized correctly for compression)
+					if (subResourcePitch > subImg->rowPitch) {
+						for (int j = 0; j < subResourcePitch / subImg->rowPitch; j++) {
+							memcpy(destSubMemory + j * subImg->rowPitch, sourceSubMemory, subImg->rowPitch);
+						}
+						if (subResourcePitch % subImg->rowPitch != 0) {
+							memcpy(destSubMemory + (subResourcePitch / subImg->rowPitch) * subImg->rowPitch, sourceSubMemory, subResourcePitch % subImg->rowPitch);
+						}
+					}
+					else {
+						memcpy(destSubMemory, sourceSubMemory, std::min(subResourcePitch, subImg->rowPitch));
+					}
 					
 					destSubMemory += subResourcePitch;
 					sourceSubMemory += subImg->rowPitch;

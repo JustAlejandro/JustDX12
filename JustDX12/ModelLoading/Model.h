@@ -15,6 +15,7 @@ public:
 	bool usesRT;
 	unsigned int instanceCount;
 	std::vector<DirectX::XMFLOAT4X4> transform;
+	std::vector<aiLight> lights;
 	std::string name;
 	std::string dir;
 	std::vector<Mesh> meshes;
@@ -38,6 +39,7 @@ public:
 	Model() = default;
 	Model(std::string name, std::string dir, bool usesRT = false);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
+	void processLights(const aiScene* scene);
 	void processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
 	DX12Texture* loadMaterialTexture(aiMaterial* mat, aiTextureType type);

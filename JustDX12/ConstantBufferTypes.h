@@ -3,6 +3,7 @@
 #include <DX12Helper.h>
 #include "ConstantBufferData.h"
 #include <Settings.h>
+#include "Common.h"
 
 #include <iostream>
 
@@ -13,13 +14,13 @@ public:
 		BOOL showSSShadows = false;
 		DirectX::XMFLOAT2 padding = {0.0f, 0.0f};
 		DirectX::XMFLOAT4X4 viewProj = Identity();
-		int rayCount = 10;
-		float rayLength = 3.0f;
+		int rayCount = 3;
+		float rayLength = 1.0f;
 		int TAA = 0;
 		float range = 0.0f;
 		float rangeXNear = 0.0f;
-		int shadowSteps = 20;
-		float shadowStepSize = 0.05f;
+		int shadowSteps = 10;
+		float shadowStepSize = 0.5f;
 	};
 
 	SSAOConstantsStruct data;
@@ -55,15 +56,6 @@ public:
 		return &data;
 	};
 	virtual ~PerObjectConstants() override {}
-};
-
-struct Light {
-	DirectX::XMFLOAT3 pos = { 0.0f, 200.0f, 0.0f };
-	float strength = 1500.0f;
-	DirectX::XMFLOAT3 dir;
-	int padding = 0;
-	DirectX::XMFLOAT3 color = { 1.0f, 1.0f, 1.0f };
-	float fov = 0.0f;
 };
 
 class PerPassConstants : public ConstantBufferData {
@@ -107,11 +99,11 @@ class LightData : public ConstantBufferData {
 public:
 	struct LightDataStruct {
 		DirectX::XMFLOAT3 viewPos;
-		int ipadding;
-		int numPointLights = 0;
-		int numDirectionalLights = 0;
-		int numSpotLights = 0;
-		int padding = 0;
+		float exposure = 0.7f;
+		UINT numPointLights = 0;
+		UINT numDirectionalLights = 0;
+		UINT numSpotLights = 0;
+		float gamma = 2.2f;
 		Light lights[MAX_LIGHTS];
 	};
 

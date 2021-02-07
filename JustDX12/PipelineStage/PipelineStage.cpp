@@ -200,7 +200,6 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	BuildConstantBuffers(stageDesc.constantBufferJobs);
 	BuildShaders(stageDesc.shaderFiles);
 	BuildInputLayout();
-	BuildPSO();
 	this->stageDesc = stageDesc;
 }
 

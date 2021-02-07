@@ -28,6 +28,7 @@ void ComputePipelineStage::Execute() {
 void ComputePipelineStage::setup(PipeLineStageDesc stageDesc) {
 	PipelineStage::setup(stageDesc);
 	BuildDescriptors(stageDesc.descriptorJobs);
+	BuildPSO();
 }
 
 void ComputePipelineStage::BuildPSO() {

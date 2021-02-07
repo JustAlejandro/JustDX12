@@ -10,6 +10,7 @@
 #include "Tasks\TaskQueueThread.h"
 #include "ModelLoading\Model.h"
 #include "MeshletModel.h"
+#include "Common.h"
 
 struct AccelerationStructureBuffers {
 	Microsoft::WRL::ComPtr<ID3D12Resource> pScratch;
@@ -20,6 +21,7 @@ struct AccelerationStructureBuffers {
 class ModelLoader: public TaskQueueThread {
 public:
 	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
+	std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
 	Model* loadModel(std::string name, std::string dir, bool usesRT);
 	MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
 	HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
