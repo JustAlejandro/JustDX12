@@ -26,7 +26,7 @@ Model::Model(std::string name, std::string dir, bool usesRT) {
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
-	processNode(node, scene, vertices, indices);
+	processNode(node, scene, vertices, indices, DirectX::XMMatrixIdentity());
 	if (scene->HasLights()) {
 		processLights(scene);
 	}
@@ -70,23 +70,41 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 void Model::processLights(const aiScene* scene) {
 	for (int i = 0; i < scene->mNumLights; i++) {
 		lights.push_back(scene->mLights[0][i]);
+		DirectX::XMMATRIX transform = DirectX::XMMatrixIdentity();
+		const aiNode* node = scene->mRootNode->FindNode(lights[i].mName);
+		while (node != nullptr) {
+			DirectX::XMFLOAT4X4 nodeTrans(&node->mTransformation.a1);
+			transform = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&nodeTrans)), transform);
+			node = node->mParent;
+		}
+		DirectX::XMVECTOR pos = DirectX::XMVectorSet(lights[i].mPosition.x, lights[i].mPosition.y, lights[i].mPosition.z, 1.0f);
+		DirectX::XMStoreFloat3((DirectX::XMFLOAT3*)&lights[i].mPosition, DirectX::XMVector4Transform(pos, transform));
+		DirectX::XMVECTOR dir = DirectX::XMVectorSet(lights[i].mDirection.x, lights[i].mDirection.y, lights[i].mDirection.z, 0.0f);
+		DirectX::XMStoreFloat3((DirectX::XMFLOAT3*)&lights[i].mDirection, DirectX::XMVector3Normalize(DirectX::XMVector3Transform(dir, transform)));
 	}
 }
 
-void Model::processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+void Model::processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX parentTransform) {
 	// Assuming 1 Model per scene (can contain multiple meshes)
 
+	// This is so not safe, but both formats use the same storage, so for testing it's fine.
+	DirectX::XMFLOAT4X4 nodeTrans(&node->mTransformation.a1);
+	DirectX::XMMATRIX transform = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&nodeTrans)), parentTransform);
+
+	if (std::string(node->mName.C_Str()) == "Manhole3") {
+		OutputDebugStringA("MANHOLE");		
+	}
 	for (int i = 0; i < node->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-		meshes.push_back(processMesh(mesh, scene, vertices, indices));
+		meshes.push_back(processMesh(mesh, scene, vertices, indices, transform));
 	}
 
 	for (int i = 0; i < node->mNumChildren; i++) {
-		processNode(node->mChildren[i], scene, vertices, indices);
+		processNode(node->mChildren[i], scene, vertices, indices, transform);
 	}
 }
 
-Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX selfTransform) {
 	Mesh meshStorage;
 	meshStorage.minPoint = { std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max(),
@@ -99,15 +117,20 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 	for (int i = 0; i < mesh->mNumVertices; i++) {
 		Vertex vertex;
 
-		vertex.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
+		DirectX::XMVECTOR pos = DirectX::XMVectorSet(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z, 1.0f);
+		DirectX::XMStoreFloat3(&vertex.pos, DirectX::XMVector4Transform(pos, selfTransform));
+
 		meshStorage.typeFlags |= MODEL_FORMAT_POSITON;
 
 		if (mesh->HasNormals()) {
 			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL;
 			vertex.norm = { mesh->mNormals[i].x, mesh->mNormals[i].y,mesh->mNormals[i].z };
+			DirectX::XMStoreFloat3(&vertex.norm, DirectX::XMVector4Transform(DirectX::XMVectorSet(vertex.norm.x, vertex.norm.y, vertex.norm.z, 0.0f), selfTransform));
 			if (mesh->HasTangentsAndBitangents()) {
 				vertex.tan = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+				DirectX::XMStoreFloat3(&vertex.tan, DirectX::XMVector4Transform(DirectX::XMVectorSet(vertex.tan.x, vertex.tan.y, vertex.tan.z, 0.0f), selfTransform));
 				vertex.biTan = { mesh->mBitangents[i].x,mesh->mBitangents[i].y,mesh->mBitangents[i].z };
+				DirectX::XMStoreFloat3(&vertex.biTan, DirectX::XMVector4Transform(DirectX::XMVectorSet(vertex.biTan.x, vertex.biTan.y, vertex.biTan.z, 0.0f), selfTransform));
 			}
 		}
 		

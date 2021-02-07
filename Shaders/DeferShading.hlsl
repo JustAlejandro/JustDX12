@@ -182,7 +182,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	}
 	
 	for (int j = LightData.numPointLights; j < LightData.numPointLights + LightData.numDirectionalLights; j++) {
-		float3 lightVec = -LightData.lights[j].dir;
+		float3 lightVec = LightData.lights[j].dir;
 
 		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color * 0.8, 1.0f, true)
 			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.viewPos + lightVec * 10000.0f, worldPos, normal);

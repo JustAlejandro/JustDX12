@@ -40,8 +40,8 @@ public:
 	Model(std::string name, std::string dir, bool usesRT = false);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 	void processLights(const aiScene* scene);
-	void processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
-	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
+	void processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX parentTransform);
+	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX selfTransform);
 	DX12Texture* loadMaterialTexture(aiMaterial* mat, aiTextureType type);
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView()const;

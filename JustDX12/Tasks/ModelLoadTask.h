@@ -6,6 +6,7 @@
 #include "ModelLoading/ModelLoader.h"
 
 #include <iostream>
+#define AI_SLM_DEFAULT_MAX_VERTICES 1000
 #include <assimp/Importer.hpp>		// C++ importer interface
 #include <assimp/scene.h>			// Output data structure
 #include <assimp/postprocess.h>		// Post processing flags
@@ -27,7 +28,7 @@ public:
 		OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());
 		const aiScene* scene = importer.ReadFile(model->dir + "\\" + model->name,
 			aiProcess_GenUVCoords | aiProcess_Triangulate | aiProcess_ConvertToLeftHanded | 
-			aiProcess_GenSmoothNormals | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace |
+			aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
 			aiProcess_SplitLargeMeshes);
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 			std::string error = importer.GetErrorString();
