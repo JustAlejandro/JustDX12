@@ -26,8 +26,9 @@ Texture2D specTex : register(t2);
 Texture2D normalTex : register(t3);
 Texture2D tangentTex : register(t4);
 Texture2D worldTex : register(t5);
+Texture2D emissiveTex : register(t6);
 
-RaytracingAccelerationStructure TLAS : register(t6);
+RaytracingAccelerationStructure TLAS : register(t7);
 
 SamplerState gsamPoint : register(s1);
 
@@ -155,6 +156,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	depthTex.GetDimensions(resolution.x, resolution.y);
 
 	PixelOutMerge pout;
+
 	float3 albedo = colorTex.Sample(gsamPoint, vout.TexC).xyz;
 	albedo = pow(albedo, LightData.gamma);
 	float4 specSample = specTex.Sample(gsamPoint, vout.TexC);
@@ -191,6 +193,10 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	float3 ambient = 0.05 * albedo;
 
 	float3 color = ambient + Lo;
+
+	float3 emissive = emissiveTex.Sample(gsamPoint, vout.TexC).xyz;
+
+	color += emissive;
 
 	color = 1.0 - exp(-color * LightData.exposure);
 

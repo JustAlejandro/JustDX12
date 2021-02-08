@@ -7,7 +7,7 @@ ConstantBuffer<PerPass> PerPass : register(b1);
 Texture2D gDiffuseMap : register(t0);
 Texture2D gSpecularMap : register(t1);
 Texture2D gNormalMap : register(t2);
-Texture2D gAlphamap : register(t3);
+Texture2D gEmissiveMap : register(t3);
 SamplerState gsamLinear : register(s0);
 SamplerState anisoWrap : register(s4);
 
@@ -93,5 +93,6 @@ PixelOut PS(VertexOut pin)
 	p.normal = float4(normalize(mul(inNormal,TBN)), 0.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	p.world = float4(pin.PosW, 1.0f);
+	p.emissive = gEmissiveMap.Sample(anisoWrap, pin.TexC);
 	return p;
 }

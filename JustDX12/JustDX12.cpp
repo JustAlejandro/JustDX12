@@ -173,6 +173,7 @@ bool DemoApp::initialize() {
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("normalDesc", "normal", DESCRIPTOR_TYPE_RTV));
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("tangentDesc", "tangent", DESCRIPTOR_TYPE_RTV));
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("worldPosDesc", "worldPos", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("emissiveDesc", "emissive", DESCRIPTOR_TYPE_RTV));
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
 		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
 
@@ -181,6 +182,7 @@ bool DemoApp::initialize() {
 		rasterDesc.renderTargets.push_back(RenderTargetDesc("normalDesc", 0));
 		rasterDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
 		rasterDesc.renderTargets.push_back(RenderTargetDesc("worldPosDesc", 0));
+		rasterDesc.renderTargets.push_back(RenderTargetDesc("emissiveDesc", 0));
 
 		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize), DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize)));
 		rasterDesc.resourceJobs.push_back(ResourceJob("albedo", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
@@ -188,6 +190,7 @@ bool DemoApp::initialize() {
 		rasterDesc.resourceJobs.push_back(ResourceJob("normal", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("tangent", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("worldPos", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("emissive", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
 
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
@@ -208,7 +211,7 @@ bool DemoApp::initialize() {
 		rasterDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
-		rasterDesc.textureFiles.push_back(std::make_pair("default_alpha", "default_alpha.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
 
 		RenderPipelineDesc rDesc;
 		rDesc.usesMeshlets = true;
@@ -218,7 +221,7 @@ bool DemoApp::initialize() {
 		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
 		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
-		rDesc.defaultTextures[MODEL_FORMAT_OPACITY_TEX] = "default_alpha";
+		rDesc.defaultTextures[MODEL_FORMAT_EMMISIVE_TEX] = "default_emissive";
 
 		// Have to generate meshlet root signature
 		rDesc.meshletRootSignature.push_back(RootParamDesc("MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
@@ -234,12 +237,12 @@ bool DemoApp::initialize() {
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
-		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "texture_alpha");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "texture_emissive");
 
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
-		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_OPACITY_TEX, "mesh_texture_alpha");
+		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "mesh_texture_emissive");
 
 		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
@@ -266,6 +269,7 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("normalTexDesc", "normalTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTexDesc", "tangentTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("worldTexDesc", "worldTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("emissiveTexDesc", "emissiveTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("deferTexDesc", "deferTex", DESCRIPTOR_TYPE_RTV));
 
 		stageDesc.externalResources.push_back(std::make_pair("renderDepthTex", renderStage->getResource("depthTex")));
@@ -274,6 +278,7 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("normalTex", renderStage->getResource("normal")));
 		stageDesc.externalResources.push_back(std::make_pair("tangentTex", renderStage->getResource("tangent")));
 		stageDesc.externalResources.push_back(std::make_pair("worldTex", renderStage->getResource("worldPos")));
+		stageDesc.externalResources.push_back(std::make_pair("emissiveTex", renderStage->getResource("emissive")));
 		stageDesc.externalResources.push_back(std::make_pair("VRS", renderStage->getResource("VRS")));
 
 		stageDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
@@ -282,7 +287,7 @@ bool DemoApp::initialize() {
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("TLAS", ROOT_PARAMETER_TYPE_SRV, 3));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
@@ -430,25 +435,6 @@ bool DemoApp::initialize() {
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
-
-
-	//DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-750.0f, 0.0f, -120.0f)));
-	//renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranslation(-750.0f, 0.0f, -120.0f)));
-
-	//Can't really update at runtime due to the limitations of the RT generation at the moment.
-	/*renderStage->updateInstanceCount(0, 5);
-	perObjCB.data.World[0] = Identity();
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[1], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-100.0f, 0.0f, 0.0f)));
-	renderStage->updateInstanceTransform(0, 1, (DirectX::XMMatrixTranslation(-100.0f, 0.0f, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[2], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(100.0f, 0.0f, 0.0f)));
-	renderStage->updateInstanceTransform(0, 2, (DirectX::XMMatrixTranslation(100.0f, 0.0f, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[3], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-200.0f, 0.0f, 0.0f)));
-	renderStage->updateInstanceTransform(0, 3, (DirectX::XMMatrixTranslation(-200.0f, 0.0f, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[4], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
-	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, 0.0f, 0.0f)));
-
-	DirectX::XMStoreFloat4x4(&perMeshletObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));
-	renderStage->updateMeshletTransform(0, (DirectX::XMMatrixTranslation(0.0f, 0.0f, 100.0f)));*/
 
 	perObjCB.data.World[0] = Identity();
 	float scale = 0.3f;
@@ -828,20 +814,6 @@ void DemoApp::UpdateMainPassCB() {
 
 	std::vector<Light> lights = modelLoader->getAllLights(lightDataCB.data.numPointLights, lightDataCB.data.numDirectionalLights, lightDataCB.data.numPointLights);
 	memcpy(lightDataCB.data.lights, lights.data(), lights.size() * sizeof(Light));
-	/*
-
-	float waveHeight = 20.0f;
-	float os = 0.3f;
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(0.0f, (sin(mainPassCB.data.TotalTime) + 1.0f) * waveHeight, 0.0f)));
-	renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranslation(0.0f, (sin(mainPassCB.data.TotalTime) + 1.0f) * waveHeight, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[1], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-100.0f, (sin(mainPassCB.data.TotalTime - os) + 1.0f) * waveHeight, 0.0f)));
-	renderStage->updateInstanceTransform(0, 1, (DirectX::XMMatrixTranslation(-100.0f, (sin(mainPassCB.data.TotalTime - os) + 1.0f) * waveHeight, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[2], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(100.0f, (sin(mainPassCB.data.TotalTime + os) + 1.0f) * waveHeight, 0.0f)));
-	renderStage->updateInstanceTransform(0, 2, (DirectX::XMMatrixTranslation(100.0f, (sin(mainPassCB.data.TotalTime + os) + 1.0f) * waveHeight, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[3], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(-200.0f, (sin(mainPassCB.data.TotalTime - 2 * os) + 1.0f) * waveHeight, 0.0f)));
-	renderStage->updateInstanceTransform(0, 3, (DirectX::XMMatrixTranslation(-200.0f, (sin(mainPassCB.data.TotalTime - 2 * os) + 1.0f) * waveHeight, 0.0f)));
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[4], DirectX::XMMatrixTranspose(DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));
-	renderStage->updateInstanceTransform(0, 4, (DirectX::XMMatrixTranslation(200.0f, (sin(mainPassCB.data.TotalTime + 2 * os) + 1.0f) * waveHeight, 0.0f)));*/
 
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);

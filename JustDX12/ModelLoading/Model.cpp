@@ -178,6 +178,11 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 				aiTextureType_OPACITY);
 			meshStorage.typeFlags |= MODEL_FORMAT_OPACITY_TEX;
 		}
+		if (material->GetTextureCount(aiTextureType_EMISSIVE)) {
+			meshStorage.textures[MODEL_FORMAT_EMMISIVE_TEX] = loadMaterialTexture(material,
+				aiTextureType_EMISSIVE);
+			meshStorage.typeFlags |= MODEL_FORMAT_EMMISIVE_TEX;
+		}
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
 	meshStorage.vertexCount = mesh->mNumVertices;
