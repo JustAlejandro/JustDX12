@@ -35,6 +35,9 @@ extern UINT gSamplerDescriptorSize;
 extern D3D12_HEAP_PROPERTIES gDefaultHeapDesc;
 extern D3D12_HEAP_PROPERTIES gUploadHeapDesc;
 
+extern D3D12_FEATURE_DATA_D3D12_OPTIONS6 vrsSupport;
+extern D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveSupport;
+
 const UINT maxDescriptorHeapSize[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = {
 	100000,
 	100,

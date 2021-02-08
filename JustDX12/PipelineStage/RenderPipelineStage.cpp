@@ -337,7 +337,7 @@ void RenderPipelineStage::drawRenderObjects() {
 	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	int meshIndex = 0;
 	int modelIndex = 0;
-	if (renderStageDesc.supportsVRS && VRS) {
+	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
@@ -388,7 +388,7 @@ void RenderPipelineStage::drawRenderObjects() {
 				continue;
 			}
 
-			if (VRS) {
+			if (VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_1)) {
 				D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_OVERRIDE };
 				mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), combiners);
 			}
@@ -410,7 +410,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	mCommandList->SetGraphicsRootSignature(meshRootSignature.Get());
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL, 0, meshRootParameterDescs);
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS, 0, meshRootParameterDescs);
-	if (renderStageDesc.supportsVRS && VRS) {
+	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	int modelIndex = 0;
