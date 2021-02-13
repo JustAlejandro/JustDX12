@@ -112,7 +112,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		RayDesc ray;
 		ray.TMin = 3.0f;
 		ray.TMax = distance(lightPos, worldPos);
-		ray.Origin = worldPos + normal;
+		ray.Origin = worldPos;
 		ray.Direction = lightDir;
 		query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
 

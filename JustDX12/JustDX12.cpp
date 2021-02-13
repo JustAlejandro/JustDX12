@@ -441,26 +441,6 @@ bool DemoApp::initialize() {
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale)));
 	renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale))));
 
-	float lightStrength = 700.0f;
-	DirectX::XMFLOAT3 lightColor(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f);
-	DirectX::XMFLOAT3 lightColorRed(255.0f / 255.0f, 255.0f / 255.0f, 255.0f / 255.0f);
-
-	lightDataCB.data.numPointLights = 5;
-	lightDataCB.data.lights[0].color = lightColor;
-	lightDataCB.data.lights[0].pos = { -500.0f, 200.0f, 0.0f };
-	lightDataCB.data.lights[0].strength = lightStrength;
-	lightDataCB.data.lights[1].color = lightColor;
-	lightDataCB.data.lights[1].pos = { 300.0f, 200.0f, 1000.0f };
-	lightDataCB.data.lights[1].strength = lightStrength;
-	lightDataCB.data.lights[2].color = lightColor;
-	lightDataCB.data.lights[2].pos = { 650.0f, 200.0f, -650.0f };
-	lightDataCB.data.lights[2].strength = lightStrength;
-	lightDataCB.data.lights[3].color = lightColorRed;
-	lightDataCB.data.lights[3].pos = { 10.0f, 200.0f, -400.0f };
-	lightDataCB.data.lights[3].strength = lightStrength;
-	lightDataCB.data.lights[4].color = lightColorRed;
-	lightDataCB.data.lights[4].pos = { -100.0, 200.0f, 550.0f };
-	lightDataCB.data.lights[4].strength = lightStrength;
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
