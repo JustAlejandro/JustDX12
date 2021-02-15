@@ -18,11 +18,15 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 				l.color = DirectX::XMFLOAT3(light.mColorDiffuse.r, light.mColorDiffuse.g, light.mColorDiffuse.b);
 
 				DirectX::XMVECTOR lightPos = DirectX::XMVectorSet(light.mPosition.x, light.mPosition.y, light.mPosition.z, 1.0f);
+				DirectX::XMFLOAT4X4 lightTransform = model.second.scene.findNode(light.mName.C_Str())->getFullTransform();
+				DirectX::XMMATRIX lightTransformMatrix = TransposeLoad(&lightTransform);
+				lightPos = DirectX::XMVector4Transform(lightPos, lightTransformMatrix);
 				DirectX::XMVECTOR lightDir = DirectX::XMVectorSet(light.mDirection.x, light.mDirection.y, light.mDirection.z, 0.0f);
+				lightDir = DirectX::XMVector4Transform(lightDir, lightTransformMatrix);
 
 				auto transform = model.second.transform.getTransform(i);
-				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, DirectX::XMLoadFloat4x4(&transform)));
-				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, DirectX::XMLoadFloat4x4(&transform)));
+				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, TransposeLoad(&transform)));
+				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, TransposeLoad(&transform)));
 
 				l.fov = light.mAngleInnerCone;
 				l.strength = light.mAttenuationQuadratic;

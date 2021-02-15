@@ -110,9 +110,9 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		uint ray_instance_mask = 0xffffffff;
 
 		RayDesc ray;
-		ray.TMin = 0.01f;
+		ray.TMin = 0.001f;
 		ray.TMax = distance(lightPos, worldPos);
-		ray.Origin = worldPos;
+		ray.Origin = worldPos + normal / 100.0f;
 		ray.Direction = lightDir;
 		query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
 
@@ -184,10 +184,10 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	}
 	
 	for (int j = LightData.numPointLights; j < LightData.numPointLights + LightData.numDirectionalLights; j++) {
-		float3 lightVec = LightData.lights[j].dir;
+		float3 lightVec = -LightData.lights[j].dir;
 
 		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color * 0.8, 1.0f, true)
-			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.viewPos + lightVec * 10000.0f, worldPos, normal);
+			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.viewPos + lightVec * 1000.0f, worldPos, normal);
 	}
 
 	float3 ambient = 0.05 * albedo;

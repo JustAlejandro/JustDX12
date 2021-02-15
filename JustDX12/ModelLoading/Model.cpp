@@ -27,13 +27,11 @@ Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool uses
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
+	processLights(scene);
 	processMeshes(scene, vertices, indices, thread->md3dDevice.Get());
 	processNodes(scene);
 	this->scene.calculateFullTransform();
 	refreshAllTransforms();
-	if (scene->HasLights()) {
-		processLights(scene);
-	}
 
 	boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
 
@@ -81,17 +79,6 @@ void Model::refreshAllTransforms() {
 void Model::processLights(const aiScene* scene) {
 	for (int i = 0; i < scene->mNumLights; i++) {
 		lights.push_back(scene->mLights[0][i]);
-		DirectX::XMMATRIX transform = DirectX::XMMatrixIdentity();
-		const aiNode* node = scene->mRootNode->FindNode(lights[i].mName);
-		while (node != nullptr) {
-			DirectX::XMFLOAT4X4 nodeTrans(&node->mTransformation.a1);
-			transform = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&nodeTrans)), transform);
-			node = node->mParent;
-		}
-		DirectX::XMVECTOR pos = DirectX::XMVectorSet(lights[i].mPosition.x, lights[i].mPosition.y, lights[i].mPosition.z, 1.0f);
-		DirectX::XMStoreFloat3((DirectX::XMFLOAT3*)&lights[i].mPosition, DirectX::XMVector4Transform(pos, transform));
-		DirectX::XMVECTOR dir = DirectX::XMVectorSet(lights[i].mDirection.x, lights[i].mDirection.y, lights[i].mDirection.z, 0.0f);
-		DirectX::XMStoreFloat3((DirectX::XMFLOAT3*)&lights[i].mDirection, DirectX::XMVector3Normalize(DirectX::XMVector3Transform(dir, transform)));
 	}
 }
 
