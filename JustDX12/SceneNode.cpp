@@ -52,7 +52,9 @@ void SceneNode::calculateFullTransform() {
 		nodeTransform = bfsQueue.front().second;
 		bfsQueue.pop();
 
-		nodeFullTransform = DirectX::XMMatrixMultiply(DirectX::XMLoadFloat4x4(&current->transform), nodeTransform);
+		// Since these are in the format so to be directly HLSL usagble, multiplication on CPU is done in reverse order
+		// Could also just transpose both, multiply, then transpose result, but that's really wasteful.
+		nodeFullTransform = DirectX::XMMatrixMultiply(nodeTransform, DirectX::XMLoadFloat4x4(&current->transform));
 		DirectX::XMStoreFloat4x4(&current->currentFullTransform, nodeFullTransform);
 		for (auto& child : current->children) {
 			bfsQueue.push(std::make_pair(child.get(), nodeFullTransform));
