@@ -36,17 +36,13 @@ void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferDa
 }
 
 void PipelineStage::updateConstantBuffer(IndexedName indexName) {
-	constantBufferManager.getConstantBuffer(indexName)->updateBuffer(frameIndex);
+	constantBufferManager.getConstantBuffer(indexName)->updateBuffer(gFrameIndex);
 }
 
 int PipelineStage::triggerFence() {
 	int dest = getFenceValue() + 1;
 	enqueue(new PipelineStageTaskFence(this, dest));
 	return dest;
-}
-
-void PipelineStage::nextFrame() {
-	frameIndex = (frameIndex + 1) % CPU_FRAME_COUNT;
 }
 
 void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
@@ -386,7 +382,7 @@ DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterDesc(RootParamD
 }
 
 void PipelineStage::resetCommandList() {
-	mDirectCmdListAlloc = frameResourceArray[frameIndex].get()->CmdListAlloc;
+	mDirectCmdListAlloc = frameResourceArray[gFrameIndex].get()->CmdListAlloc;
 	ThrowIfFailed(mDirectCmdListAlloc->Reset());
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), PSO.Get()));
 	SetName(mCommandList.Get(), (std::wstring(stageDesc.name.begin(), stageDesc.name.end()) + L" Command List").c_str());

@@ -6,6 +6,8 @@
 #include <assimp\scene.h>
 #include <DirectXCollision.h>
 #include <limits>
+#include <TransformData.cpp>
+#include "SceneNode.h"
 
 class DX12Texture;
 
@@ -13,12 +15,12 @@ class Model {
 public:
 	bool loaded;
 	bool usesRT;
-	unsigned int instanceCount;
-	std::vector<DirectX::XMFLOAT4X4> transform;
+	TransformData transform;
 	std::vector<aiLight> lights;
 	std::string name;
 	std::string dir;
 	std::vector<Mesh> meshes;
+	SceneNode scene;
 
 	unsigned int vertexCount;
 	unsigned int indexCount;
@@ -36,12 +38,13 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 
-	Model() = default;
-	Model(std::string name, std::string dir, bool usesRT = false);
+	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
+	void refreshAllTransforms();
 	void processLights(const aiScene* scene);
-	void processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX parentTransform);
-	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX selfTransform);
+	void processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device);
+	void processNodes(const aiScene* scene);
+	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device);
 	DX12Texture* loadMaterialTexture(aiMaterial* mat, aiTextureType type);
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView()const;

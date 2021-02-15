@@ -186,11 +186,13 @@
     <ClCompile Include="PipelineStage\PipelineStage.cpp" />
     <ClCompile Include="PipelineStage\RenderPipelineStage.cpp" />
     <ClCompile Include="ResourceClasses\ResourceManager.cpp" />
+    <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Tasks\TaskQueueThread.cpp" />
     <ClCompile Include="ModelLoading\Model.cpp" />
     <ClCompile Include="ModelLoading\ModelLoader.cpp" />
     <ClCompile Include="ModelLoading\TextureLoader.cpp" />
+    <ClCompile Include="TransformData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -212,6 +214,7 @@
     <ClInclude Include="RenderPipelineStageTask.h" />
     <ClInclude Include="ResourceClasses\DX12Resource.h" />
     <ClInclude Include="FrameResource.h" />
+    <ClInclude Include="SceneNode.h" />
     <ClInclude Include="Tasks\ModelLoadTask.h" />
     <ClInclude Include="PipelineStage\PipelineStage.h" />
     <ClInclude Include="Tasks\PipelineStageTask.h" />
@@ -226,6 +229,7 @@
     <ClInclude Include="ModelLoading\TextureLoader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="TextureLoadTask.h" />
+    <ClInclude Include="TransformData.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

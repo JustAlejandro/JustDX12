@@ -24,6 +24,7 @@ public:
 	std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
 	Model* loadModel(std::string name, std::string dir, bool usesRT);
 	MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	void updateTransforms();
 	HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
 	void buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
 	HANDLE updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);

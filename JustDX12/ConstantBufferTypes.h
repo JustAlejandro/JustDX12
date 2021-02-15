@@ -42,6 +42,8 @@ class PerObjectConstants : public ConstantBufferData {
 public:
 	struct PerObjectConstantsStruct {
 		DirectX::XMFLOAT4X4 World[MAX_INSTANCES] = { Identity() };
+		UINT instanceCount = 0;
+		DirectX::XMFLOAT3 padding;
 	};
 
 	PerObjectConstantsStruct data;

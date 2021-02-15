@@ -9,6 +9,9 @@
 #include <unordered_map>
 #include "Texture.h"
 #include <DirectXCollision.h>
+#include <DX12ConstantBuffer.h>
+#include "TransformData.h"
+#include "SceneNode.h"
 
 struct CompactBoundingBox {
 	DirectX::XMFLOAT3 center;
@@ -41,6 +44,24 @@ struct Mesh {
 	DirectX::XMFLOAT3 minPoint;
 
 	std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
+
+	TransformData meshTransform;
+	std::array<SceneNode*, MAX_INSTANCES> instanceNodes;
+
+	Mesh(ID3D12Device5* device) : meshTransform(device) {
+	}
+
+	void updateTransform() {
+		for (int i = 0; i < meshTransform.getInstanceCount(); i++) {
+			meshTransform.setTransform(i, instanceNodes[i]->getFullTransform());
+		}
+	}
+
+	void registerInstance(SceneNode* node) {
+		UINT instanceCount = meshTransform.getInstanceCount();
+		instanceNodes[instanceCount] = node;
+		meshTransform.setInstanceCount(instanceCount + 1);
+	}
 
 	bool allTexturesLoaded() {
 		if (texturesLoaded) return true;

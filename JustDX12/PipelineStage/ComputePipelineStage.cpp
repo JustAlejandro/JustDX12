@@ -76,7 +76,7 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 			}
 		}
 		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
-			mCommandList->SetComputeRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
+			mCommandList->SetComputeRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(gFrameIndex)->GetGPUVirtualAddress());
 		}
 		else {
 			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();

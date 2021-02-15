@@ -92,7 +92,6 @@ public:
 	void deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex = 0);
 	void updateConstantBuffer(IndexedName indexName);
 	int triggerFence();
-	void nextFrame();
 	void deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val);
 	DX12ConstantBuffer* getConstantBuffer(IndexedName indexName);
 	DX12Resource* getResource(std::string name);
@@ -131,8 +130,6 @@ protected:
 	virtual std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> getRequiredResourceStates();
 	void setResourceStates();
 protected:
-	int frameIndex = 0;
-
 	PipeLineStageDesc stageDesc;
 
 	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;

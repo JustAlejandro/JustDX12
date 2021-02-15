@@ -26,7 +26,7 @@ public:
 
 	ID3D12Resource* get(int index);
 	UINT getBufferSize();
-	void updateBuffer(int index);
+	void updateBuffer(UINT index);
 	void prepareUpdateBuffer(ConstantBufferData* copySource);
 
 private:
@@ -34,6 +34,7 @@ private:
 	std::array<ComPtr<ID3D12Resource>, CPU_FRAME_COUNT> uploadBuffer;
 	std::array<BYTE*, CPU_FRAME_COUNT> mappedData;
 
+	UINT dirtyFrames = 0;
 	UINT elementByteSize = 0;
 
 	std::mutex dataUpdate;

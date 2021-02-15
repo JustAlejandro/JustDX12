@@ -12,7 +12,7 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	std::vector<Light> spotLights;
 	for (const auto& model : loadedModels) {
 		for (const auto& light : model.second.lights) {
-			for (int i = 0; i < model.second.instanceCount; i++) {
+			for (int i = 0; i < model.second.transform.getInstanceCount(); i++) {
 				Light l;
 
 				l.color = DirectX::XMFLOAT3(light.mColorDiffuse.r, light.mColorDiffuse.g, light.mColorDiffuse.b);
@@ -20,8 +20,9 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 				DirectX::XMVECTOR lightPos = DirectX::XMVectorSet(light.mPosition.x, light.mPosition.y, light.mPosition.z, 1.0f);
 				DirectX::XMVECTOR lightDir = DirectX::XMVectorSet(light.mDirection.x, light.mDirection.y, light.mDirection.z, 0.0f);
 
-				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, DirectX::XMLoadFloat4x4(&model.second.transform[i])));
-				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, DirectX::XMLoadFloat4x4(&model.second.transform[i])));
+				auto transform = model.second.transform.getTransform(i);
+				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, DirectX::XMLoadFloat4x4(&transform)));
+				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, DirectX::XMLoadFloat4x4(&transform)));
 
 				l.fov = light.mAngleInnerCone;
 				l.strength = light.mAttenuationQuadratic;
@@ -61,8 +62,8 @@ Model* ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = f
 	auto findModel = loadedModels.find(dir + name);
 	Model* model;
 	if (findModel == loadedModels.end()) {
-		loadedModels[dir + name] = Model(name, dir, usesRT);
-		model = &loadedModels[dir + name];
+		auto inserted = loadedModels.try_emplace((dir + name), name, dir, md3dDevice.Get(), usesRT);
+		model = &inserted.first->second;
 		enqueue(new ModelLoadTask(this, model));
 	}
 	else {
@@ -77,14 +78,23 @@ MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, b
 	auto findModel = loadedMeshlets.find(dir + name);
 	MeshletModel* meshletModel;
 	if (findModel == loadedMeshlets.end()) {
-		loadedMeshlets[dir + name] = MeshletModel(name, dir, usesRT);
-		meshletModel = &loadedMeshlets[dir + name];
+		auto inserted = loadedMeshlets.try_emplace((dir + name), name, dir, usesRT, md3dDevice.Get());
+		meshletModel = &inserted.first->second;
 		enqueue(new MeshletModelLoadTask(this, meshletModel));
 	}
 	else {
 		meshletModel = &findModel->second;
 	}
 	return meshletModel;
+}
+
+void ModelLoader::updateTransforms() {
+	for (auto& model : loadedModels) {
+		model.second.transform.submitUpdates(gFrameIndex);
+	}
+	for (auto& meshletModel : loadedMeshlets) {
+		meshletModel.second.transform.submitUpdates(gFrameIndex);
+	}
 }
 
 HANDLE ModelLoader::buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) {
@@ -114,7 +124,8 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	for (auto& meshletModel : loadedMeshlets) {
 		if (meshletModel.second.usesRT) {
 			std::string modelFileName = meshletModel.second.dir + meshletModel.second.name.substr(0, meshletModel.second.name.find_last_of('.')) + ".fbx";
-			blasVec.push_back(createBLAS(&loadedModels[modelFileName], cmdList));
+			Model* modelForMeshlet = &loadedModels.find(modelFileName)->second;
+			blasVec.push_back(createBLAS(modelForMeshlet, cmdList));
 			meshletModels.push_back(&meshletModel.second);
 		}
 	}
@@ -163,23 +174,26 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs;
 	for (auto& mesh : model->meshes) {
-		D3D12_RAYTRACING_GEOMETRY_DESC geomDesc = {};
-		geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		
-		geomDesc.Triangles.IndexBuffer = model->indexBufferGPU->GetGPUVirtualAddress() + sizeof(unsigned int) * (UINT64)mesh.startIndexLocation;
-		geomDesc.Triangles.IndexCount = mesh.indexCount;
-		geomDesc.Triangles.IndexFormat = model->indexFormat;
+		for (int i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+			D3D12_RAYTRACING_GEOMETRY_DESC geomDesc = {};
+			geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 
-		// Not setting transform.
-		geomDesc.Triangles.VertexBuffer.StartAddress = model->vertexBufferGPU->GetGPUVirtualAddress() + sizeof(Vertex) * (UINT64)mesh.baseVertexLocation;
-		geomDesc.Triangles.VertexBuffer.StrideInBytes = model->vertexByteStride;
-		geomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-		geomDesc.Triangles.VertexCount = mesh.vertexCount;
+			geomDesc.Triangles.IndexBuffer = model->indexBufferGPU->GetGPUVirtualAddress() + sizeof(unsigned int) * (UINT64)mesh.startIndexLocation;
+			geomDesc.Triangles.IndexCount = mesh.indexCount;
+			geomDesc.Triangles.IndexFormat = model->indexFormat;
 
-		geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+			geomDesc.Triangles.VertexBuffer.StartAddress = model->vertexBufferGPU->GetGPUVirtualAddress() + sizeof(Vertex) * (UINT64)mesh.baseVertexLocation;
+			geomDesc.Triangles.VertexBuffer.StrideInBytes = model->vertexByteStride;
+			geomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+			geomDesc.Triangles.VertexCount = mesh.vertexCount;
+
+			geomDesc.Triangles.Transform3x4 = mesh.meshTransform.getFrameTransformVirtualAddress(i, gFrameIndex);
+
+			geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 
 
-		geomDescs.push_back(geomDesc);
+			geomDescs.push_back(geomDesc);
+		}
 	}
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
@@ -213,7 +227,7 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 	// Find the total number of models.
 	UINT totalDescs = 0;
 	for (const auto& m : models) {
-		totalDescs += m->instanceCount;
+		totalDescs += m->transform.getInstanceCount();
 	}
 	totalDescs += meshletModels.size();
 
@@ -249,8 +263,9 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 
 	int instanceIndex = 0;
 	for (int i = 0; i < models.size(); i++) {
-		for (int j = 0; j < models[i]->instanceCount; j++) {
-			DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&models[i]->transform[j])));
+		for (int j = 0; j < models[i]->transform.getInstanceCount(); j++) {
+			auto transform = models[i]->transform.getTransform(j);
+			DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&transform)));
 			instanceDescs[instanceIndex].InstanceID = instanceIndex;
 			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
@@ -262,7 +277,8 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 		}
 	}
 	for (int i = 0; i < meshletModels.size(); i++) {
-		DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&meshletModels[i]->transform)));
+		auto transform = meshletModels[i]->transform.getTransform(0);
+		DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&transform)));
 		instanceDescs[instanceIndex].InstanceID = instanceIndex;
 		instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 		instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;

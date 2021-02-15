@@ -23,7 +23,7 @@ std::string baseDir = "..\\Models";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
 std::string bistroDir = baseDir + "\\bistro";
-std::string bistroFile = "BistroExteriorDarker.fbx";
+std::string bistroFile = "BistroExterior.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
@@ -102,7 +102,7 @@ private:
 	SSAOConstants ssaoConstantCB;
 	LightData lightDataCB;
 
-	DirectX::XMFLOAT4 eyePos = { -500.0f,70.0f,0.0f, 1.0f };
+	DirectX::XMFLOAT4 eyePos = { -10.0f,2.5f,7.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
 	DirectX::XMFLOAT4X4 proj = Identity();
 
@@ -194,8 +194,9 @@ bool DemoApp::initialize() {
 		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
 
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH));
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerMeshConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESH));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 3, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
 
 		std::vector<DXDefine> defines = {
 			{L"VRS", L""},
@@ -215,6 +216,12 @@ bool DemoApp::initialize() {
 
 		RenderPipelineDesc rDesc;
 		rDesc.usesMeshlets = true;
+		rDesc.perObjTransformCB = "PerObjConstants";
+		rDesc.perObjTransformCBSlot = 0;
+		rDesc.perMeshTransformCB = "PerMeshConstants";
+		rDesc.perMeshTransformCBSlot = 1;
+		rDesc.perObjTransformCBMeshlet = "PerMeshConstantsMeshlet";
+		rDesc.perObjTransformCBMeshletSlot = 0;
 		rDesc.supportsCulling = true;
 		rDesc.supportsVRS = true;
 
@@ -426,6 +433,7 @@ bool DemoApp::initialize() {
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 
 	modelLoader = new ModelLoader(md3dDevice);
+	//renderStage->LoadModel(modelLoader, "testScene.fbx", baseDir, true);
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
@@ -437,9 +445,10 @@ bool DemoApp::initialize() {
 	//modelLoader->loadModel(armorFile, armorDir, false);
 
 	perObjCB.data.World[0] = Identity();
-	float scale = 0.3f;
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale)));
-	renderStage->updateInstanceTransform(0, 0, (DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(scale, scale, scale))));
+	float scale = 1.0f;
+	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixScaling(scale, scale, scale));
+	renderStage->updateInstanceCount(0, 1);
+	renderStage->updateInstanceTransform(0, 0, perObjCB.data.World[0]);
 
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -478,15 +487,12 @@ void DemoApp::update() {
 	onKeyboardInput();
 	updateCamera();
 
-	mCurrFrameResourceIndex = (mCurrFrameResourceIndex + 1) % CPU_FRAME_COUNT;
+	gFrame++;
+	gFrameIndex = gFrame % CPU_FRAME_COUNT;
+
+	mCurrFrameResourceIndex = gFrameIndex;
 	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
 	mCurrComputeFrameResource = mComputeFrameResources[mCurrFrameResourceIndex].get();
-
-	renderStage->nextFrame();
-	computeStage->nextFrame();
-	deferStage->nextFrame();
-	mergeStage->nextFrame();
-	vrsComputeStage->nextFrame();
 
 	if (mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
@@ -632,9 +638,9 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
-		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 10.0f);
+		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 0.01f);
 		ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
-		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 10.0f);
+		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("VRS Ranges")) {
@@ -649,9 +655,6 @@ void DemoApp::ImGuiPrepareUI() {
 	if (ImGui::BeginTabItem("Light Options")) {
 		ImGui::SliderFloat("Exposure", &lightDataCB.data.exposure, 0.0f, 5.0f);
 		ImGui::SliderFloat("Gamma", &lightDataCB.data.gamma, 0.0f, 5.0f);
-		ImGui::SliderFloat3("Light Pos", (float*)&lightDataCB.data.lights[0].pos, -1000.0f, 1000.0f);
-		ImGui::SliderFloat("Light Strength", &lightDataCB.data.lights[0].strength, 0.0f, 5000.0f);
-		ImGui::ColorEdit3("Light Color", (float*)&lightDataCB.data.lights[0].color);
 		ImGui::EndTabItem();
 	}
 	ImGui::EndTabBar();
@@ -682,21 +685,21 @@ void DemoApp::onKeyboardInput() {
 	DirectX::XMMATRIX look = DirectX::XMMatrixRotationRollPitchYaw(lookAngle[0], lookAngle[1], lookAngle[2]);
 
 	if (keyboard.getKeyStatus('W') & KEY_STATUS_PRESSED) {
-		move.z += 100.0f;
+		move.z += MOVE_SPEED;
 	}
 	if (keyboard.getKeyStatus('S') & KEY_STATUS_PRESSED) {
-		move.z -= 100.0f;
+		move.z -= MOVE_SPEED;
 	}
 	if (keyboard.getKeyStatus('A') & KEY_STATUS_PRESSED) {
-		move.x -= 100.0f;
+		move.x -= MOVE_SPEED;
 	}
 	if (keyboard.getKeyStatus('D') & KEY_STATUS_PRESSED) {
-		move.x += 100.0f;
+		move.x += MOVE_SPEED;
 	}
 	if (keyboard.getKeyStatus(VK_LSHIFT) & KEY_STATUS_PRESSED) {
-		move.x = 4.0f * move.x;
-		move.y = 4.0f * move.y;
-		move.z = 4.0f * move.z;
+		move.x = RUN_MULTIPLIER * move.x;
+		move.y = RUN_MULTIPLIER * move.y;
+		move.z = RUN_MULTIPLIER * move.z;
 	}
 	if (keyboard.getKeyStatus(VK_LCONTROL) & KEY_STATUS_JUST_PRESSED) {
 		lockMouse = !lockMouse;
@@ -800,6 +803,9 @@ void DemoApp::UpdateMainPassCB() {
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
 	renderStage->deferUpdateConstantBuffer("PerObjectConstants", perObjCB);
 	renderStage->deferUpdateConstantBuffer("PerObjectConstantsMeshlet", perMeshletObjCB);
+
+	modelLoader->updateTransforms();
+
 	if (!freezeCull) {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);
 		renderStage->frustrum.Transform(renderStage->frustrum, invView);

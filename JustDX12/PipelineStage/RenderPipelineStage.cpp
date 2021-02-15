@@ -77,30 +77,15 @@ void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string file
 }
 
 void RenderPipelineStage::updateInstanceCount(UINT modelIndex, UINT instanceCount) {
-	renderObjects[modelIndex]->transform.resize(instanceCount, Identity());
-	renderObjects[modelIndex]->instanceCount = instanceCount;
+	renderObjects[modelIndex]->transform.setInstanceCount(instanceCount);
 }
 
 void RenderPipelineStage::updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMFLOAT4X4 transform) {
-	if (modelIndex > renderObjects[modelIndex]->instanceCount) {
-		throw "Out of Bounds: Index " + std::to_string(modelIndex) + " requested exceeds max of " + std::to_string(renderObjects[modelIndex]->instanceCount);
-	}
-	renderObjects[modelIndex]->transform[instanceIndex] = transform;
-}
-
-void RenderPipelineStage::updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMMATRIX transform) {
-	if (modelIndex > renderObjects[modelIndex]->instanceCount) {
-		throw "Out of Bounds: Index " + std::to_string(modelIndex) + " requested exceeds max of " + std::to_string(renderObjects[modelIndex]->instanceCount);
-	}
-	DirectX::XMStoreFloat4x4(&renderObjects[modelIndex]->transform[instanceIndex], transform);
+	renderObjects[modelIndex]->transform.setTransform(instanceIndex, transform);
 }
 
 void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform) {
-	meshletRenderObjects[modelIndex]->transform = transform;
-}
-
-void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMMATRIX transform) {
-	DirectX::XMStoreFloat4x4(&meshletRenderObjects[modelIndex]->transform, transform);
+	meshletRenderObjects[modelIndex]->transform.setTransform(0, transform);
 }
 
 void RenderPipelineStage::setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS) {
@@ -282,7 +267,13 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			}
 		}
 		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
-			mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(frameIndex)->GetGPUVirtualAddress());
+			// These binding are done by the outer layer.
+			if ((curRootParamDescs[usage][i].name == renderStageDesc.perObjTransformCB) || 
+				(curRootParamDescs[usage][i].name == renderStageDesc.perMeshTransformCB) ||
+				(curRootParamDescs[usage][i].name == renderStageDesc.perObjTransformCBMeshlet)) {
+				continue;
+			}
+			mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(gFrameIndex)->GetGPUVirtualAddress());
 		}
 		else {
 			DX12Resource* resource = resourceManager.getResource(curRootParamDescs[usage][i].name);
@@ -344,9 +335,9 @@ void RenderPipelineStage::drawRenderObjects() {
 		Model* model = renderObjects[i];
 
 		std::vector<DirectX::BoundingBox> boundingBoxes;
-		for (UINT i = 0; i < model->instanceCount; i++) {
+		for (UINT i = 0; i < model->transform.getInstanceCount(); i++) {
 			DirectX::BoundingBox instanceBB;
-			model->boundingBox.Transform(instanceBB, DirectX::XMLoadFloat4x4(&model->transform[i]));
+			model->boundingBox.Transform(instanceBB, TransposeLoad(model->transform.getTransform(i)));
 			boundingBoxes.push_back(instanceBB);
 		}
 		if (frustrumCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this] (DirectX::BoundingBox b) { return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
@@ -356,6 +347,7 @@ void RenderPipelineStage::drawRenderObjects() {
 		}
 
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
+		model->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
 
 		auto vertexBufferView = model->vertexBufferView();
 		auto indexBufferView = model->indexBufferView();
@@ -378,10 +370,14 @@ void RenderPipelineStage::drawRenderObjects() {
 
 		for (Mesh& m : model->meshes) {
 			std::vector<DirectX::BoundingBox> meshBoundingBoxes;
-			for (UINT i = 0; i < model->instanceCount; i++) {
+			for (UINT i = 0; i < model->transform.getInstanceCount(); i++) {
 				DirectX::BoundingBox instanceMeshBB;
-				m.boundingBox.Transform(instanceMeshBB, DirectX::XMLoadFloat4x4(&model->transform[i]));
-				meshBoundingBoxes.push_back(instanceMeshBB);
+				m.boundingBox.Transform(instanceMeshBB, TransposeLoad(model->transform.getTransform(i)));
+				DirectX::BoundingBox subInstanceMeshBB;
+				for (UINT j = 0; j < m.meshTransform.getInstanceCount(); j++) {
+					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(m.meshTransform.getTransform(i)));
+					meshBoundingBoxes.push_back(subInstanceMeshBB);
+				}
 			}
 			if (frustrumCull && std::all_of(meshBoundingBoxes.begin(), meshBoundingBoxes.end(), [this](DirectX::BoundingBox b) {return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
 				meshIndex++;
@@ -394,9 +390,10 @@ void RenderPipelineStage::drawRenderObjects() {
 			}
 
 			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
+			m.meshTransform.bindTransformToRoot(renderStageDesc.perMeshTransformCBSlot, gFrameIndex, mCommandList.Get());
 
 			mCommandList->DrawIndexedInstanced(m.indexCount,
-				model->instanceCount, m.startIndexLocation, m.baseVertexLocation, 0);
+				model->transform.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
 
 			meshIndex++;
 		}
@@ -416,7 +413,8 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
 		DirectX::BoundingBox modelBB;
-		model->GetBoundingBox().Transform(modelBB, DirectX::XMLoadFloat4x4(&model->transform));
+		auto transform = model->transform.getTransform(modelIndex);
+		model->GetBoundingBox().Transform(modelBB, DirectX::XMLoadFloat4x4(&transform));
 		DirectX::ContainmentType containType = frustrum.Contains(modelBB);
 		if (containType == DirectX::ContainmentType::DISJOINT) {
 			modelIndex++;
@@ -464,7 +462,7 @@ void RenderPipelineStage::drawOcclusionQuery() {
 
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
-		mCommandList->DrawInstanced(1, i >= renderObjects.size() ? 1 : renderObjects[i]->instanceCount, i, 0);
+		mCommandList->DrawInstanced(1, i >= renderObjects.size() ? 1 : renderObjects[i]->transform.getInstanceCount(), i, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
 	auto copyTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST);

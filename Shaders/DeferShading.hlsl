@@ -110,7 +110,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		uint ray_instance_mask = 0xffffffff;
 
 		RayDesc ray;
-		ray.TMin = 3.0f;
+		ray.TMin = 0.01f;
 		ray.TMax = distance(lightPos, worldPos);
 		ray.Origin = worldPos;
 		ray.Direction = lightDir;

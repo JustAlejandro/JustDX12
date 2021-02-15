@@ -68,12 +68,11 @@ struct Accessor {
 	UINT32 Count;
 };
 
-MeshletModel::MeshletModel(std::string name, std::string dir, bool usesRT) {
+MeshletModel::MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device) : transform(device) {
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
 	this->usesRT = usesRT;
-	transform = Identity();
 }
 
 HRESULT MeshletModel::LoadFromFile(const std::string fileName) {

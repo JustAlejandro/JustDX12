@@ -1,5 +1,8 @@
 #include "Settings.h"
 
+UINT gFrameIndex = 0;
+UINT gFrame = 0;
+
 UINT gRtvDescriptorSize = 0;
 UINT gDsvDescriptorSize = 0;
 UINT gCbvSrvUavDescriptorSize = 0;

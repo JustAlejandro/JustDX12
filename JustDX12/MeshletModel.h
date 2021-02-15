@@ -117,8 +117,7 @@ struct MeshletMesh {
 
 class MeshletModel {
 public:
-	MeshletModel() = default;
-	MeshletModel(std::string name, std::string dir, bool usesRT);
+	MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device);
 	HRESULT LoadFromFile(const std::string fileName);
 	HRESULT UploadGpuResources(ID3D12Device5* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList);
 	
@@ -134,7 +133,6 @@ public:
 
 	bool loaded = false;
 	bool usesRT = false;
-	DirectX::XMFLOAT4X4 transform;
 	std::string name;
 	std::string dir;
 
@@ -143,6 +141,8 @@ public:
 	bool allTexturesLoaded();
 
 	bool texturesBound = false;
+
+	TransformData transform;
 
 private:
 	// Trying to make repeated checks faster

@@ -53,6 +53,9 @@ Microsoft::WRL::ComPtr<IDxcBlob> compileShader(
 
 DirectX::XMFLOAT4X4 Identity();
 
+DirectX::XMMATRIX TransposeLoad(DirectX::XMFLOAT4X4 matrix);
+DirectX::XMMATRIX TransposeLoad(DirectX::XMFLOAT4X4* matrix);
+
 float AverageVector(std::vector<float>& vec);
 
 UINT CalcConstantBufferByteSize(UINT byteSize);

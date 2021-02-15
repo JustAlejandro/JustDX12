@@ -1,8 +1,9 @@
 #include "Common.hlsl"
 
-ConstantBuffer<PerObject> PerObject : register(b0);
+ConstantBuffer<PerObject> PerObjectBuffer : register(b0);
+ConstantBuffer<PerObject> PerMeshBuffer : register(b1);
 
-ConstantBuffer<PerPass> PerPass : register(b1);
+ConstantBuffer<PerPass> PerPass : register(b2);
 
 Texture2D gDiffuseMap : register(t0);
 Texture2D gSpecularMap : register(t1);
@@ -23,12 +24,17 @@ struct VertexIn
 VertexOut VS(VertexIn vin, uint instance : SV_InstanceID)
 {
 	VertexOut vout = (VertexOut) 0.0f;
+
+	uint meshID = instance % PerMeshBuffer.instanceCount;
+	uint objID = instance / PerMeshBuffer.instanceCount;
+
+	float4x4 toWorld = mul(PerMeshBuffer.world[meshID], PerObjectBuffer.world[objID]);
     
-	vout.PosW = mul(float4(vin.PosL, 1.0f), PerObject.world[instance]).xyz;
+	vout.PosW = mul(float4(vin.PosL, 1.0f), toWorld).xyz;
     
-	vout.NormalW = normalize(mul(vin.NormalL, (float3x3) PerObject.world[instance]));
-	vout.TangentW = normalize(mul(vin.TangentL, (float3x3) PerObject.world[instance]));
-	vout.BiNormalW = normalize(mul(vin.BiNormalL, (float3x3) PerObject.world[instance]));
+	vout.NormalW = normalize(mul(vin.NormalL, (float3x3) toWorld));
+	vout.TangentW = normalize(mul(vin.TangentL, (float3x3) toWorld));
+	vout.BiNormalW = normalize(mul(vin.BiNormalL, (float3x3) toWorld));
     
 	vout.PosH = mul(float4(vout.PosW, 1.0f), PerPass.ViewProj);
     

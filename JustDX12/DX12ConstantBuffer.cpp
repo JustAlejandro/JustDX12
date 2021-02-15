@@ -18,6 +18,7 @@ DX12ConstantBuffer::DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device5* 
 		uploadBuffer[i]->Map(0, nullptr, reinterpret_cast<void**>(&mappedData[i]));
 		memcpy(mappedData[i], data->getData(), data->byteSize());
 	}
+	dirtyFrames = CPU_FRAME_COUNT;
 }
 
 DX12ConstantBuffer::~DX12ConstantBuffer() {
@@ -36,12 +37,16 @@ UINT DX12ConstantBuffer::getBufferSize() {
 	return data->byteSize();
 }
 
-void DX12ConstantBuffer::updateBuffer(int index) {
+void DX12ConstantBuffer::updateBuffer(UINT index) {
 	std::unique_lock<std::mutex> lk(dataUpdate);
-	memcpy(mappedData[index], data->getData(), data->byteSize());
+	if (dirtyFrames > 0) {
+		memcpy(mappedData[index], data->getData(), data->byteSize());
+	}
+	dirtyFrames--;
 }
 
 void DX12ConstantBuffer::prepareUpdateBuffer(ConstantBufferData* copySource) {
 	std::unique_lock<std::mutex> lk(dataUpdate);
 	data = copySource->clone();
+	dirtyFrames = CPU_FRAME_COUNT;
 }

@@ -64,7 +64,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 		result.y = result.y * -1.0 + 1.0;
 		result.z = linDepth(result.z);
 		float depthSample = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-		if (depthSample >= result.z || result.z - depthSample > 5.0)
+		if (depthSample >= result.z || result.z - depthSample > 0.2)
 		{
 			outCol += perSample;
 		}

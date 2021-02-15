@@ -40,6 +40,8 @@
     <ClCompile Include="MeshletModel.cpp">
       <Filter>ModelLoading</Filter>
     </ClCompile>
+    <ClCompile Include="TransformData.cpp" />
+    <ClCompile Include="SceneNode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -104,6 +106,8 @@
     </ClInclude>
     <ClInclude Include="IndexedName.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="TransformData.h" />
+    <ClInclude Include="SceneNode.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

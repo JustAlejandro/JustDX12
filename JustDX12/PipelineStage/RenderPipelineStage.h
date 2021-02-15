@@ -16,6 +16,12 @@ struct RenderPipelineDesc {
 	bool supportsRT = false;
 	std::string tlasResourceName = "TLAS";
 	std::string VrsTextureName = "VRS";
+	std::string perObjTransformCB = "PerObjectConstants";
+	int perObjTransformCBSlot = -1;
+	std::string perMeshTransformCB = "PerMeshConstants";
+	int perMeshTransformCBSlot = -1;
+	std::string perObjTransformCBMeshlet = "PerMeshConstantsMeshlet";
+	int perObjTransformCBMeshletSlot = -1;
 	bool usesMeshlets = false;
 	std::vector<RootParamDesc> meshletRootSignature;
 	std::vector<std::pair<MODEL_FORMAT, std::string>> meshletTextureToDescriptor;
@@ -30,9 +36,7 @@ public:
 	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
 	void updateInstanceCount(UINT modelIndex, UINT instanceCount);
 	void updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
-	void updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMMATRIX transform);
 	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);
-	void updateMeshletTransform(UINT modelIndex, DirectX::XMMATRIX transform);
 	void setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS);
 	~RenderPipelineStage();
 

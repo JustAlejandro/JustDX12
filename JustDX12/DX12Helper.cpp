@@ -136,6 +136,14 @@ DirectX::XMFLOAT4X4 Identity() {
 	return I;
 }
 
+DirectX::XMMATRIX TransposeLoad(DirectX::XMFLOAT4X4 matrix) {
+	return TransposeLoad(&matrix);
+}
+
+DirectX::XMMATRIX TransposeLoad(DirectX::XMFLOAT4X4* matrix) {
+	return DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(matrix));
+}
+
 float AverageVector(std::vector<float>& vec) {
 	float sum = 0.0f;
 	for (const float& num : vec) {

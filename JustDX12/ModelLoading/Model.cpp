@@ -5,10 +5,11 @@
 #include "DX12App.h"
 #include "Settings.h"
 #include "TextureLoader.h"
+#include "ConstantBufferTypes.h"
 
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
-Model::Model(std::string name, std::string dir, bool usesRT) {
+Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT) : transform(device) {
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
@@ -19,14 +20,17 @@ Model::Model(std::string name, std::string dir, bool usesRT) {
 				 std::numeric_limits<FLOAT>::min(),
 				 std::numeric_limits<FLOAT>::min() };
 	this->usesRT = usesRT;
-	instanceCount = 1;
-	transform.push_back(Identity());
+	transform.setInstanceCount(1);
+	transform.setTransform(0, Identity());
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
-	processNode(node, scene, vertices, indices, DirectX::XMMatrixIdentity());
+	processMeshes(scene, vertices, indices, thread->md3dDevice.Get());
+	processNodes(scene);
+	this->scene.calculateFullTransform();
+	refreshAllTransforms();
 	if (scene->HasLights()) {
 		processLights(scene);
 	}
@@ -67,6 +71,13 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 #endif // CLEAR_MODEL_MEMORY
 }
 
+void Model::refreshAllTransforms() {
+	for (Mesh& mesh : meshes) {
+		mesh.updateTransform();
+		mesh.meshTransform.submitUpdatesAll();
+	}
+}
+
 void Model::processLights(const aiScene* scene) {
 	for (int i = 0; i < scene->mNumLights; i++) {
 		lights.push_back(scene->mLights[0][i]);
@@ -84,28 +95,42 @@ void Model::processLights(const aiScene* scene) {
 	}
 }
 
-void Model::processNode(aiNode* node, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX parentTransform) {
-	// Assuming 1 Model per scene (can contain multiple meshes)
-
-	// This is so not safe, but both formats use the same storage, so for testing it's fine.
-	DirectX::XMFLOAT4X4 nodeTrans(&node->mTransformation.a1);
-	DirectX::XMMATRIX transform = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&nodeTrans)), parentTransform);
-
-	if (std::string(node->mName.C_Str()) == "Manhole3") {
-		OutputDebugStringA("MANHOLE");		
-	}
-	for (int i = 0; i < node->mNumMeshes; i++) {
-		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-		meshes.push_back(processMesh(mesh, scene, vertices, indices, transform));
-	}
-
-	for (int i = 0; i < node->mNumChildren; i++) {
-		processNode(node->mChildren[i], scene, vertices, indices, transform);
+void Model::processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
+	for (int i = 0; i < scene->mNumMeshes; i++) {
+		meshes.push_back(processMesh(scene->mMeshes[i], scene, vertices, indices, device));
 	}
 }
 
-Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, DirectX::XMMATRIX selfTransform) {
-	Mesh meshStorage;
+void Model::processNodes(const aiScene* scene) {
+	SceneNode* currentNode = &this->scene;
+	aiNode* currentAiNode = scene->mRootNode;
+	currentNode->name = currentAiNode->mName.C_Str();
+	DirectX::XMFLOAT4X4 nodeTrans(&currentAiNode->mTransformation.a1);
+	DirectX::XMStoreFloat4x4(&currentNode->transform, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&nodeTrans)));
+
+	std::queue<std::pair<SceneNode*, aiNode*>> nodes;
+	nodes.push(std::make_pair(currentNode, currentAiNode));
+	while (!nodes.empty()) {
+		currentNode = nodes.front().first;
+		currentAiNode = nodes.front().second;
+		nodes.pop();
+
+		for (int i = 0; i < currentAiNode->mNumChildren; i++) {
+			DirectX::XMFLOAT4X4 childTranform = DirectX::XMFLOAT4X4(&currentAiNode->mChildren[i]->mTransformation.a1);
+			DirectX::XMStoreFloat4x4(&childTranform, DirectX::XMLoadFloat4x4(&childTranform));
+			nodes.push(std::make_pair(currentNode->addChild(childTranform, currentAiNode->mChildren[i]->mName.C_Str()), currentAiNode->mChildren[i]));
+		}
+
+		for (int j = 0; j < currentAiNode->mNumMeshes; j++) {
+			meshes[currentAiNode->mMeshes[j]].registerInstance(currentNode);
+		}
+	}
+	this->scene.calculateFullTransform();
+}
+
+Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
+	Mesh meshStorage(device);
+
 	meshStorage.minPoint = { std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max() };
@@ -117,20 +142,16 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 	for (int i = 0; i < mesh->mNumVertices; i++) {
 		Vertex vertex;
 
-		DirectX::XMVECTOR pos = DirectX::XMVectorSet(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z, 1.0f);
-		DirectX::XMStoreFloat3(&vertex.pos, DirectX::XMVector4Transform(pos, selfTransform));
+		vertex.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
 
 		meshStorage.typeFlags |= MODEL_FORMAT_POSITON;
 
 		if (mesh->HasNormals()) {
 			meshStorage.typeFlags |= MODEL_FORMAT_NORMAL;
 			vertex.norm = { mesh->mNormals[i].x, mesh->mNormals[i].y,mesh->mNormals[i].z };
-			DirectX::XMStoreFloat3(&vertex.norm, DirectX::XMVector4Transform(DirectX::XMVectorSet(vertex.norm.x, vertex.norm.y, vertex.norm.z, 0.0f), selfTransform));
 			if (mesh->HasTangentsAndBitangents()) {
 				vertex.tan = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
-				DirectX::XMStoreFloat3(&vertex.tan, DirectX::XMVector4Transform(DirectX::XMVectorSet(vertex.tan.x, vertex.tan.y, vertex.tan.z, 0.0f), selfTransform));
 				vertex.biTan = { mesh->mBitangents[i].x,mesh->mBitangents[i].y,mesh->mBitangents[i].z };
-				DirectX::XMStoreFloat3(&vertex.biTan, DirectX::XMVector4Transform(DirectX::XMVectorSet(vertex.biTan.x, vertex.biTan.y, vertex.biTan.z, 0.0f), selfTransform));
 			}
 		}
 		
