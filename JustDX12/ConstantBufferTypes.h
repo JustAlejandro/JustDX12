@@ -15,12 +15,12 @@ public:
 		DirectX::XMFLOAT2 padding = {0.0f, 0.0f};
 		DirectX::XMFLOAT4X4 viewProj = Identity();
 		int rayCount = 3;
-		float rayLength = 1.0f;
+		float rayLength = 0.05f;
 		int TAA = 0;
 		float range = 0.0f;
 		float rangeXNear = 0.0f;
 		int shadowSteps = 10;
-		float shadowStepSize = 0.5f;
+		float shadowStepSize = 0.05f;
 	};
 
 	SSAOConstantsStruct data;

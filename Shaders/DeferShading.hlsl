@@ -89,7 +89,7 @@ float linDepth(float depth) {
 float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 worldPos, float3 normal) {
 	float unoccluded = 1.0;
 	if (SSAOSettings.showSSShadows) {
-		worldPos += normal;
+		worldPos += normal / 100.0f;
 		for (int j = 0; j < SSAOSettings.shadowSteps; j++) {
 			worldPos.xyz += lightDir * SSAOSettings.shadowStepSize;
 			float4 result = mul(float4(worldPos, 1.0f), SSAOSettings.ViewProj);
@@ -98,7 +98,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 			result.y = result.y * -1.0 + 1.0;
 			result.z = linDepth(result.z);
 			float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-			if (compareDepth < result.z && result.z - compareDepth < 10.0) {
+			if (compareDepth < result.z && result.z - compareDepth < 1.0) {
 				unoccluded -= (1.0f / SSAOSettings.shadowSteps);
 			}
 		}
@@ -187,7 +187,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 		float3 lightVec = -LightData.lights[j].dir;
 
 		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color * 0.8, 1.0f, true)
-			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.viewPos + lightVec * 1000.0f, worldPos, normal);
+			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.viewPos + lightVec * 10000.0f, worldPos, normal);
 	}
 
 	float3 ambient = 0.05 * albedo;

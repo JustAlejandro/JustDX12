@@ -325,10 +325,12 @@ void RenderPipelineStage::bindRenderTarget() {
 }
 
 void RenderPipelineStage::drawRenderObjects() {
-	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
+	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	int meshIndex = 0;
 	int modelIndex = 0;
 	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
+		D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_OVERRIDE };
+		mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_1X1, combiners);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
@@ -375,7 +377,7 @@ void RenderPipelineStage::drawRenderObjects() {
 				m.boundingBox.Transform(instanceMeshBB, TransposeLoad(model->transform.getTransform(i)));
 				DirectX::BoundingBox subInstanceMeshBB;
 				for (UINT j = 0; j < m.meshTransform.getInstanceCount(); j++) {
-					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(m.meshTransform.getTransform(i)));
+					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(m.meshTransform.getTransform(j)));
 					meshBoundingBoxes.push_back(subInstanceMeshBB);
 				}
 			}
@@ -393,7 +395,7 @@ void RenderPipelineStage::drawRenderObjects() {
 			m.meshTransform.bindTransformToRoot(renderStageDesc.perMeshTransformCBSlot, gFrameIndex, mCommandList.Get());
 
 			mCommandList->DrawIndexedInstanced(m.indexCount,
-				model->transform.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
+				model->transform.getInstanceCount() * m.meshTransform.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
 
 			meshIndex++;
 		}
@@ -448,7 +450,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 }
 
 void RenderPipelineStage::drawOcclusionQuery() {
-	//PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
+	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
 	// Have to rebind if we're using meshlets.
 	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 	mCommandList->SetPipelineState(occlusionPSO.Get());

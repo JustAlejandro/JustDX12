@@ -1,8 +1,4 @@
 // Basic SSAO Implementation
-
-// TAA Flag is included because ray sampling
-// should be random if we denoise and constant
-// if we don't, to avoid shimmering
 #include "Common.hlsl"
 
 
@@ -47,7 +43,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	float3 inBinormal = normalize(cross(inNormal, inTan));
 	float3x3 TBN = float3x3(inTan, inBinormal, inNormal);
 	
-	float4 worldPos = worldTex[dispatchThreadID.xy] + float4(inNormal, 0.0);
+	float4 worldPos = worldTex[dispatchThreadID.xy] + float4(inNormal / 100.0f, 0.0);
 	
 	float outCol = 0.0f;
 	
@@ -55,7 +51,9 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	
 	for (int i = 0; i < SSAOSettings.rayCount; i++)
 	{
-		float3 sample = mul(noiseTex[wrapNoiseEdges(int2(dispatchThreadID.x * SSAOSettings.rayCount + i,dispatchThreadID.y * SSAOSettings.rayCount + i))].xyz, TBN);
+		float3 randVec = noiseTex[wrapNoiseEdges(int2(dispatchThreadID.x * SSAOSettings.rayCount + i, dispatchThreadID.y * SSAOSettings.rayCount + i))].xyz;
+		randVec.xy = (randVec.xy - 0.5f * 2.0f);
+		float3 sample = mul(randVec, TBN);
 		sample = worldPos.xyz + sample * SSAOSettings.rayLength;
 		
 		float4 result = mul(float4(sample, 1.0f), SSAOSettings.ViewProj);
@@ -64,7 +62,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 		result.y = result.y * -1.0 + 1.0;
 		result.z = linDepth(result.z);
 		float depthSample = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-		if (depthSample >= result.z || result.z - depthSample > 0.2)
+		if (depthSample >= result.z || result.z - depthSample > 0.1)
 		{
 			outCol += perSample;
 		}

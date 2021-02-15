@@ -638,7 +638,7 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
-		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 0.01f);
+		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 0.1f);
 		ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
 		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
 		ImGui::EndTabItem();
