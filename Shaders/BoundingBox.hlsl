@@ -1,8 +1,9 @@
 #include "Common.hlsl"
 
-ConstantBuffer<PerObject> PerObject : register(b0);
+ConstantBuffer<PerObject> PerObjectBuffer : register(b0);
+ConstantBuffer<PerObject> PerMeshBuffer : register(b1);
 
-ConstantBuffer<PerPass> PerPass : register(b1);
+ConstantBuffer<PerPass> PerPass : register(b2);
 
 struct VBoundingBoxIn
 {
@@ -29,8 +30,8 @@ struct PBoundingBoxOut
 VBoundingBoxOut VS(VBoundingBoxIn vin, uint instance : SV_InstanceID)
 {
 	VBoundingBoxOut vout;
-	vout.center = mul(float4(vin.center, 1.0f), PerObject.world[instance]).xyz;
-	vout.extents = mul(float4(vin.extents, 0.0f), PerObject.world[instance]).xyz;
+	vout.center = mul(float4(vin.center, 1.0f), PerObjectBuffer.world[instance]).xyz;
+	vout.extents = mul(float4(vin.extents, 0.0f), PerObjectBuffer.world[instance]).xyz;
 	return vout;
 }
 

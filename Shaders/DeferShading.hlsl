@@ -19,6 +19,7 @@ struct PixelOutMerge {
 
 ConstantBuffer<LightData> LightData : register(b0);
 ConstantBuffer<SSAOSettings> SSAOSettings : register(b1);
+ConstantBuffer<PerPass> PerPass : register(b2);
 
 Texture2D depthTex : register(t0);
 Texture2D colorTex : register(t1);
@@ -110,9 +111,9 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		uint ray_instance_mask = 0xffffffff;
 
 		RayDesc ray;
-		ray.TMin = 0.001f;
+		ray.TMin = 0.03f;
 		ray.TMax = distance(lightPos, worldPos);
-		ray.Origin = worldPos + normal / 100.0f;
+		ray.Origin = worldPos;
 		ray.Direction = lightDir;
 		query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
 
@@ -165,7 +166,9 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	float metallic = specSample.z;
 	float emmisive = specSample.w;
 
-	float3 worldPos = worldTex.Sample(gsamPoint, vout.TexC).xyz;
+	float depth = depthTex.Sample(gsamPoint, vout.TexC).x;
+	float3 worldPos = positionFromDepthVal(depth, vout.TexC, PerPass);
+
 	float3 viewDir = normalize(LightData.viewPos - worldPos);
 	float3 normal = normalTex.Sample(gsamPoint, vout.TexC).xyz;
 	float3 viewReflect = reflect(-viewDir, normal);

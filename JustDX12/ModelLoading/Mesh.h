@@ -30,6 +30,8 @@ struct Vertex {
 	DirectX::XMFLOAT2 texC;
 };
 
+class Model;
+
 struct Mesh {
 	UINT typeFlags = 0;
 	UINT indexCount = 0;
@@ -45,6 +47,7 @@ struct Mesh {
 
 	std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
 
+	Model* parent;
 	TransformData meshTransform;
 	std::array<SceneNode*, MAX_INSTANCES> instanceNodes;
 

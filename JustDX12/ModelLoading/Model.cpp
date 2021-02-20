@@ -85,6 +85,7 @@ void Model::processLights(const aiScene* scene) {
 void Model::processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
 	for (int i = 0; i < scene->mNumMeshes; i++) {
 		meshes.push_back(processMesh(scene->mMeshes[i], scene, vertices, indices, device));
+		meshes.back().parent = this;
 	}
 }
 

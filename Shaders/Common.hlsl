@@ -36,6 +36,15 @@ struct PerPass
 	int renderVRS;
 };
 
+float3 positionFromDepthVal(float depth, float2 texCoord, PerPass PerPassData) {
+	float4 pos = float4(texCoord * 2.0f - 1.0f, depth, 1.0f);
+	pos.y = -pos.y;
+	pos = mul(pos, PerPassData.InvProj);
+	pos = pos / pos.w;
+	pos = mul(pos, PerPassData.InvView);
+	return pos.xyz;
+}
+
 struct SSAOSettings {
 	bool showSSAO;
 	bool showSSShadows;

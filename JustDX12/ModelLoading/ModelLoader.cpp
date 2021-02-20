@@ -257,7 +257,7 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 
 	// Have to tell the TLAS what instances are where (thing like instanced draw calls)
 	tlasScratch.pInstanceDesc = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, gUploadHeapDesc);
-	instanceScratch[frame % CPU_FRAME_COUNT] = tlasScratch.pInstanceDesc;
+	instanceScratch[gFrameIndex] = tlasScratch.pInstanceDesc;
 	D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs;
 	ThrowIfFailed(tlasScratch.pInstanceDesc->Map(0, nullptr, (void**)&instanceDescs));
 	ZeroMemory(instanceDescs, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs);
@@ -269,7 +269,7 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 	for (int i = 0; i < models.size(); i++) {
 		for (int j = 0; j < models[i]->transform.getInstanceCount(); j++) {
 			auto transform = models[i]->transform.getTransform(j);
-			DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&transform)));
+			DirectX::XMStoreFloat4x4(&identity, (DirectX::XMLoadFloat4x4(&transform)));
 			instanceDescs[instanceIndex].InstanceID = instanceIndex;
 			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;

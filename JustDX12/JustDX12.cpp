@@ -210,7 +210,7 @@ bool DemoApp::initialize() {
 		rasterDesc.shaderFiles.push_back(ShaderDesc("Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines));
 
 		rasterDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
-		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec_pbr.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
 
@@ -279,6 +279,8 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("emissiveTexDesc", "emissiveTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("deferTexDesc", "deferTex", DESCRIPTOR_TYPE_RTV));
 
+		stageDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("PerPassConstants", 0), renderStage->getConstantBuffer(IndexedName("PerPassConstants", 0))));
+
 		stageDesc.externalResources.push_back(std::make_pair("renderDepthTex", renderStage->getResource("depthTex")));
 		stageDesc.externalResources.push_back(std::make_pair("colorTex", renderStage->getResource("albedo")));
 		stageDesc.externalResources.push_back(std::make_pair("specularTex", renderStage->getResource("specular")));
@@ -287,21 +289,22 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("worldTex", renderStage->getResource("worldPos")));
 		stageDesc.externalResources.push_back(std::make_pair("emissiveTex", renderStage->getResource("emissive")));
 		stageDesc.externalResources.push_back(std::make_pair("VRS", renderStage->getResource("VRS")));
-
+		
 		stageDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
 
 		stageDesc.resourceJobs.push_back(ResourceJob("deferTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("TLAS", ROOT_PARAMETER_TYPE_SRV, 3));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("TLAS", ROOT_PARAMETER_TYPE_SRV, 4));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
 
 		stageDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
-		stageDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec.dds"));
+		stageDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec_pbr.dds"));
 		stageDesc.textureFiles.push_back(std::make_pair("default_diff", "default_diff.dds"));
 
 		RenderPipelineDesc mergeRDesc;
@@ -437,9 +440,9 @@ bool DemoApp::initialize() {
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
-	//renderStage->LoadModel(modelLoader, headFile, headDir, true);
-	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
 	renderStage->LoadModel(modelLoader, bistroFile, bistroDir, true);
+	renderStage->LoadModel(modelLoader, headFile, headDir, true);
+	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
@@ -449,6 +452,10 @@ bool DemoApp::initialize() {
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixScaling(scale, scale, scale));
 	renderStage->updateInstanceCount(0, 1);
 	renderStage->updateInstanceTransform(0, 0, perObjCB.data.World[0]);
+	renderStage->updateInstanceCount(1, 1);
+	DirectX::XMFLOAT4X4 headTransform;
+	DirectX::XMStoreFloat4x4(&headTransform, DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixScaling(0.0005f, 0.0005f, 0.0005f), DirectX::XMMatrixTranslation(-18.0, 1.0f, 5.0f))));
+	renderStage->updateInstanceTransform(1, 0, headTransform);
 
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -664,7 +671,7 @@ void DemoApp::ImGuiPrepareUI() {
 void DemoApp::onResize() {
 	DX12App::onResize();
 
-	DirectX::XMMATRIX P = DirectX::XMMatrixPerspectiveFovLH(0.25f * DirectX::XM_PI, getAspectRatio(), 1.0f, 5000.f);
+	DirectX::XMMATRIX P = DirectX::XMMatrixPerspectiveFovLH(0.25f * DirectX::XM_PI, getAspectRatio(), NEAR_Z, FAR_Z);
 	XMStoreFloat4x4(&proj, P);
 }
 
@@ -780,8 +787,8 @@ void DemoApp::UpdateMainPassCB() {
 
 	mainPassCB.data.RenderTargetSize = DirectX::XMFLOAT2((float)mClientWidth, (float)mClientHeight);
 	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
-	mainPassCB.data.NearZ = 1.0f;
-	mainPassCB.data.FarZ = 5000.0f;
+	mainPassCB.data.NearZ = NEAR_Z;
+	mainPassCB.data.FarZ = FAR_Z;
 	mainPassCB.data.DeltaTime = ImGui::GetIO().DeltaTime;
 	mainPassCB.data.TotalTime += mainPassCB.data.DeltaTime;
 	mainPassCB.data.renderVRS = renderVRS;
