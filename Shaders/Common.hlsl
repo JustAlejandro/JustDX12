@@ -78,8 +78,7 @@ struct PixelOut {
 	float4 specular : SV_Target1;
 	float4 normal : SV_Target2;
 	float4 tangent : SV_Target3;
-	float4 world : SV_Target4;
-	float4 emissive : SV_Target5;
+	float4 emissive : SV_Target4;
 };
 
 

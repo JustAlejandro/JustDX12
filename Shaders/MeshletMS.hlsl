@@ -104,6 +104,5 @@ PixelOut PS(VertexOut pin)
 	
 	p.normal = float4(normalize(mul(inNormal,TBN)), 1.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
-	p.world = float4(pin.PosW, 1.0f);
 	return p;
 }

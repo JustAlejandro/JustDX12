@@ -26,10 +26,9 @@ Texture2D colorTex : register(t1);
 Texture2D specTex : register(t2);
 Texture2D normalTex : register(t3);
 Texture2D tangentTex : register(t4);
-Texture2D worldTex : register(t5);
-Texture2D emissiveTex : register(t6);
+Texture2D emissiveTex : register(t5);
 
-RaytracingAccelerationStructure TLAS : register(t7);
+RaytracingAccelerationStructure TLAS : register(t6);
 
 SamplerState gsamPoint : register(s1);
 

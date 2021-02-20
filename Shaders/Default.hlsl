@@ -98,7 +98,6 @@ PixelOut PS(VertexOut pin)
 	p.specular = float4(gSpecularMap.Sample(anisoWrap, pin.TexC).xyz, 1.0f);
 	p.normal = float4(normalize(mul(inNormal,TBN)), 0.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
-	p.world = float4(pin.PosW, 1.0f);
 	p.emissive = gEmissiveMap.Sample(anisoWrap, pin.TexC);
 	return p;
 }
