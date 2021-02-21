@@ -21,6 +21,7 @@ struct AccelerationStructureBuffers {
 class ModelLoader: public TaskQueueThread {
 public:
 	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
+	bool allModelsLoaded();
 	std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
 	Model* loadModel(std::string name, std::string dir, bool usesRT);
 	MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);

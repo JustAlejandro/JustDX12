@@ -13,7 +13,6 @@ class DX12Texture;
 
 class Model {
 public:
-	bool loaded;
 	bool usesRT;
 	TransformData transform;
 	std::vector<aiLight> lights;
@@ -37,6 +36,7 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 
 	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
+	bool isLoaded();
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 	void refreshAllTransforms();
 	void refreshBoundingBox();

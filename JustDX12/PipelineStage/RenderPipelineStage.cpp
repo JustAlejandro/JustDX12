@@ -7,6 +7,7 @@
 #include "MeshletModel.h"
 #include <d3dx12.h>
 #include <DirectXCollision.h>
+#include "ResourceDecay.h"
 
 RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
 	: PipelineStage(d3dDevice), renderStageDesc(renderDesc) {
@@ -522,9 +523,10 @@ void RenderPipelineStage::BuildInputLayout() {
 }
 
 void RenderPipelineStage::setupRenderObjects() {
+	ResourceDecay::CheckDestroy();
 	int index = 0;
 	for (auto& renderObj : renderObjects) {
-		if (!renderObj->loaded) {
+		if (!renderObj->isLoaded()) {
 			return;
 		}
 		for (auto& mesh : renderObj->meshes) {

@@ -6,16 +6,20 @@
 #include "Settings.h"
 #include "TextureLoader.h"
 #include "ConstantBufferTypes.h"
+#include "ResourceDecay.h"
 
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
 Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT) : transform(device) {
-	loaded = false;
 	this->name = name;
 	this->dir = dir;
 	this->usesRT = usesRT;
 	transform.setInstanceCount(1);
 	transform.setTransform(0, Identity());
+}
+
+bool Model::isLoaded() {
+	return (indexBufferGPU.Get() != nullptr) && (vertexBufferGPU.Get() != nullptr);
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
@@ -39,11 +43,10 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
 
-	vertexBufferGPU = CreateDefaultBuffer(thread->md3dDevice.Get(),
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer = CreateDefaultBuffer(thread->md3dDevice.Get(),
 		thread->mCommandList.Get(),
 		vertices.data(), vertexBufferByteSize, vertexBufferUploader);
-
-	indexBufferGPU = CreateDefaultBuffer(thread->md3dDevice.Get(),
+	Microsoft::WRL::ComPtr<ID3D12Resource> indexBuffer = CreateDefaultBuffer(thread->md3dDevice.Get(),
 		thread->mCommandList.Get(),
 		indices.data(), indexBufferByteSize, indexBufferUploader);
 
@@ -51,8 +54,11 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	ID3D12CommandList* cmdLists[] = { thread->mCommandList.Get() };
 	thread->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-	// Wait for the upload to finish before moving on.
-	thread->waitOnFence();
+	// the ResourceDecay class will tell the model about the resource only once the copy is completed.
+	int fenceVal = thread->getFenceValue() + 1;
+	ResourceDecay::DestroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), vertexBuffer, &vertexBufferGPU);
+	ResourceDecay::DestroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), indexBuffer, &indexBufferGPU);
+	thread->setFence(fenceVal);
 
 #ifdef CLEAR_MODEL_MEMORY
 	std::vector<Vertex>().swap(vertices);

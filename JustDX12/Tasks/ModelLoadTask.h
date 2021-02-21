@@ -37,8 +37,6 @@ public:
 		else {
 			OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 			model->setup(taskQueueThread, scene->mRootNode, scene);
-			model->loaded = true;
-			OutputDebugStringA(("Finished Upload Model: " + model->name + "\n").c_str());
 		}
 	}
 

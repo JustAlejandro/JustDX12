@@ -17,6 +17,7 @@
 
 #include <random>
 #include <ctime>
+#include <ResourceDecay.h>
 
 
 std::string baseDir = "..\\Models";
@@ -435,6 +436,9 @@ bool DemoApp::initialize() {
 	renderStage->LoadModel(modelLoader, bistroFile, bistroDir, true);
 	renderStage->LoadModel(modelLoader, headFile, headDir, true);
 	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
+	while (!modelLoader->allModelsLoaded()) {
+		ResourceDecay::CheckDestroy();
+	}
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
@@ -488,6 +492,8 @@ void DemoApp::update() {
 
 	gFrame++;
 	gFrameIndex = gFrame % CPU_FRAME_COUNT;
+
+	ResourceDecay::CheckDestroy();
 
 	mCurrFrameResourceIndex = gFrameIndex;
 	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();

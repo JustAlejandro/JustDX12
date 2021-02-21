@@ -68,7 +68,7 @@ struct Mesh {
 		if (texturesLoaded) return true;
 
 		for (const auto& texture : textures) {
-			if (texture.second->status == TEX_STATUS_NOT_LOADED) {
+			if (texture.second->get() == nullptr) {
 				return false;
 			}
 		}

@@ -62,6 +62,8 @@ UINT CalcConstantBufferByteSize(UINT byteSize);
 
 UINT CalcBufferByteSize(UINT byteSize, UINT alignment);
 
+HANDLE EventFromFence(ID3D12Fence* fence, int destVal);
+
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal);
 
 void WaitOnMultipleFencesForever(std::vector<ID3D12Fence*> fences, std::vector<UINT64> destVals, ID3D12Device1* device);

@@ -6,6 +6,19 @@ ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
 
 }
+bool ModelLoader::allModelsLoaded() {
+	for (auto& model : loadedModels) {
+		if (!model.second.isLoaded()) {
+			return false;
+		}
+	}
+	for (auto& meshletModel : loadedMeshlets) {
+		if (!meshletModel.second.loaded) {
+			return false;
+		}
+	}
+	return true;
+}
 std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot) {
 	std::vector<Light> pointLights;
 	std::vector<Light> directionalLights;

@@ -5,6 +5,7 @@
 #include <d3dx12.h>
 #include "TextureLoadTask.h"
 #include "DX12App.h"
+#include "ResourceDecay.h"
 
 TextureLoader& TextureLoader::getInstance() {
 	static TextureLoader instance(DX12App::getDevice());
@@ -57,13 +58,14 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 	tex->MetaData.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	tex->MetaData.Alignment = 0;
 
+	Microsoft::WRL::ComPtr<ID3D12Resource> textureData;
 	md3dDevice->CreateCommittedResource(
 		&gDefaultHeapDesc,
 		D3D12_HEAP_FLAG_NONE,
 		&tex->MetaData,
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
-		IID_PPV_ARGS(tex->resource.GetAddressOf()));
+		IID_PPV_ARGS(textureData.GetAddressOf()));
 
 	UINT64 textureMemorySize = 0;
 	// 30 is what I'm expecting the max of mip levels * array size to be
@@ -127,7 +129,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 
 	for (int subResourceIndex = 0; subResourceIndex < numSubResources; subResourceIndex++) {
 		D3D12_TEXTURE_COPY_LOCATION dest = {};
-		dest.pResource = tex->resource.Get();
+		dest.pResource = textureData.Get();
 		dest.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 		dest.SubresourceIndex = subResourceIndex;
 
@@ -145,9 +147,9 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-	// Wait for the upload to finish before moving on.
-	// This is very inefficient, but it's easy.
-	waitOnFence();
+	int fenceVal = getFenceValue() + 1;
+	ResourceDecay::DestroyOnEventAndFillPointer(UploadHeap, EventFromFence(getFence().Get(), fenceVal), textureData, &tex->resource);
+	setFence(fenceVal);
 	tex->curState = D3D12_RESOURCE_STATE_COPY_DEST;
 	tex->format = tex->MetaData.Format;
 	tex->type = DESCRIPTOR_TYPE_SRV;

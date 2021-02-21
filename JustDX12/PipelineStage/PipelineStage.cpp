@@ -4,6 +4,7 @@
 #include "DX12Helper.h"
 #include "ModelLoading\TextureLoader.h"
 #include <set>
+#include "ResourceDecay.h"
 
 using namespace Microsoft::WRL;
 
@@ -17,7 +18,11 @@ PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3
 void PipelineStage::LoadTextures(std::vector<std::pair<std::string,std::string>> textureFiles) {
 	TextureLoader& tloader = TextureLoader::getInstance();
 	for (const auto& file : textureFiles) {
-		 resourceManager.importResource(file.first, tloader.deferLoad(file.second, "..\\Models\\"));
+		DX12Resource* tex = tloader.deferLoad(file.second, "..\\Models\\");
+		while (!tex->get()) {
+			ResourceDecay::CheckDestroy();
+		}
+		resourceManager.importResource(file.first, tex);
 	}
 }
 

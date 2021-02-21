@@ -165,6 +165,14 @@ UINT CalcBufferByteSize(UINT byteSize, UINT alignment) {
 	return (byteSize + (alignment-1)) & ~(alignment-1);
 }
 
+HANDLE EventFromFence(ID3D12Fence* fence, int destVal) {
+	HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+
+	fence->SetEventOnCompletion(destVal, eventHandle);
+
+	return eventHandle;
+}
+
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) {
 	if (fence->GetCompletedValue() < destVal) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
