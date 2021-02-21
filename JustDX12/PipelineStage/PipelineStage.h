@@ -82,7 +82,6 @@ struct PipeLineStageDesc {
 	std::vector<std::pair<IndexedName, DX12ConstantBuffer*>> externalConstantBuffers;
 	std::vector<std::pair<std::string, DX12Resource*>> externalResources;
 	std::vector<std::pair<std::string, std::string>> textureFiles;
-	std::vector<RenderTargetDesc> renderTargets;
 };
 
 class PipelineStage : public TaskQueueThread {
@@ -141,9 +140,6 @@ protected:
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
 
 	std::vector<RootParamDesc> rootParameterDescs[DESCRIPTOR_USAGE_MAX];
-	std::vector<RenderTargetDesc> renderTargetDescs;
-
-	DX12Resource* output = nullptr;
 
 	ResourceManager resourceManager;
 	DescriptorManager descriptorManager;

@@ -190,7 +190,6 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	for (std::pair<std::string, DX12Resource*>& res : stageDesc.externalResources) {
 		resourceManager.importResource(res.first, res.second);
 	}
-	renderTargetDescs = stageDesc.renderTargets;
 	BuildRootSignature(rootSignature, stageDesc.rootSigDesc, rootParameterDescs);
 	BuildResources(stageDesc.resourceJobs);
 	BuildConstantBuffers(stageDesc.constantBufferJobs);

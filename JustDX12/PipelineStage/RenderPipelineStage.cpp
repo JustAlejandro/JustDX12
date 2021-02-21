@@ -111,9 +111,9 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.DepthStencilState.DepthEnable = renderStageDesc.usesDepthTex;
 	graphicsPSO.SampleMask = UINT_MAX;
 	graphicsPSO.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	graphicsPSO.NumRenderTargets = renderTargetDescs.size();
-	for (int i = 0; i < renderTargetDescs.size(); i++) {
-		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderTargetDescs[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
+	graphicsPSO.NumRenderTargets = renderStageDesc.renderTargets.size();
+	for (int i = 0; i < renderStageDesc.renderTargets.size(); i++) {
+		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderStageDesc.renderTargets[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 	}
 	graphicsPSO.SampleDesc.Count = 1;
 	graphicsPSO.SampleDesc.Quality = 0;
@@ -133,9 +133,9 @@ void RenderPipelineStage::BuildPSO() {
 		meshPSODesc.MS.BytecodeLength = shadersByType[SHADER_TYPE_MS]->GetBufferSize();
 		meshPSODesc.PS.pShaderBytecode = shaders["Mesh Pixel Shader"]->GetBufferPointer();
 		meshPSODesc.PS.BytecodeLength = shaders["Mesh Pixel Shader"]->GetBufferSize();
-		meshPSODesc.NumRenderTargets = renderTargetDescs.size();
-		for (int i = 0; i < renderTargetDescs.size(); i++) {
-			meshPSODesc.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderTargetDescs[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
+		meshPSODesc.NumRenderTargets = renderStageDesc.renderTargets.size();
+		for (int i = 0; i < renderStageDesc.renderTargets.size(); i++) {
+			meshPSODesc.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderStageDesc.renderTargets[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 		}
 		meshPSODesc.SampleDesc.Count = 1;
 		meshPSODesc.SampleDesc.Quality = 0;
@@ -158,7 +158,7 @@ void RenderPipelineStage::BuildPSO() {
 	if (renderStageDesc.supportsCulling) {
 		// Setting up second PSO for predication occlusion.
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC occlusionPSODesc = graphicsPSO;
-		for (int i = 0; i < renderTargetDescs.size(); i++) {
+		for (int i = 0; i < renderStageDesc.renderTargets.size(); i++) {
 			occlusionPSODesc.BlendState.RenderTarget[i].RenderTargetWriteMask = 0;
 		}
 		occlusionPSODesc.InputLayout = { occlusionInputLayout.data(),(UINT)occlusionInputLayout.size() };
@@ -311,15 +311,15 @@ void RenderPipelineStage::bindRenderTarget() {
 	}
 
 	float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	for (auto& target : renderTargetDescs) {
+	for (auto& target : renderStageDesc.renderTargets) {
 		mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(IndexedName(target.descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 			clearColor,
 			0,
 			nullptr);
 	}
 
-	mCommandList->OMSetRenderTargets(renderTargetDescs.size(),
-		&descriptorManager.getDescriptor(IndexedName(renderTargetDescs[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
+	mCommandList->OMSetRenderTargets(renderStageDesc.renderTargets.size(),
+		&descriptorManager.getDescriptor(IndexedName(renderStageDesc.renderTargets[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
 		depthHandle);
 }

@@ -176,12 +176,6 @@ bool DemoApp::initialize() {
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
 		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
 
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("albedoDesc", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("specularDesc", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("normalDesc", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
-		rasterDesc.renderTargets.push_back(RenderTargetDesc("emissiveDesc", 0));
-
 		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize), DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize)));
 		rasterDesc.resourceJobs.push_back(ResourceJob("albedo", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("specular", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
@@ -212,6 +206,11 @@ bool DemoApp::initialize() {
 		rasterDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
 
 		RenderPipelineDesc rDesc;
+		rDesc.renderTargets.push_back(RenderTargetDesc("albedoDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("specularDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("normalDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("emissiveDesc", 0));
 		rDesc.usesMeshlets = true;
 		rDesc.perObjTransformCB = "PerObjConstants";
 		rDesc.perObjTransformCBSlot = 0;
@@ -284,8 +283,6 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("tangentTex", renderStage->getResource("tangent")));
 		stageDesc.externalResources.push_back(std::make_pair("emissiveTex", renderStage->getResource("emissive")));
 		stageDesc.externalResources.push_back(std::make_pair("VRS", renderStage->getResource("VRS")));
-		
-		stageDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
 
 		stageDesc.resourceJobs.push_back(ResourceJob("deferTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
@@ -303,6 +300,7 @@ bool DemoApp::initialize() {
 		stageDesc.textureFiles.push_back(std::make_pair("default_diff", "default_diff.dds"));
 
 		RenderPipelineDesc mergeRDesc;
+		mergeRDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
 		mergeRDesc.supportsVRS = true;
 		mergeRDesc.supportsCulling = false;
 		mergeRDesc.usesMeshlets = false;
@@ -340,7 +338,7 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputColor", renderStage->getResource("albedo")));
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputSpec", renderStage->getResource("specular")));
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputNormals", renderStage->getResource("normal")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("tangent")));
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("tangent"))); 
 
 		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R32_FLOAT));
 
@@ -375,8 +373,6 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("colorTex", deferStage->getResource("deferTex")));
 		stageDesc.externalResources.push_back(std::make_pair("SSAOTex", computeStage->getResource("SSAOOutTexture")));
 
-		stageDesc.renderTargets.push_back(RenderTargetDesc("mergedTexDesc", 0));
-
 		stageDesc.resourceJobs.push_back(ResourceJob("mergedTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2));
@@ -385,6 +381,7 @@ bool DemoApp::initialize() {
 		stageDesc.shaderFiles.push_back(ShaderDesc("Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, { DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)) }));
 
 		RenderPipelineDesc rDesc;
+		rDesc.renderTargets.push_back(RenderTargetDesc("mergedTexDesc", 0));
 		rDesc.supportsCulling = false;
 		rDesc.supportsVRS = false;
 		rDesc.usesMeshlets = false;
