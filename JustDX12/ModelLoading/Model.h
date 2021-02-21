@@ -32,8 +32,6 @@ public:
 	DXGI_FORMAT indexFormat;
 
 	DirectX::BoundingBox boundingBox;
-	DirectX::XMFLOAT3 maxPoint;
-	DirectX::XMFLOAT3 minPoint;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
@@ -41,6 +39,7 @@ public:
 	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 	void refreshAllTransforms();
+	void refreshBoundingBox();
 	void processLights(const aiScene* scene);
 	void processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device);
 	void processNodes(const aiScene* scene);

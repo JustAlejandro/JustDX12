@@ -358,7 +358,6 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		if (renderStageDesc.supportsCulling && occlusionCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(b) != DirectX::ContainmentType::INTERSECTS; })) {
-			DirectX::ContainmentType containType =  frustrum.Contains(model->boundingBox);
 			if (std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS; })) {
 				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)modelIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
@@ -374,10 +373,10 @@ void RenderPipelineStage::drawRenderObjects() {
 			std::vector<DirectX::BoundingBox> meshBoundingBoxes;
 			for (UINT i = 0; i < model->transform.getInstanceCount(); i++) {
 				DirectX::BoundingBox instanceMeshBB;
-				m.boundingBox.Transform(instanceMeshBB, TransposeLoad(model->transform.getTransform(i)));
 				DirectX::BoundingBox subInstanceMeshBB;
 				for (UINT j = 0; j < m.meshTransform.getInstanceCount(); j++) {
-					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(m.meshTransform.getTransform(j)));
+					m.boundingBox.Transform(instanceMeshBB, TransposeLoad(m.meshTransform.getTransform(j)));
+					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(model->transform.getTransform(i)));
 					meshBoundingBoxes.push_back(subInstanceMeshBB);
 				}
 			}
@@ -461,6 +460,12 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	mCommandList->IASetVertexBuffers(0, 1, &occlusionBoundingBoxBufferView);
 	for (int i = 0; i < renderObjects.size() + meshletRenderObjects.size(); i++) {
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
+		if (i < renderObjects.size()) {
+			renderObjects[i]->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
+		}
+		else {
+			meshletRenderObjects[i - renderObjects.size()]->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
+		}
 
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);

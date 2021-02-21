@@ -42,8 +42,6 @@ struct Mesh {
 	UINT boundingBoxIndexLocation = 0;
 
 	DirectX::BoundingBox boundingBox;
-	DirectX::XMFLOAT3 maxPoint;
-	DirectX::XMFLOAT3 minPoint;
 
 	std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
 

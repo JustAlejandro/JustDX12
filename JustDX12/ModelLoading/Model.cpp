@@ -13,12 +13,6 @@ Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool uses
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
-	minPoint = { std::numeric_limits<FLOAT>::max(),
-				 std::numeric_limits<FLOAT>::max(),
-				 std::numeric_limits<FLOAT>::max() };
-	maxPoint = { std::numeric_limits<FLOAT>::min(),
-				 std::numeric_limits<FLOAT>::min(),
-				 std::numeric_limits<FLOAT>::min() };
 	this->usesRT = usesRT;
 	transform.setInstanceCount(1);
 	transform.setTransform(0, Identity());
@@ -32,8 +26,7 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	processNodes(scene);
 	this->scene.calculateFullTransform();
 	refreshAllTransforms();
-
-	boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
+	refreshBoundingBox();
 
 	indexCount = indices.size();
 	vertexCount = vertices.size();
@@ -73,6 +66,21 @@ void Model::refreshAllTransforms() {
 	for (Mesh& mesh : meshes) {
 		mesh.updateTransform();
 		mesh.meshTransform.submitUpdatesAll();
+	}
+}
+
+void Model::refreshBoundingBox() {
+	if (meshes.size() > 0) {
+		meshes[0].boundingBox.Transform(boundingBox, TransposeLoad(meshes[0].meshTransform.getTransform(0)));
+	}
+	DirectX::BoundingBox scratchBB;
+	DirectX::BoundingBox meshBB;
+	for (const auto& mesh : meshes) {
+		for (int i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+			mesh.boundingBox.Transform(meshBB, TransposeLoad(mesh.meshTransform.getTransform(i)));
+			scratchBB = boundingBox;
+			DirectX::BoundingBox::CreateMerged(boundingBox, meshBB, scratchBB);
+		}
 	}
 }
 
@@ -119,12 +127,13 @@ void Model::processNodes(const aiScene* scene) {
 Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
 	Mesh meshStorage(device);
 
-	meshStorage.minPoint = { std::numeric_limits<FLOAT>::max(),
+	DirectX::XMFLOAT3 minPoint = { std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max(),
 							 std::numeric_limits<FLOAT>::max() };
-	meshStorage.maxPoint = { std::numeric_limits<FLOAT>::lowest(),
+	DirectX::XMFLOAT3 maxPoint = { std::numeric_limits<FLOAT>::lowest(),
 							 std::numeric_limits<FLOAT>::lowest(),
 							 std::numeric_limits<FLOAT>::lowest() };
+
 	meshStorage.baseVertexLocation = vertices.size();
 	meshStorage.startIndexLocation = indices.size();
 	for (int i = 0; i < mesh->mNumVertices; i++) {
@@ -150,7 +159,6 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 		else {
 			vertex.texC = { 0.0f, 0.0f };
 		}
-		updateBoundingBoxMinMax(meshStorage.minPoint, meshStorage.maxPoint, vertex.pos);
 		updateBoundingBoxMinMax(minPoint, maxPoint, vertex.pos);
 
 		vertices.push_back(vertex);
@@ -195,7 +203,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 	}
 	meshStorage.indexCount = mesh->mNumFaces * 3;
 	meshStorage.vertexCount = mesh->mNumVertices;
-	meshStorage.boundingBox = boundingBoxFromMinMax(meshStorage.minPoint, meshStorage.maxPoint);
+	meshStorage.boundingBox = boundingBoxFromMinMax(minPoint, maxPoint);
 	return meshStorage;
 }
 
