@@ -1,16 +1,19 @@
 #include "Tasks\TaskQueueThread.h"
 #include "DX12Helper.h"
+#include "Settings.h"
 
 TaskQueueThread::TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType) : md3dDevice(d3dDevice) {
+
 	running = true;
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Type = cmdListType;
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	md3dDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&mCommandQueue));
 
-	md3dDevice->CreateCommandAllocator(
-		cmdListType,
-		IID_PPV_ARGS(mDirectCmdListAlloc.GetAddressOf()));
+	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
+		frameResourceArray.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), cmdListType));
+	}
+	mDirectCmdListAlloc = frameResourceArray[0].get()->CmdListAlloc;
 
 	md3dDevice->CreateCommandList(
 		0,

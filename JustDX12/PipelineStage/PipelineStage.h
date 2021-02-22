@@ -131,8 +131,6 @@ protected:
 protected:
 	PipeLineStageDesc stageDesc;
 
-	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;
-
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> PSO = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<IDxcBlob>> shaders;

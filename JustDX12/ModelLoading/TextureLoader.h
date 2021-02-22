@@ -11,6 +11,8 @@ public:
 	void loadTexture(DX12Texture* tex);
 	void loadMip(int mipLevel, DX12Texture* texture);
 private:
+	UINT usageIndex = 0;
+	std::array<UINT, CPU_FRAME_COUNT> fenceValueForWait = { 0 };
 	TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device5> dev);
 	TextureLoader(TextureLoader const&) = delete;
 	void operator=(TextureLoader const&) = delete;

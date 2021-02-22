@@ -27,8 +27,12 @@ DX12Texture* TextureLoader::deferLoad(std::string fileName, std::string dir) {
 }
 
 void TextureLoader::loadTexture(DX12Texture* tex) {
-	mDirectCmdListAlloc->Reset();
-	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
+	usageIndex = (usageIndex + 1) % CPU_FRAME_COUNT;
+	WaitOnFenceForever(getFence(), fenceValueForWait[usageIndex]);
+
+	mDirectCmdListAlloc = frameResourceArray[usageIndex].get()->CmdListAlloc;
+	ThrowIfFailed(mDirectCmdListAlloc->Reset());
+	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
 	std::string nameDir = tex->dir + "\\" + tex->Filename;
 	std::wstring nameDirW = std::wstring(nameDir.begin(), nameDir.end());
@@ -149,6 +153,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 
 	int fenceVal = getFenceValue() + 1;
 	ResourceDecay::DestroyOnEventAndFillPointer(UploadHeap, EventFromFence(getFence().Get(), fenceVal), textureData, &tex->resource);
+	fenceValueForWait[usageIndex] = fenceVal;
 	setFence(fenceVal);
 	tex->curState = D3D12_RESOURCE_STATE_COPY_DEST;
 	tex->format = tex->MetaData.Format;

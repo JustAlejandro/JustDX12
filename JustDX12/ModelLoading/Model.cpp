@@ -57,7 +57,7 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	// the ResourceDecay class will tell the model about the resource only once the copy is completed.
 	int fenceVal = thread->getFenceValue() + 1;
 	ResourceDecay::DestroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), vertexBuffer, &vertexBufferGPU);
-	ResourceDecay::DestroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), indexBuffer, &indexBufferGPU);
+	ResourceDecay::DestroyOnEventAndFillPointer(indexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), indexBuffer, &indexBufferGPU);
 	thread->setFence(fenceVal);
 
 #ifdef CLEAR_MODEL_MEMORY

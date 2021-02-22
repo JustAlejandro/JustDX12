@@ -6,6 +6,7 @@
 #define NOMINMAX
 #include <wrl.h>
 #include <d3d12.h>
+#include "FrameResource.h"
 
 class TaskQueueThread {
 protected:
@@ -13,6 +14,7 @@ protected:
 	~TaskQueueThread();
 	void enqueue(Task* t);
 
+	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;
 public:
 	Microsoft::WRL::ComPtr<ID3D12Device5> md3dDevice;
 
