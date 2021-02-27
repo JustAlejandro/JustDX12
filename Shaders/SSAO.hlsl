@@ -18,11 +18,6 @@ RWTexture2D<float> outTex : register(u0);
 static int2 resolution;
 static int2 noiseTexResolution;
 
-int2 clampEdges(int2 index)
-{
-	return clamp(index, int2(0, 0), resolution - int2(1, 1));
-}
-
 int2 wrapNoiseEdges(int2 index) {
 	return index % noiseTexResolution;
 }
@@ -62,7 +57,7 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 		result.xy = result.xy * 0.5 + 0.5;
 		result.y = result.y * -1.0 + 1.0;
 		result.z = linDepth(result.z);
-		float depthSample = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
+		float depthSample = linDepth(depthTex[clampEdges((int2) (result.xy * resolution), resolution)].x);
 		if (depthSample >= result.z || result.z - depthSample > 0.1)
 		{
 			outCol += perSample;

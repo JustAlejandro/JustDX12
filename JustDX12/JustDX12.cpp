@@ -83,6 +83,8 @@ private:
 	std::deque<float> cpuFrametime;
 
 	ComputePipelineStage* computeStage = nullptr;
+	ComputePipelineStage* hBlurStage = nullptr;
+	ComputePipelineStage* vBlurStage = nullptr;
 	ComputePipelineStage* vrsComputeStage = nullptr;
 	RenderPipelineStage* renderStage = nullptr;
 	RenderPipelineStage* deferStage = nullptr;
@@ -140,6 +142,8 @@ DemoApp::~DemoApp() {
 		FlushCommandQueue();
 	delete modelLoader;
 	delete computeStage;
+	delete hBlurStage;
+	delete vBlurStage;
 	delete renderStage;
 	delete deferStage;
 	delete mergeStage;
@@ -341,7 +345,7 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputNormals", renderStage->getResource("normal")));
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("tangent"))); 
 
-		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R32_FLOAT));
+		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UNORM));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("LightData", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
@@ -363,6 +367,58 @@ bool DemoApp::initialize() {
 		WaitOnFenceForever(computeStage->getFence(), computeStage->triggerFence());
 	}
 	cpuWaitHandles.push_back(computeStage->deferSetCpuEvent());
+	// HBlur SSAO Pass
+	{
+		PipeLineStageDesc desc;
+		desc.name = "Blur";
+
+		desc.descriptorJobs.push_back(DescriptorJob("SSAOOutDesc", "SSAOOutTexture", DESCRIPTOR_TYPE_SRV));
+		desc.descriptorJobs.push_back(DescriptorJob("HBlurredSSAODesc", "HBlurredSSAOTexture", DESCRIPTOR_TYPE_UAV));
+
+		desc.externalResources.push_back(std::make_pair("SSAOOutTexture", computeStage->getResource("SSAOOutTexture")));
+
+		desc.resourceJobs.push_back(ResourceJob("HBlurredSSAOTexture", DESCRIPTOR_TYPE_UAV | DESCRIPTOR_TYPE_SRV, DXGI_FORMAT_R8_UNORM));
+
+		desc.rootSigDesc.push_back(RootParamDesc("SSAOOutDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0));
+		desc.rootSigDesc.push_back(RootParamDesc("HBlurredSSAODesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+
+		desc.shaderFiles.push_back(ShaderDesc("Blur.hlsl", "Horizontal Blur", "HBlur", SHADER_TYPE_CS, { DXDefine(L"HBLUR",L"") }));
+
+		ComputePipelineDesc cDesc;
+		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 32.0f);
+		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT);
+		cDesc.groupCount[2] = 1;
+		hBlurStage = new ComputePipelineStage(md3dDevice, cDesc);
+		hBlurStage->deferSetup(desc);
+		WaitOnFenceForever(hBlurStage->getFence(), hBlurStage->triggerFence());
+	}
+	cpuWaitHandles.push_back(hBlurStage->deferSetCpuEvent());
+	// VBlur SSAO Pass
+	{
+		PipeLineStageDesc desc;
+		desc.name = "Blur";
+
+		desc.descriptorJobs.push_back(DescriptorJob("HBlurredSSAODesc", "HBlurredSSAOTexture", DESCRIPTOR_TYPE_UAV));
+		desc.descriptorJobs.push_back(DescriptorJob("FullBlurredSSAODesc", "FullBlurredSSAOTexture", DESCRIPTOR_TYPE_UAV));
+
+		desc.externalResources.push_back(std::make_pair("HBlurredSSAOTexture", hBlurStage->getResource("HBlurredSSAOTexture")));
+
+		desc.resourceJobs.push_back(ResourceJob("FullBlurredSSAOTexture", DESCRIPTOR_TYPE_UAV | DESCRIPTOR_TYPE_SRV, DXGI_FORMAT_R8_UNORM));
+
+		desc.rootSigDesc.push_back(RootParamDesc("HBlurredSSAODesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+		desc.rootSigDesc.push_back(RootParamDesc("FullBlurredSSAODesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
+
+		desc.shaderFiles.push_back(ShaderDesc("Blur.hlsl", "Vertical Blur", "VBlur", SHADER_TYPE_CS, {DXDefine(L"VBLUR",L"")}));
+
+		ComputePipelineDesc cDesc;
+		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH);
+		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 32.0f);
+		cDesc.groupCount[2] = 1;
+		vBlurStage = new ComputePipelineStage(md3dDevice, cDesc);
+		vBlurStage->deferSetup(desc);
+		WaitOnFenceForever(vBlurStage->getFence(), vBlurStage->triggerFence());
+	}
+	cpuWaitHandles.push_back(vBlurStage->deferSetCpuEvent());
 	// Merge deferred shading with SSAO/Shadows
 	{
 		PipeLineStageDesc stageDesc;
@@ -372,7 +428,7 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("mergedTexDesc", "mergedTex", DESCRIPTOR_TYPE_RTV));
 
 		stageDesc.externalResources.push_back(std::make_pair("colorTex", deferStage->getResource("deferTex")));
-		stageDesc.externalResources.push_back(std::make_pair("SSAOTex", computeStage->getResource("SSAOOutTexture")));
+		stageDesc.externalResources.push_back(std::make_pair("SSAOTex", vBlurStage->getResource("FullBlurredSSAOTexture")));
 
 		stageDesc.resourceJobs.push_back(ResourceJob("mergedTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
@@ -433,7 +489,9 @@ bool DemoApp::initialize() {
 	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
+
 	renderStage->LoadModel(modelLoader, bistroFile, bistroDir, true);
+
 	renderStage->LoadModel(modelLoader, headFile, headDir, true);
 	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
 	while (!modelLoader->allModelsLoaded()) {
@@ -442,7 +500,6 @@ bool DemoApp::initialize() {
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
-
 	perObjCB.data.World[0] = Identity();
 	float scale = 1.0f;
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixScaling(scale, scale, scale));
@@ -463,7 +520,7 @@ bool DemoApp::initialize() {
 
 	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
 	WaitForMultipleObjects(cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
-	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage}, {computeStage, deferStage}, {mergeStage}, {vrsComputeStage} });
+	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage}, {computeStage, deferStage}, {hBlurStage}, {vBlurStage}, {mergeStage}, {vrsComputeStage} });
 	mCommandList->ResourceBarrier(initialTransitions.size(), initialTransitions.data());
 
 	ThrowIfFailed(mCommandList->Close());
@@ -536,6 +593,8 @@ void DemoApp::draw() {
 	eventHandles.push_back(renderStage->deferExecute());
 	eventHandles.push_back(computeStage->deferExecute());
 	eventHandles.push_back(deferStage->deferExecute());
+	eventHandles.push_back(hBlurStage->deferExecute());
+	eventHandles.push_back(vBlurStage->deferExecute());
 	eventHandles.push_back(mergeStage->deferExecute());
 	eventHandles.push_back(vrsComputeStage->deferExecute());
 	eventHandles.push_back(modelLoader->updateRTAccelerationStructureDeferred(mCommandList.Get()));
@@ -586,9 +645,18 @@ void DemoApp::draw() {
 	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
 	mCommandQueue->Signal(mAuxFences[1].Get(), ++mCurrentAuxFence[1]);
 
+	cmdList = { hBlurStage->mCommandList.Get() };
+	mComputeCommandQueue->Wait(mAuxFences[0].Get(), mCurrentAuxFence[0]);
+	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->Signal(mAuxFences[2].Get(), ++mCurrentAuxFence[2]);
+
+	cmdList = { vBlurStage->mCommandList.Get() };
+	mComputeCommandQueue->Wait(mAuxFences[2].Get(), mCurrentAuxFence[2]);
+	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->Signal(mAuxFences[2].Get(), ++mCurrentAuxFence[2]);
 
 	cmdList = { mergeStage->mCommandList.Get() };
-	mCommandQueue->Wait(mAuxFences[0].Get(), mCurrentAuxFence[0]);
+	mCommandQueue->Wait(mAuxFences[2].Get(), mCurrentAuxFence[2]);
 	mCommandQueue->Wait(mAuxFences[1].Get(), mCurrentAuxFence[1]);
 	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
 	mCommandQueue->Signal(mFence.Get(), ++mCurrentFence);

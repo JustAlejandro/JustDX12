@@ -7,6 +7,10 @@ float2 flipYofUV(float2 uv) {
 	return flipped;
 }
 
+int2 clampEdges(int2 index, int2 resolution) {
+	return clamp(index, int2(0, 0), resolution - int2(1, 1));
+}
+
 struct PerObject
 {
 	float4x4 world[15];
