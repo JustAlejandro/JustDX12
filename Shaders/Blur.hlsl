@@ -9,10 +9,11 @@ RWTexture2D<float> outTex : register(u1);
 #endif
 #define N 32
 
-#define blurSize 5
+#define blurSize 10
 
-static const float weights[] = { 0.000003f, 0.000229f, 0.005977f, 0.060598f, 0.24173f,
-					0.382925f, 0.24173f, 0.060598f, 0.005977f, 0.000229f, 0.000003f };
+static const float weights[] = { 0.000539f, 0.001533f, 0.003908f, 0.008925f, 0.018255f, 0.033446f, 0.054891f, 0.080693f,
+0.106259f, 0.125337f, 0.132429f, 0.125337f, 0.106259f, 0.080693f, 0.054891f, 0.033446f, 0.018255f, 0.008925f, 0.003908f, 0.001533f, 0.000539f };
+
 
 groupshared float cache[N + blurSize * 2];
 

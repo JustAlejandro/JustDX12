@@ -47,18 +47,18 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	for (int i = 0; i < SSAOSettings.rayCount; i++)
 	{
 		float3 randVec = noiseTex[wrapNoiseEdges(int2(dispatchThreadID.x * SSAOSettings.rayCount + i, dispatchThreadID.y * SSAOSettings.rayCount + i))].xyz;
-		randVec.xy = (randVec.xy - 0.5f * 2.0f);
+		randVec.xy = (randVec.xy * 2.0f - 1.0f );
 		randVec.z += 0.3f;
 		randVec = mul(normalize(randVec), TBN);
 		float3 samplePoint = worldPos.xyz + randVec * SSAOSettings.rayLength;
 		
 		float4 result = mul(float4(samplePoint, 1.0f), SSAOSettings.ViewProj);
 		result /= result.w;
-		result.xy = result.xy * 0.5 + 0.5;
-		result.y = result.y * -1.0 + 1.0;
+		result.xy = result.xy * 0.5f + 0.5f;
+		result.y = result.y * -1.0f + 1.0f;
 		result.z = linDepth(result.z);
-		float depthSample = linDepth(depthTex[clampEdges((int2) (result.xy * resolution), resolution)].x);
-		if (depthSample >= result.z || result.z - depthSample > 0.1)
+		float depthSample = linDepth(depthTex[clampEdges((int2) round(result.xy * resolution), resolution)].x);
+		if (depthSample >= result.z || result.z - depthSample > 0.3)
 		{
 			outCol += perSample;
 		}
