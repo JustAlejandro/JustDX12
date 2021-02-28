@@ -49,25 +49,25 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 		curRootParamDescs = rootParameterDescs;
 	}
 
-	for (int i = 0; i < rootParameterDescs[usage].size(); i++) {
-		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(rootParameterDescs[usage][i]);
+	for (int i = 0; i < curRootParamDescs[usage].size(); i++) {
+		DESCRIPTOR_TYPE descriptorType = getDescriptorTypeFromRootParameterDesc(curRootParamDescs[usage][i]);
 
-		if (rootParameterDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
-			DX12Descriptor* descriptor = descriptorManager.getDescriptor(IndexedName(rootParameterDescs[usage][i].name, usageIndex), descriptorType);
+		if (curRootParamDescs[usage][i].type == ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
+			DX12Descriptor* descriptor = descriptorManager.getDescriptor(IndexedName(curRootParamDescs[usage][i].name, usageIndex), descriptorType);
 
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
 				throw "Not sure what this is";
 			case DESCRIPTOR_TYPE_SRV:
-				mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
+				mCommandList->SetComputeRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
 				break;
 			case DESCRIPTOR_TYPE_UAV:
-				mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
+				mCommandList->SetComputeRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
 				break;
 			case DESCRIPTOR_TYPE_CBV:
-				mCommandList->SetComputeRootDescriptorTable(rootParameterDescs[usage][i].slot,
+				mCommandList->SetComputeRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
 				break;
 			default:
@@ -79,15 +79,15 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 			mCommandList->SetComputeRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(gFrameIndex)->GetGPUVirtualAddress());
 		}
 		else {
-			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(rootParameterDescs[usage][i].name)->get()->GetGPUVirtualAddress();
+			D3D12_GPU_VIRTUAL_ADDRESS resource = resourceManager.getResource(curRootParamDescs[usage][i].name)->get()->GetGPUVirtualAddress();
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
 				OutputDebugStringA("Not sure what this is");
 			case DESCRIPTOR_TYPE_SRV:
-				mCommandList->SetComputeRootShaderResourceView(rootParameterDescs[usage][i].slot, resource);
+				mCommandList->SetComputeRootShaderResourceView(curRootParamDescs[usage][i].slot, resource);
 				break;
 			case DESCRIPTOR_TYPE_UAV:
-				mCommandList->SetComputeRootUnorderedAccessView(rootParameterDescs[usage][i].slot, resource);
+				mCommandList->SetComputeRootUnorderedAccessView(curRootParamDescs[usage][i].slot, resource);
 				break;
 			default:
 				throw "Don't know what to do here.";
