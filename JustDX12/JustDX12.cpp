@@ -550,8 +550,6 @@ void DemoApp::update() {
 	gFrame++;
 	gFrameIndex = gFrame % CPU_FRAME_COUNT;
 
-	ResourceDecay::CheckDestroy();
-
 	mCurrFrameResourceIndex = gFrameIndex;
 	mCurrFrameResource = mFrameResources[mCurrFrameResourceIndex].get();
 	mCurrComputeFrameResource = mComputeFrameResources[mCurrFrameResourceIndex].get();
@@ -563,6 +561,8 @@ void DemoApp::update() {
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
+
+	ResourceDecay::CheckDestroy();
 
 	UpdateObjectCBs();
 	UpdateMaterialCBs();

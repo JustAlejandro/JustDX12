@@ -90,7 +90,6 @@ protected:
 	Microsoft::WRL::ComPtr<IDxcBlob> occlusionGS = nullptr;
 	Microsoft::WRL::ComPtr<IDxcBlob> occlusionPS = nullptr;
 
-	Microsoft::WRL::ComPtr<ID3DBlob> occlusionBoundingBoxBufferCPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPUUploader = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW occlusionBoundingBoxBufferView;

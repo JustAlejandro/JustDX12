@@ -5,6 +5,26 @@ void ResourceDecay::CheckDestroy() {
 
 	instance.onDelayResources[gFrameIndex].clear();
 
+	for (auto iter = instance.onSpecificDelayResources.begin(); iter != instance.onSpecificDelayResources.end();) {
+		iter->second--;
+		if (iter->second == 0) {
+			iter = instance.onSpecificDelayResources.erase(iter);
+		}
+		else {
+			iter++;
+		}
+	}
+
+	for (auto iter = instance.onSpecificDelayQueries.begin(); iter != instance.onSpecificDelayQueries.end();) {
+		iter->second--;
+		if (iter->second == 0) {
+			iter = instance.onSpecificDelayQueries.erase(iter);
+		}
+		else {
+			iter++;
+		}
+	}
+
 	for (auto iter = instance.onEventResources.begin(); iter != instance.onEventResources.end();) {
 		DWORD status = WaitForSingleObject(iter->second.ev, 0);
 		// Never waits if not ready, just checking if the event is completed.
@@ -30,6 +50,18 @@ void ResourceDecay::DestroyAfterDelay(Microsoft::WRL::ComPtr<ID3D12Resource> res
 	ResourceDecay& instance = getInstance();
 
 	instance.onDelayResources[gFrameIndex].push_back(resource);
+}
+
+void ResourceDecay::DestroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay) {
+	ResourceDecay& instance = getInstance();
+
+	instance.onSpecificDelayResources.push_back(std::make_pair(resource, delay));
+}
+
+void ResourceDecay::DestroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12QueryHeap> resource, UINT delay) {
+	ResourceDecay& instance = getInstance();
+
+	instance.onSpecificDelayQueries.push_back(std::make_pair(resource, delay));
 }
 
 void ResourceDecay::DestroyOnEvent(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev) {

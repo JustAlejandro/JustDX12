@@ -244,6 +244,10 @@ void RenderPipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STA
 
 void RenderPipelineStage::BuildQueryHeap() {
 	if (renderStageDesc.supportsCulling) {
+		// Due to the occlusion query being used from the previous frame it has a lifetime of 1 more than other resources.
+		ResourceDecay::DestroyAfterSpecificDelay(occlusionQueryResultBuffer, CPU_FRAME_COUNT + 1);
+		ResourceDecay::DestroyAfterSpecificDelay(occlusionQueryHeap, CPU_FRAME_COUNT + 1);
+
 		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer((renderObjects.size() + meshletRenderObjects.size()) * 8);
 		md3dDevice->CreateCommittedResource(&gDefaultHeapDesc,
 			D3D12_HEAP_FLAG_NONE,
@@ -593,8 +597,9 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 	}
 
 	UINT byteSize = (UINT)boundingBoxes.size() * sizeof(CompactBoundingBox);
-	D3DCreateBlob(byteSize, &occlusionBoundingBoxBufferCPU);
-	CopyMemory(occlusionBoundingBoxBufferCPU->GetBufferPointer(), boundingBoxes.data(), byteSize);
+
+	ResourceDecay::DestroyAfterDelay(occlusionBoundingBoxBufferGPU);
+	ResourceDecay::DestroyAfterDelay(occlusionBoundingBoxBufferGPUUploader);
 
 	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
 		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);
