@@ -9,34 +9,45 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device5> device) {
 }
 
 void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager) {
+	std::vector<DescriptorJob> jobByHeap[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	for (DescriptorJob& job : descriptorJobs) {
-		DX12Descriptor& desc = descriptors[std::make_pair(IndexedName(job.name, job.usageIndex), job.type)];
-		DX12DescriptorHeap& heap = heaps[heapTypeFromDescriptorType(job.type)];
-
-		desc.cpuHandle = heap.endCPUHandle;
-		desc.gpuHandle = heap.endGPUHandle;
-		desc.usage = job.usage;
-		desc.usageIndex = job.usageIndex;
-
-		if (job.type == DESCRIPTOR_TYPE_CBV) {
-			// Can't make a CBV descriptor because constant buffers are ring buffered per frame.
-			OutputDebugStringA("Error: Can't make a CBV descriptor, try binding the CBV directly with root params");
+		jobByHeap[heapTypeFromDescriptorType(job.type)].push_back(job);
+	}
+	// Seperating jobs into their respective heaps speeds up allocation since they can be placed contiguously.
+	for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
+		if (jobByHeap[i].size() == 0) {
 			continue;
 		}
-		else {
-			if (job.directBinding) {
-				desc.resourceTarget = job.directBindingTarget;
+		DX12DescriptorHeap& heap = heaps[i];
+		std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, CD3DX12_GPU_DESCRIPTOR_HANDLE> handles = heap.reserveHeapSpace(jobByHeap[i].size());
+		for (DescriptorJob& job : jobByHeap[i]) {
+			DX12Descriptor& desc = descriptors[std::make_pair(IndexedName(job.name, job.usageIndex), job.type)];
+			desc.cpuHandle = handles.first;
+			desc.gpuHandle = handles.second;
+			desc.usage = job.usage;
+			desc.usageIndex = job.usageIndex;
+
+			if (job.type == DESCRIPTOR_TYPE_CBV) {
+				// Can't make a CBV descriptor because constant buffers are ring buffered per frame.
+				OutputDebugStringA("Error: Can't make a CBV descriptor, try binding the CBV directly with root params");
+				continue;
 			}
 			else {
-				desc.resourceTarget = resourceManager->getResource(job.indirectTarget);
+				if (job.directBinding) {
+					desc.resourceTarget = job.directBindingTarget;
+				}
+				else {
+					desc.resourceTarget = resourceManager->getResource(job.indirectTarget);
+				}
 			}
+
+			desc.descriptorHeap = heap.getHeap();
+			createDescriptorView(desc, job);
+			descriptorsByType[job.type].push_back(&desc);
+
+			handles.first.Offset(1, heap.getOffset());
+			handles.second.Offset(1, heap.getOffset());
 		}
-
-		desc.descriptorHeap = heap.heap.Get();
-		createDescriptorView(desc, job);
-		descriptorsByType[job.type].push_back(&desc);
-
-		heap.shiftHandles();
 	}
 }
 
@@ -49,8 +60,8 @@ DX12Descriptor* DescriptorManager::getDescriptor(const IndexedName& indexedName,
 }
 
 std::vector<ID3D12DescriptorHeap*> DescriptorManager::getAllBindableHeaps() {
-	return { heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].heap.Get(),
-			 heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].heap.Get() };
+	return { heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].getHeap(),
+			 heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].getHeap() };
 }
 
 std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::requiredResourceStates() {
@@ -119,19 +130,13 @@ void DescriptorManager::makeDescriptorHeaps() {
 		heapDesc.NumDescriptors = maxDescriptorHeapSize[type];
 		heapDesc.Type = type;
 		heapDesc.Flags = shaderVisibleFromHeapType(type);
-		HRESULT result = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&heaps[i].heap));
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heapRes;
+		HRESULT result = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&heapRes));
 		if (result != S_OK) {
 			OutputDebugStringA("Heap Creation Failed");
 			throw "HEAP CREATION FAILED";
 		}
-
-		heaps[i].size = heapDesc.NumDescriptors;
-		heaps[i].type = type;
-		heaps[i].offset = getDescriptorOffsetForType(type);
-		heaps[i].startCPUHandle = heaps[i].heap->GetCPUDescriptorHandleForHeapStart();
-		heaps[i].startGPUHandle = heaps[i].heap->GetGPUDescriptorHandleForHeapStart();
-		heaps[i].endCPUHandle = heaps[i].startCPUHandle;
-		heaps[i].endGPUHandle = heaps[i].startGPUHandle;
+		heaps[i] = DX12DescriptorHeap(heapRes, type, getDescriptorOffsetForType(type), heapDesc.NumDescriptors);
 	}
 }
 

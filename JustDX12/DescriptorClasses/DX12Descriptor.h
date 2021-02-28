@@ -2,6 +2,7 @@
 #include <wrl.h>
 #include <d3d12.h>
 #include <d3dx12.h>
+#include <vector>
 using namespace Microsoft::WRL;
 
 class DX12Resource;
@@ -31,19 +32,57 @@ struct DX12Descriptor {
 };
 
 struct DX12DescriptorHeap {
+	DX12DescriptorHeap() = default;
+	DX12DescriptorHeap(Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT offset, UINT size) {
+		this->heap = heap;
+		this->type = type;
+		this->offset = offset;
+		this->size = size;
+		this->startCPUHandle = heap->GetCPUDescriptorHandleForHeapStart();
+		this->startGPUHandle = heap->GetGPUDescriptorHandleForHeapStart();
+		this->availabilityBitmap = std::vector<bool>(size, true);
+	}
+
+	ID3D12DescriptorHeap* getHeap() const {
+		return heap.Get();
+	}
+
+	UINT getOffset() const {
+		return offset;
+	}
+
+	std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, CD3DX12_GPU_DESCRIPTOR_HANDLE> reserveHeapSpace(UINT numDescriptors) {
+		// Simple bitscan, there are faster methods, but this is simple and works
+		UINT index = 0;
+		UINT freeBits = 0;
+		while (index < size) {
+			if (availabilityBitmap[index] == true) {
+				freeBits++;
+			}
+			else {
+				freeBits = 0;
+			}
+			if (freeBits == numDescriptors) {
+				// Reserve the spots before returning
+				for (UINT i = 0; i < numDescriptors; i++) {
+					availabilityBitmap[index - i] = false;
+				}
+				return std::make_pair(
+					CD3DX12_CPU_DESCRIPTOR_HANDLE(startCPUHandle, index, offset),
+					CD3DX12_GPU_DESCRIPTOR_HANDLE(startGPUHandle, index, offset));
+			}
+			index++;
+		}
+		throw "Not enough space available for descriptors";
+	}
+
+private:
 	UINT size;
 	D3D12_DESCRIPTOR_HEAP_TYPE type;
 	UINT offset;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE startCPUHandle;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE startGPUHandle;
-	//Offset handle should point to the current 'end' of the heap
-	// this is where we'd place new descriptors.
-	CD3DX12_CPU_DESCRIPTOR_HANDLE endCPUHandle;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE endGPUHandle;
 
-	void shiftHandles() {
-		endCPUHandle.Offset(offset);
-		endGPUHandle.Offset(offset);
-	}
+	std::vector<bool> availabilityBitmap;
 };

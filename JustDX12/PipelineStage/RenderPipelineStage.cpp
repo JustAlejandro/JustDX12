@@ -24,6 +24,31 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	PipelineStage::setup(stageDesc);
 	BuildDescriptors(stageDesc.descriptorJobs);
 	BuildPSO();
+	for (int i = 0; i < DESCRIPTOR_USAGE_MAX; i++) {
+		auto iter = rootParameterDescs[i].begin();
+		while (iter != rootParameterDescs[i].end()) {
+			if (iter->slot == renderStageDesc.perObjTransformCBSlot) {
+				iter = rootParameterDescs[i].erase(iter);
+			}
+			else if (iter->slot == renderStageDesc.perMeshTransformCBSlot) {
+				iter = rootParameterDescs[i].erase(iter);
+			}
+			else {
+				iter++;
+			}
+		}
+	}
+	for (int i = 0; i < DESCRIPTOR_USAGE_MAX; i++) {
+		auto iter = meshRootParameterDescs[i].begin();
+		while (iter != meshRootParameterDescs[i].end()) {
+			if (iter->slot == renderStageDesc.perObjTransformCBMeshletSlot) {
+				iter = meshRootParameterDescs[i].erase(iter);
+			}
+			else {
+				iter++;
+			}
+		}
+	}
 }
 
 void RenderPipelineStage::Execute() {
@@ -268,12 +293,6 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			}
 		}
 		else if (descriptorType == DESCRIPTOR_TYPE_CBV) {
-			// These binding are done by the outer layer.
-			if ((curRootParamDescs[usage][i].name == renderStageDesc.perObjTransformCB) || 
-				(curRootParamDescs[usage][i].name == renderStageDesc.perMeshTransformCB) ||
-				(curRootParamDescs[usage][i].name == renderStageDesc.perObjTransformCBMeshlet)) {
-				continue;
-			}
 			mCommandList->SetGraphicsRootConstantBufferView(curRootParamDescs[usage][i].slot, constantBufferManager.getConstantBuffer(IndexedName(curRootParamDescs[usage][i].name, usageIndex))->get(gFrameIndex)->GetGPUVirtualAddress());
 		}
 		else {
