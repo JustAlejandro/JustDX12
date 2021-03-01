@@ -14,8 +14,9 @@ struct RenderPipelineDesc {
 	bool usesDepthTex = true;
 	bool supportsCulling = false;
 	bool supportsVRS = false;
-	bool supportsRT = false;
-	std::string tlasResourceName = "TLAS";
+	int rtTlasSlot = -1;
+	int rtTlasMeshletSlot = -1;
+	ID3D12Resource** tlasPtr = nullptr;
 	std::string VrsTextureName = "VRS";
 	int perObjTransformCBSlot = -1;
 	int perMeshTransformCBSlot = -1;
@@ -32,10 +33,10 @@ public:
 	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 	void setup(PipeLineStageDesc stageDesc) override;
 	void Execute() override;
-	void LoadModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
+	void LoadModel(ModelLoader* loader, std::string referenceName, std::string fileName, std::string dirName, bool usesRT = false);
 	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
-	void updateInstanceCount(UINT modelIndex, UINT instanceCount);
-	void updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
+	void updateInstanceCount(std::string referenceName, UINT instanceCount);
+	void updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
 	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);
 	void setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS);
 	~RenderPipelineStage();
@@ -62,7 +63,7 @@ protected:
 	void drawRenderObjects();
 	void drawMeshletRenderObjects();
 	void drawOcclusionQuery();
-	void buildMeshTexturesDescriptors(Mesh* m, int usageIndex);
+	void buildMeshTexturesDescriptors(Mesh* m);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
 	void BuildInputLayout() override;
 	void setupRenderObjects();
@@ -70,8 +71,11 @@ protected:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS;
 
+	std::unordered_map<std::string, Model*> nameToModel;
+	std::vector<Model*> loadingRenderObjects;
 	std::vector<Model*> renderObjects;
 	std::vector<MeshletModel*> meshletRenderObjects;
+
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionQueryResultBuffer;
 	Microsoft::WRL::ComPtr<ID3D12QueryHeap> occlusionQueryHeap;
 	std::vector<DescriptorJob> renderingDescriptorJobs;
@@ -79,7 +83,7 @@ protected:
 	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsIn;
 	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsOut;
 
-	bool allRenderObjectsSetup = false;
+	bool newObjectsLoaded = false;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> meshletPSO = nullptr;
 	Microsoft::WRL::ComPtr<IDxcBlob> meshletShader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> occlusionPSO = nullptr;

@@ -35,16 +35,18 @@ public:
 private:
 	int frame = 0;
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-	void createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;
+	bool newModelLoaded = false;
 	// string is dir + name
-	std::unordered_map<std::string, Model> loadedModels;
+	std::vector<std::pair<std::string, std::unique_ptr<Model>>> loadingModels;
+	std::unordered_map<std::string, std::unique_ptr<Model>> loadedModels;
 	std::unordered_map<std::string, MeshletModel> loadedMeshlets;
 
 	UINT64 tlasSize;
-	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> BLAS;
+	std::unordered_map<Model*, Microsoft::WRL::ComPtr<ID3D12Resource>> BLAS;
 	// Since the instanceDesc of each frame is kept seperate, have to store them each frame so they stay in memory.
 	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, CPU_FRAME_COUNT> instanceScratch;
 	AccelerationStructureBuffers tlasScratch;

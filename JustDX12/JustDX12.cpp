@@ -14,6 +14,7 @@
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
 #include "KeyboardWrapper.h"
+#include "ModelLoading/TextureLoader.h"
 
 #include <random>
 #include <ctime>
@@ -122,16 +123,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 #if defined(DEBUG) | defined(_DEBUG) || GPU_DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
+	Microsoft::WRL::ComPtr<ID3D12Device> debugDev;
 	try {
 		DemoApp app(hInstance);
 		if (!app.initialize())
 			return 0;
-		return app.run();
+		debugDev = app.getDevice();
+		// Loop
+		app.run();
 	}
 	catch (...) {
 		MessageBox(nullptr, L"Not Sure What",L"Oof, something broke.", MB_OK);
 		return 0;
 	}
+#if true
+	ID3D12DebugDevice* debugInterface;
+	debugDev->QueryInterface(&debugInterface);
+	debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+	debugInterface->Release();
+#endif // DEBUG
 }
 
 DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
@@ -148,6 +158,8 @@ DemoApp::~DemoApp() {
 	delete deferStage;
 	delete mergeStage;
 	delete vrsComputeStage;
+	ResourceDecay::DestroyAll();
+	TextureLoader::getInstance().clearAll();
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
@@ -158,6 +170,7 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
+	modelLoader = new ModelLoader(md3dDevice);
 	std::vector<HANDLE> cpuWaitHandles;
 	// Create Render stage first because of dependencies later.
 	{
@@ -309,8 +322,8 @@ bool DemoApp::initialize() {
 		mergeRDesc.supportsCulling = false;
 		mergeRDesc.usesMeshlets = false;
 		mergeRDesc.usesDepthTex = false;
-		mergeRDesc.supportsRT = true;
-		mergeRDesc.tlasResourceName = "TLAS";
+		mergeRDesc.rtTlasSlot = 4;
+		mergeRDesc.tlasPtr = modelLoader->TLAS.GetAddressOf();
 		deferStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		deferStage->deferSetup(stageDesc);
 		WaitOnFenceForever(deferStage->getFence(), deferStage->triggerFence());
@@ -482,33 +495,26 @@ bool DemoApp::initialize() {
 		vrsComputeStage->deferSetup(stageDesc);
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
-
-	modelLoader = new ModelLoader(md3dDevice);
 	//renderStage->LoadModel(modelLoader, "testScene.fbx", baseDir, true);
-	deferStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
-	mergeStage->LoadModel(modelLoader, "screenTex.obj", baseDir);
+	deferStage->LoadModel(modelLoader, "screen", "screenTex.obj", baseDir);
+	mergeStage->LoadModel(modelLoader, "screen", "screenTex.obj", baseDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
-	renderStage->LoadModel(modelLoader, bistroFile, bistroDir, true);
 
-	renderStage->LoadModel(modelLoader, headFile, headDir, true);
 	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
-	while (!modelLoader->allModelsLoaded()) {
-		ResourceDecay::CheckDestroy();
-	}
 
+	renderStage->LoadModel(modelLoader, "bistro", bistroFile, bistroDir, true);
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
 	perObjCB.data.World[0] = Identity();
 	float scale = 1.0f;
 	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixScaling(scale, scale, scale));
-	renderStage->updateInstanceCount(0, 1);
-	renderStage->updateInstanceTransform(0, 0, perObjCB.data.World[0]);
-	renderStage->updateInstanceCount(1, 1);
-	DirectX::XMFLOAT4X4 headTransform;
-	DirectX::XMStoreFloat4x4(&headTransform, DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixScaling(0.0005f, 0.0005f, 0.0005f), DirectX::XMMatrixTranslation(-18.0, 1.0f, 5.0f))));
-	renderStage->updateInstanceTransform(1, 0, headTransform);
+	renderStage->updateInstanceCount("bistro", 1);
+	renderStage->updateInstanceTransform("bistro", 0, perObjCB.data.World[0]);
 
+	while (!modelLoader->allModelsLoaded()) {
+		ResourceDecay::CheckDestroy();
+	}
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -527,8 +533,6 @@ bool DemoApp::initialize() {
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
 	FlushCommandQueue();
-
-	deferStage->importResource("TLAS", modelLoader->TLAS.Get());
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -562,6 +566,7 @@ void DemoApp::update() {
 	}
 
 	ResourceDecay::CheckDestroy();
+	modelLoader->allModelsLoaded();
 
 	UpdateObjectCBs();
 	UpdateMaterialCBs();
@@ -707,6 +712,13 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
+	if (ImGui::Button("Load Head")) {
+		renderStage->LoadModel(modelLoader, "head", headFile, headDir, true);
+		renderStage->updateInstanceCount("head", 1);
+		DirectX::XMFLOAT4X4 headTransform;
+		DirectX::XMStoreFloat4x4(&headTransform, DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixScaling(0.0005f, 0.0005f, 0.0005f), DirectX::XMMatrixTranslation(-18.0, 1.0f, 5.0f))));
+		renderStage->updateInstanceTransform("head", 0, headTransform);
+	}
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);

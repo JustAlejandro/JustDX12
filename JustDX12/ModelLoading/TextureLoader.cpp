@@ -12,6 +12,10 @@ TextureLoader& TextureLoader::getInstance() {
 	return instance;
 }
 
+void TextureLoader::clearAll() {
+	textures.clear();
+}
+
 DX12Texture* TextureLoader::deferLoad(std::string fileName, std::string dir) {
 	if (textures.find(fileName) != textures.end()) {
 		return &textures.at(fileName);

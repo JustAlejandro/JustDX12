@@ -1,16 +1,25 @@
 #include "ModelLoading\ModelLoader.h"
 #include "Tasks\ModelLoadTask.h"
 #include "DX12Helper.h"
+#include "ResourceDecay.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
 
 }
 bool ModelLoader::allModelsLoaded() {
-	for (auto& model : loadedModels) {
-		if (!model.second.isLoaded()) {
-			return false;
+	newModelLoaded = false;
+	for (int i = 0; i < loadingModels.size(); i++) {
+		Model* m = loadingModels[i].second.get();
+		if (m->isLoaded()) {
+			loadedModels[loadingModels[i].first] = std::move(loadingModels[i].second);
+			loadingModels.erase(loadingModels.begin() + i);
+			i--;
+			newModelLoaded = true;
 		}
+	}
+	if (!loadingModels.empty()) {
+		return false;
 	}
 	for (auto& meshletModel : loadedMeshlets) {
 		if (!meshletModel.second.loaded) {
@@ -24,20 +33,20 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	std::vector<Light> directionalLights;
 	std::vector<Light> spotLights;
 	for (const auto& model : loadedModels) {
-		for (const auto& light : model.second.lights) {
-			for (int i = 0; i < model.second.transform.getInstanceCount(); i++) {
+		for (const auto& light : model.second->lights) {
+			for (int i = 0; i < model.second->transform.getInstanceCount(); i++) {
 				Light l;
 
 				l.color = DirectX::XMFLOAT3(light.mColorDiffuse.r, light.mColorDiffuse.g, light.mColorDiffuse.b);
 
 				DirectX::XMVECTOR lightPos = DirectX::XMVectorSet(light.mPosition.x, light.mPosition.y, light.mPosition.z, 1.0f);
-				DirectX::XMFLOAT4X4 lightTransform = model.second.scene.findNode(light.mName.C_Str())->getFullTransform();
+				DirectX::XMFLOAT4X4 lightTransform = model.second->scene.findNode(light.mName.C_Str())->getFullTransform();
 				DirectX::XMMATRIX lightTransformMatrix = TransposeLoad(&lightTransform);
 				lightPos = DirectX::XMVector4Transform(lightPos, lightTransformMatrix);
 				DirectX::XMVECTOR lightDir = DirectX::XMVectorSet(light.mDirection.x, light.mDirection.y, light.mDirection.z, 0.0f);
 				lightDir = DirectX::XMVector4Transform(lightDir, lightTransformMatrix);
 
-				auto transform = model.second.transform.getTransform(i);
+				auto transform = model.second->transform.getTransform(i);
 				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, TransposeLoad(&transform)));
 				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, TransposeLoad(&transform)));
 
@@ -79,12 +88,18 @@ Model* ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = f
 	auto findModel = loadedModels.find(dir + name);
 	Model* model;
 	if (findModel == loadedModels.end()) {
-		auto inserted = loadedModels.try_emplace((dir + name), name, dir, md3dDevice.Get(), usesRT);
-		model = &inserted.first->second;
+		// Search through what's loading for the model
+		for (int i = 0; i < loadingModels.size(); i++) {
+			if (loadingModels[i].first == (dir + name)) {
+				return loadingModels[i].second.get();
+			}
+		}
+		loadingModels.push_back(std::make_pair(dir + name, std::make_unique<Model>(name, dir, md3dDevice.Get(), usesRT)));
+		model = loadingModels.back().second.get();
 		enqueue(new ModelLoadTask(this, model));
 	}
 	else {
-		model = &findModel->second;
+		model = findModel->second.get();
 	}
 	return model;
 }
@@ -107,7 +122,10 @@ MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, b
 
 void ModelLoader::updateTransforms() {
 	for (auto& model : loadedModels) {
-		model.second.transform.submitUpdates(gFrameIndex);
+		model.second->transform.submitUpdates(gFrameIndex);
+	}
+	for (auto& model : loadingModels) {
+		model.second->transform.submitUpdates(gFrameIndex);
 	}
 	for (auto& meshletModel : loadedMeshlets) {
 		meshletModel.second.transform.submitUpdates(gFrameIndex);
@@ -132,29 +150,28 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	std::vector<AccelerationStructureBuffers> blasVec;
 	std::vector<Model*> models;
 	for (auto& model : loadedModels) {
-		if (model.second.usesRT) {
-			blasVec.push_back(createBLAS(&model.second, cmdList));
-			models.push_back(&model.second);
+		if (model.second->usesRT) {
+			blasVec.push_back(createBLAS(model.second.get(), cmdList));
+			models.push_back(model.second.get());
 		}
 	}
 	std::vector<MeshletModel*> meshletModels;
 	for (auto& meshletModel : loadedMeshlets) {
 		if (meshletModel.second.usesRT) {
 			std::string modelFileName = meshletModel.second.dir + meshletModel.second.name.substr(0, meshletModel.second.name.find_last_of('.')) + ".fbx";
-			Model* modelForMeshlet = &loadedModels.find(modelFileName)->second;
+			Model* modelForMeshlet = loadedModels.find(modelFileName)->second.get();
 			blasVec.push_back(createBLAS(modelForMeshlet, cmdList));
 			meshletModels.push_back(&meshletModel.second);
 		}
 	}
 
 	for (int i = 0; i < blasVec.size(); i++) {
-		BLAS.push_back(blasVec[i].pResult);
-		SetName(BLAS[i].Get(), L"BLAS");
+		BLAS[models[i]] = blasVec[i].pResult;
+		ResourceDecay::DestroyAfterDelay(blasVec[i].pScratch);
+		SetName(BLAS[models[i]].Get(), L"BLAS");
 	}
 
-	createTLAS(tlasSize, models, meshletModels, cmdList);
-
-	TLAS = tlasScratch.pResult;
+	createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
 	SetName(TLAS.Get(), L"TLAS Structure");
 	scratchBuffers = blasVec;
 }
@@ -172,9 +189,19 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<Model*> models;
+	if (newModelLoaded) {
+		ResourceDecay::DestroyAfterDelay(tlasScratch.pResult);
+		ResourceDecay::DestroyAfterDelay(tlasScratch.pScratch);
+	}
 	for (auto& model : loadedModels) {
-		if (model.second.usesRT) {
-			models.push_back(&model.second);
+		if (model.second->usesRT) {
+			models.push_back(model.second.get());
+			if (BLAS.find(model.second.get()) == BLAS.end()) {
+				AccelerationStructureBuffers blasScratch = createBLAS(model.second.get(), cmdList);
+				ResourceDecay::DestroyAfterDelay(blasScratch.pScratch);
+				ResourceDecay::DestroyAfterDelay(blasScratch.pInstanceDesc);
+				BLAS[model.second.get()] = blasScratch.pResult;
+			}
 		}
 	}
 	std::vector<MeshletModel*> meshletModels;
@@ -184,7 +211,17 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 			meshletModels.push_back(&meshletModel.second);
 		}
 	}
-	createTLAS(tlasSize, models, meshletModels, cmdList);
+
+	if (newModelLoaded) {
+		Microsoft::WRL::ComPtr<ID3D12Resource> newTLAS = nullptr;
+		createTLAS(newTLAS, tlasSize, models, meshletModels, cmdList);
+		ResourceDecay::DestroyAfterDelay(TLAS);
+		// Problem: Can't get ComPtr to play nice here. So we get stuck with the TLAS going null if this runs .GetAdressOf() gets the actual address of the underlying interface, but it also sucks.
+		ResourceDecay::DestroyOnDelayAndFillPointer(nullptr, 1, newTLAS, std::addressof(TLAS));
+	}
+	else {
+		createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
+	}
 	frame++;
 }
 
@@ -240,7 +277,7 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	return buffers;
 }
 
-void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	// Find the total number of models.
 	UINT totalDescs = 0;
 	for (const auto& m : models) {
@@ -258,17 +295,19 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 	md3dDevice->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &info);
 
 	// Update or create
-	if (TLAS.Get() != nullptr) {
-		D3D12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(TLAS.Get());
+	if (tlas.Get() != nullptr) {
+		D3D12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(tlas.Get());
 		cmdList->ResourceBarrier(1, &uavBarrier);
 	}
 	else {
 		tlasScratch.pScratch = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), info.ScratchDataSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, gDefaultHeapDesc);
 		tlasScratch.pResult = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), info.ResultDataMaxSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, gDefaultHeapDesc);
+		SetName(tlasScratch.pScratch.Get(), (L"TLAS Scratch: Frame" + std::to_wstring(gFrame)).c_str());
+		SetName(tlasScratch.pScratch.Get(), (L"TLAS Result: Frame" + std::to_wstring(gFrame)).c_str());
 		tlasSize = info.ResultDataMaxSizeInBytes;
 	}
 
-	// Have to tell the TLAS what instances are where (thing like instanced draw calls)
+	// Have to tell the TLAS what instances are where (think like instanced draw calls)
 	tlasScratch.pInstanceDesc = CreateBlankBuffer(md3dDevice.Get(), cmdList.Get(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * totalDescs, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, gUploadHeapDesc);
 	instanceScratch[gFrameIndex] = tlasScratch.pInstanceDesc;
 	D3D12_RAYTRACING_INSTANCE_DESC* instanceDescs;
@@ -287,7 +326,7 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 			memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
-			instanceDescs[instanceIndex].AccelerationStructure = BLAS[i]->GetGPUVirtualAddress();
+			instanceDescs[instanceIndex].AccelerationStructure = BLAS[models[i]]->GetGPUVirtualAddress();
 			instanceDescs[instanceIndex].InstanceMask = 0xFF;
 
 			instanceIndex++;
@@ -300,7 +339,9 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 		instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 		instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 		memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
-		instanceDescs[instanceIndex].AccelerationStructure = BLAS[models.size() + i]->GetGPUVirtualAddress();
+		// This will cause a crash if the meshlet loads before the model
+		// TODO : MAKE THAT NOT HAPPEN
+		instanceDescs[instanceIndex].AccelerationStructure = BLAS[loadedModels.find(meshletModels[i]->name)->second.get()]->GetGPUVirtualAddress();
 		instanceDescs[instanceIndex].InstanceMask = 0xFF;
 
 		instanceIndex++;
@@ -314,13 +355,16 @@ void ModelLoader::createTLAS(UINT64& tlasSize, std::vector<Model*>& models, std:
 	asDesc.Inputs.InstanceDescs = tlasScratch.pInstanceDesc->GetGPUVirtualAddress();
 	asDesc.DestAccelerationStructureData = tlasScratch.pResult->GetGPUVirtualAddress();
 	asDesc.ScratchAccelerationStructureData = tlasScratch.pScratch->GetGPUVirtualAddress();
-	if (TLAS.Get() != nullptr) {
+	if (tlas.Get() != nullptr) {
 		asDesc.Inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
-		asDesc.SourceAccelerationStructureData = TLAS->GetGPUVirtualAddress();
+		asDesc.SourceAccelerationStructureData = tlas->GetGPUVirtualAddress();
 	}
 
 	cmdList->BuildRaytracingAccelerationStructure(&asDesc, 0, nullptr);
 
 	auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(tlasScratch.pResult.Get());
 	cmdList->ResourceBarrier(1, &uavBarrier);
+
+	tlas = tlasScratch.pResult.Get();
+	SetName(tlas.Get(), L"TLAS Structure");
 }

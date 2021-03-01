@@ -36,6 +36,9 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 			else if (iter->slot == renderStageDesc.perMeshTextureSlot) {
 				iter = rootParameterDescs[i].erase(iter);
 			}
+			else if (iter->slot == renderStageDesc.rtTlasSlot) {
+				iter = rootParameterDescs[i].erase(iter);
+			}
 			else {
 				iter++;
 			}
@@ -48,6 +51,9 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 				iter = meshRootParameterDescs[i].erase(iter);
 			}
 			else if (iter->slot == renderStageDesc.perObjTextureMeshletSlot) {
+				iter = meshRootParameterDescs[i].erase(iter);
+			}
+			else if (iter->slot == renderStageDesc.rtTlasMeshletSlot) {
 				iter = meshRootParameterDescs[i].erase(iter);
 			}
 			else {
@@ -63,12 +69,6 @@ void RenderPipelineStage::Execute() {
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), stageDesc.name.c_str());
 
 	PerformTransitionsIn();
-
-	if (!allRenderObjectsSetup) {
-		while (!allRenderObjectsSetup) {
-			setupRenderObjects();
-		}
-	}
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -89,6 +89,13 @@ void RenderPipelineStage::Execute() {
 		drawMeshletRenderObjects();
 	}
 
+	setupRenderObjects();
+
+	if (renderStageDesc.supportsCulling && newObjectsLoaded) {
+		setupOcclusionBoundingBoxes();
+		BuildQueryHeap();
+	}
+
 	if (renderStageDesc.supportsCulling && occlusionCull) {
 		drawOcclusionQuery();
 	}
@@ -100,20 +107,22 @@ void RenderPipelineStage::Execute() {
 	ThrowIfFailed(mCommandList->Close());
 }
 
-void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT) {
-	renderObjects.push_back(loader->loadModel(fileName, dirName, usesRT));
+void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
+	Model* model = loader->loadModel(fileName, dirName, usesRT);
+	loadingRenderObjects.push_back(model);
+	nameToModel[referenceName] = model;
 }
 
 void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT) {
 	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName, usesRT));
 }
 
-void RenderPipelineStage::updateInstanceCount(UINT modelIndex, UINT instanceCount) {
-	renderObjects[modelIndex]->transform.setInstanceCount(instanceCount);
+void RenderPipelineStage::updateInstanceCount(std::string referenceName, UINT instanceCount) {
+	nameToModel[referenceName]->transform.setInstanceCount(instanceCount);
 }
 
-void RenderPipelineStage::updateInstanceTransform(UINT modelIndex, UINT instanceIndex, DirectX::XMFLOAT4X4 transform) {
-	renderObjects[modelIndex]->transform.setTransform(instanceIndex, transform);
+void RenderPipelineStage::updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform) {
+	nameToModel[referenceName]->transform.setTransform(instanceIndex, transform);
 }
 
 void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform) {
@@ -265,6 +274,9 @@ void RenderPipelineStage::BuildQueryHeap() {
 		queryHeapDesc.Count = renderObjects.size() + meshletRenderObjects.size();
 		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_OCCLUSION;
 		md3dDevice->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&occlusionQueryHeap));
+
+		SetName(occlusionQueryResultBuffer.Get(), L"Occlusion Query Result");
+		SetName(occlusionQueryHeap.Get(), L"Occlusion Query Heap");
 	}
 }
 
@@ -363,6 +375,9 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_1X1, combiners);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
+	if (renderStageDesc.rtTlasSlot > -1) {
+		mCommandList->SetGraphicsRootShaderResourceView(renderStageDesc.rtTlasSlot, (*renderStageDesc.tlasPtr)->GetGPUVirtualAddress());
+	}
 	for (int i = 0; i < renderObjects.size(); i++) {
 		Model* model = renderObjects[i];
 
@@ -444,6 +459,9 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
+	if (renderStageDesc.rtTlasMeshletSlot > -1) {
+		mCommandList->SetGraphicsRootShaderResourceView(renderStageDesc.rtTlasMeshletSlot, (*renderStageDesc.tlasPtr)->GetGPUVirtualAddress());
+	}
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
 		DirectX::BoundingBox modelBB;
@@ -512,7 +530,7 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	mCommandList->ResourceBarrier(1, &predTransition);
 }
 
-void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) {
+void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m) {
 	std::vector<DX12Descriptor> meshDescriptors;
 	std::vector<DescriptorJob> descriptorJobs;
 	for (const auto& texMap : renderStageDesc.textureToDescriptor) {
@@ -524,7 +542,7 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) 
 		else {
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
 		}
-		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_PER_MESH);
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_PER_MESH);
 		descriptorJobs.push_back(job);
 	}
 	meshDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
@@ -564,24 +582,22 @@ void RenderPipelineStage::BuildInputLayout() {
 }
 
 void RenderPipelineStage::setupRenderObjects() {
-	ResourceDecay::CheckDestroy();
-	int index = 0;
-	for (auto& renderObj : renderObjects) {
-		if (!renderObj->isLoaded()) {
-			return;
+	newObjectsLoaded = false;
+	for (int i = 0; i < loadingRenderObjects.size(); i++) {
+		Model* obj = loadingRenderObjects[i];
+		if (!obj->isLoaded()) {
+			continue;
 		}
-		for (auto& mesh : renderObj->meshes) {
-			if (!mesh.allTexturesLoaded()) {
-				return;
-			}
-			if (!mesh.texturesBound) {
-				buildMeshTexturesDescriptors(&mesh, index);
-				return;
-			}
-			index++;
+		for (auto& m : obj->meshes) {
+			buildMeshTexturesDescriptors(&m);
 		}
+		renderObjects.push_back(obj);
+		loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
+		i--;
+		newObjectsLoaded = true;
 	}
-	index = 0;
+
+	int index = 0;
 	for (auto& meshletRenderObj : meshletRenderObjects) {
 		if (!meshletRenderObj->loaded) {
 			return;
@@ -595,14 +611,6 @@ void RenderPipelineStage::setupRenderObjects() {
 		}
 		index++;
 	}
-
-	if (renderStageDesc.supportsCulling) {
-		setupOcclusionBoundingBoxes();
-	}
-
-	BuildDescriptors(renderingDescriptorJobs);
-	BuildQueryHeap();
-	allRenderObjectsSetup = true;
 }
 
 void RenderPipelineStage::setupOcclusionBoundingBoxes() {
@@ -621,6 +629,9 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 
 	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
 		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);
+
+	SetName(occlusionBoundingBoxBufferGPU.Get(), L"Occlusion BB Buffer GPU");
+	SetName(occlusionBoundingBoxBufferGPUUploader.Get(), L"Occlusion BB Buffer GPU Uploader");
 
 	auto transToVertexBuffer = CD3DX12_RESOURCE_BARRIER::Transition(occlusionBoundingBoxBufferGPU.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	mCommandList->ResourceBarrier(1, &transToVertexBuffer);

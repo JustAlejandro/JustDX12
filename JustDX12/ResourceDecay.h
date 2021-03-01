@@ -4,6 +4,7 @@
 class ResourceDecay {
 public:
 	static void CheckDestroy();
+	static void DestroyAll();
 	// Destroys resource after CPU_FRAME_COUNT frames have progressed.
 	// Useful for resources that could be in commands in flight, not useful for large temporary resources.
 	static void DestroyAfterDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource);
@@ -13,6 +14,7 @@ public:
 	// Function specifically used to keep two buffers in scope and setting a value on completion.
 	// resource is the parameter flagged to be destroyed, at which point, dest will take on the value of src.
 	static void DestroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
+	static void DestroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
 private:
 	ResourceDecay() = default;
 	ResourceDecay(ResourceDecay const&) = delete;
@@ -21,7 +23,10 @@ private:
 	static ResourceDecay& getInstance();
 
 	struct SwapEvent {
-		HANDLE ev;
+		union {
+			HANDLE ev;
+			UINT delay;
+		};
 		Microsoft::WRL::ComPtr<ID3D12Resource> src;
 		Microsoft::WRL::ComPtr<ID3D12Resource>* dest;
 		SwapEvent() = default;
@@ -30,11 +35,17 @@ private:
 			this->src = src;
 			this->dest = dest;
 		}
+		SwapEvent(UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src = nullptr, Microsoft::WRL::ComPtr<ID3D12Resource>* dest = nullptr) {
+			this->delay = delay;
+			this->src = src;
+			this->dest = dest;
+		}
 	};
 
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, SwapEvent>> onEventResources;
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, int>> onSpecificDelayResources;
 	std::array<std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>>, CPU_FRAME_COUNT> onDelayResources;
+	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, SwapEvent>> onDelaySwapResources;
 
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12QueryHeap>, int>> onSpecificDelayQueries;
 };

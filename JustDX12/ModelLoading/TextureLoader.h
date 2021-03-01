@@ -7,6 +7,7 @@
 class TextureLoader : public TaskQueueThread {
 public:
 	static TextureLoader& getInstance();
+	void clearAll();
 	DX12Texture* deferLoad(std::string fileName, std::string dir = "..\\Models\\Sponza\\");
 	void loadTexture(DX12Texture* tex);
 	void loadMip(int mipLevel, DX12Texture* texture);

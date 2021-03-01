@@ -19,7 +19,15 @@ Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool uses
 }
 
 bool Model::isLoaded() {
-	return (indexBufferGPU.Get() != nullptr) && (vertexBufferGPU.Get() != nullptr);
+	if ((indexBufferGPU.Get() == nullptr) || (vertexBufferGPU.Get() == nullptr)) {
+		return false;
+	}
+	for (auto& m : meshes) {
+		if (!m.allTexturesLoaded()) {
+			return false;
+		}
+	}
+	return true;
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
