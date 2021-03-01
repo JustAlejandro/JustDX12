@@ -33,6 +33,9 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 			else if (iter->slot == renderStageDesc.perMeshTransformCBSlot) {
 				iter = rootParameterDescs[i].erase(iter);
 			}
+			else if (iter->slot == renderStageDesc.perMeshTextureSlot) {
+				iter = rootParameterDescs[i].erase(iter);
+			}
 			else {
 				iter++;
 			}
@@ -42,6 +45,9 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 		auto iter = meshRootParameterDescs[i].begin();
 		while (iter != meshRootParameterDescs[i].end()) {
 			if (iter->slot == renderStageDesc.perObjTransformCBMeshletSlot) {
+				iter = meshRootParameterDescs[i].erase(iter);
+			}
+			else if (iter->slot == renderStageDesc.perObjTextureMeshletSlot) {
 				iter = meshRootParameterDescs[i].erase(iter);
 			}
 			else {
@@ -416,6 +422,9 @@ void RenderPipelineStage::drawRenderObjects() {
 
 			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 			m.meshTransform.bindTransformToRoot(renderStageDesc.perMeshTransformCBSlot, gFrameIndex, mCommandList.Get());
+			if (renderStageDesc.perMeshTextureSlot > -1) {
+				mCommandList->SetGraphicsRootDescriptorTable(renderStageDesc.perMeshTextureSlot, m.getDescriptorsForStage(this)[0].gpuHandle);
+			}
 
 			mCommandList->DrawIndexedInstanced(m.indexCount,
 				model->transform.getInstanceCount() * m.meshTransform.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
@@ -504,6 +513,8 @@ void RenderPipelineStage::drawOcclusionQuery() {
 }
 
 void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) {
+	std::vector<DX12Descriptor> meshDescriptors;
+	std::vector<DescriptorJob> descriptorJobs;
 	for (const auto& texMap : renderStageDesc.textureToDescriptor) {
 		MODEL_FORMAT textureType = texMap.first;
 		DX12Resource* texture = nullptr;
@@ -514,12 +525,17 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m, int usageIndex) 
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
 		}
 		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_PER_MESH);
-		addDescriptorJob(job);
+		descriptorJobs.push_back(job);
 	}
+	meshDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
+	// Register the descriptors to easily fetch them later
+	m->registerPipelineStage(this, meshDescriptors);
 	m->texturesBound = true;
 }
 
 void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex) {
+	std::vector<DX12Descriptor> meshletDescriptors;
+	std::vector<DescriptorJob> descriptorJobs;
 	for (const auto& texMap : renderStageDesc.meshletTextureToDescriptor) {
 		MODEL_FORMAT textureType = texMap.first;
 		DX12Resource* texture = nullptr;
@@ -531,8 +547,10 @@ void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int u
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
 		}
 		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_PER_MESH);
-		addDescriptorJob(job);
+		descriptorJobs.push_back(job);
 	}
+	meshletDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
+	// TODO: make a similar binding as with the regular models
 	m->texturesBound = true;
 }
 
@@ -610,8 +628,4 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 	occlusionBoundingBoxBufferView.BufferLocation = occlusionBoundingBoxBufferGPU->GetGPUVirtualAddress();
 	occlusionBoundingBoxBufferView.StrideInBytes = sizeof(CompactBoundingBox);
 	occlusionBoundingBoxBufferView.SizeInBytes = byteSize;
-}
-
-void RenderPipelineStage::addDescriptorJob(DescriptorJob j) {
-	renderingDescriptorJobs.push_back(j);
 }

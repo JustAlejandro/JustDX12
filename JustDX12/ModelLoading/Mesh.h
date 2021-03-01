@@ -12,6 +12,7 @@
 #include <DX12ConstantBuffer.h>
 #include "TransformData.h"
 #include "SceneNode.h"
+#include "DescriptorClasses/DX12Descriptor.h"
 
 struct CompactBoundingBox {
 	DirectX::XMFLOAT3 center;
@@ -31,6 +32,7 @@ struct Vertex {
 };
 
 class Model;
+class PipelineStage;
 
 struct Mesh {
 	UINT typeFlags = 0;
@@ -50,6 +52,31 @@ struct Mesh {
 	std::array<SceneNode*, MAX_INSTANCES> instanceNodes;
 
 	Mesh(ID3D12Device5* device) : meshTransform(device) {
+	}
+
+	std::vector<DX12Descriptor> getDescriptorsForStage(PipelineStage* stage) {
+		for (int i = 0; i < pipelineStageMappings.size(); i++) {
+			if (stage == pipelineStageMappings[i]) {
+				return pipelineStageBindings[i];
+			}
+		}
+		throw "Binding was never created for this stage";
+	}
+
+	void registerPipelineStage(PipelineStage* stage, std::vector<DX12Descriptor> descriptors) {
+		UINT stageSlot = -1;
+		for (int i = 0; i < pipelineStageMappings.size(); i++) {
+			if (stage == pipelineStageMappings[i]) {
+				stageSlot = i;
+			}
+		}
+		if (stageSlot == -1) {
+			stageSlot = pipelineStageMappings.size();
+			pipelineStageMappings.push_back(stage);
+			pipelineStageBindings.push_back(std::vector<DX12Descriptor>());
+		}
+		pipelineStageBindings[stageSlot] = descriptors;
+		pipelineStageBindings[stageSlot].shrink_to_fit();
 	}
 
 	void updateTransform() {
@@ -81,5 +108,8 @@ struct Mesh {
 private:
 	// Trying to make repeated checks faster
 	bool texturesLoaded = false;
+
+	std::vector<std::vector<DX12Descriptor>> pipelineStageBindings;
+	std::vector<PipelineStage*> pipelineStageMappings;
 };
 

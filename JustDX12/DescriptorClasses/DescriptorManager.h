@@ -61,7 +61,7 @@ struct hash_pair {
 class DescriptorManager {
 public:
 	DescriptorManager(ComPtr<ID3D12Device5> device);
-	void makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager);
+	std::vector<DX12Descriptor> makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager, bool registerIntoManager = true);
 	DX12Descriptor* getDescriptor(const IndexedName& indexedName, const DESCRIPTOR_TYPE& type);
 	std::vector<ID3D12DescriptorHeap*> getAllBindableHeaps();
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> requiredResourceStates();

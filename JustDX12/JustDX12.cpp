@@ -217,12 +217,11 @@ bool DemoApp::initialize() {
 		rDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
 		rDesc.renderTargets.push_back(RenderTargetDesc("emissiveDesc", 0));
 		rDesc.usesMeshlets = true;
-		rDesc.perObjTransformCB = "PerObjConstants";
 		rDesc.perObjTransformCBSlot = 0;
-		rDesc.perMeshTransformCB = "PerMeshConstants";
 		rDesc.perMeshTransformCBSlot = 1;
-		rDesc.perObjTransformCBMeshlet = "PerMeshConstantsMeshlet";
-		rDesc.perObjTransformCBMeshletSlot = 0;
+		rDesc.perMeshTextureSlot = 2;
+		rDesc.perObjTransformCBMeshletSlot = 6;
+		rDesc.perObjTextureMeshletSlot = 7;
 		rDesc.supportsCulling = true;
 		rDesc.supportsVRS = true;
 

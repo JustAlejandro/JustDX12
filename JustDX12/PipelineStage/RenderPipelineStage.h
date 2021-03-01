@@ -17,12 +17,11 @@ struct RenderPipelineDesc {
 	bool supportsRT = false;
 	std::string tlasResourceName = "TLAS";
 	std::string VrsTextureName = "VRS";
-	std::string perObjTransformCB = "PerObjectConstants";
 	int perObjTransformCBSlot = -1;
-	std::string perMeshTransformCB = "PerMeshConstants";
 	int perMeshTransformCBSlot = -1;
-	std::string perObjTransformCBMeshlet = "PerMeshConstantsMeshlet";
+	int perMeshTextureSlot = -1;
 	int perObjTransformCBMeshletSlot = -1;
+	int perObjTextureMeshletSlot = -1;
 	bool usesMeshlets = false;
 	std::vector<RootParamDesc> meshletRootSignature;
 	std::vector<std::pair<MODEL_FORMAT, std::string>> meshletTextureToDescriptor;
@@ -68,8 +67,6 @@ protected:
 	void BuildInputLayout() override;
 	void setupRenderObjects();
 	void setupOcclusionBoundingBoxes();
-
-	void addDescriptorJob(DescriptorJob j);
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS;
 

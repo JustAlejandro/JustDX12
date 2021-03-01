@@ -8,12 +8,13 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device5> device) {
 	makeDescriptorHeaps();
 }
 
-void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager) {
+std::vector<DX12Descriptor> DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager, bool registerIntoManager) {
 	std::vector<DescriptorJob> jobByHeap[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	for (DescriptorJob& job : descriptorJobs) {
 		jobByHeap[heapTypeFromDescriptorType(job.type)].push_back(job);
 	}
 	// Seperating jobs into their respective heaps speeds up allocation since they can be placed contiguously.
+	std::vector<DX12Descriptor> newDescriptors;
 	for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
 		if (jobByHeap[i].size() == 0) {
 			continue;
@@ -21,7 +22,7 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 		DX12DescriptorHeap& heap = heaps[i];
 		std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, CD3DX12_GPU_DESCRIPTOR_HANDLE> handles = heap.reserveHeapSpace(jobByHeap[i].size());
 		for (DescriptorJob& job : jobByHeap[i]) {
-			DX12Descriptor& desc = descriptors[std::make_pair(IndexedName(job.name, job.usageIndex), job.type)];
+			DX12Descriptor desc;
 			desc.cpuHandle = handles.first;
 			desc.gpuHandle = handles.second;
 			desc.usage = job.usage;
@@ -43,12 +44,17 @@ void DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJob
 
 			desc.descriptorHeap = heap.getHeap();
 			createDescriptorView(desc, job);
-			descriptorsByType[job.type].push_back(&desc);
+			if (registerIntoManager) {
+				auto registeredValue = descriptors.insert_or_assign(std::make_pair(IndexedName(job.name, job.usageIndex), job.type), desc);
+				descriptorsByType[job.type].push_back(&registeredValue.first->second);
+			}
+			newDescriptors.push_back(desc);
 
 			handles.first.Offset(1, heap.getOffset());
 			handles.second.Offset(1, heap.getOffset());
 		}
 	}
+	return newDescriptors;
 }
 
 DX12Descriptor* DescriptorManager::getDescriptor(const IndexedName& indexedName, const DESCRIPTOR_TYPE& type) {
