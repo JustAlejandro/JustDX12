@@ -625,7 +625,9 @@ void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 	UINT byteSize = (UINT)boundingBoxes.size() * sizeof(CompactBoundingBox);
 
 	ResourceDecay::DestroyAfterDelay(occlusionBoundingBoxBufferGPU);
+	occlusionBoundingBoxBufferGPU.Reset();
 	ResourceDecay::DestroyAfterDelay(occlusionBoundingBoxBufferGPUUploader);
+	occlusionBoundingBoxBufferGPUUploader.Reset();
 
 	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
 		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);

@@ -601,7 +601,8 @@ void DemoApp::draw() {
 	eventHandles.push_back(vBlurStage->deferExecute());
 	eventHandles.push_back(mergeStage->deferExecute());
 	eventHandles.push_back(vrsComputeStage->deferExecute());
-	eventHandles.push_back(modelLoader->updateRTAccelerationStructureDeferred(mCommandList.Get()));
+	// Update done on main thread since modelLoader thread could be busy loading.
+	modelLoader->updateRTAccelerationStructure(mCommandList.Get());
 
 	WaitForMultipleObjects(eventHandles.size(), eventHandles.data(), TRUE, INFINITE);
 
