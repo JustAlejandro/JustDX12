@@ -82,24 +82,24 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	return outVec;
 }
 
-Model* ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
+std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
 	std::lock_guard<std::mutex> lk(databaseLock);
 
 	auto findModel = loadedModels.find(dir + name);
-	Model* model;
+	std::weak_ptr<Model> model;
 	if (findModel == loadedModels.end()) {
 		// Search through what's loading for the model
 		for (int i = 0; i < loadingModels.size(); i++) {
 			if (loadingModels[i].first == (dir + name)) {
-				return loadingModels[i].second.get();
+				return loadingModels[i].second;
 			}
 		}
-		loadingModels.push_back(std::make_pair(dir + name, std::make_unique<Model>(name, dir, md3dDevice.Get(), usesRT)));
-		model = loadingModels.back().second.get();
-		enqueue(new ModelLoadTask(this, model));
+		loadingModels.push_back(std::make_pair(dir + name, std::make_shared<Model>(name, dir, md3dDevice.Get(), usesRT)));
+		model = loadingModels.back().second;
+		enqueue(new ModelLoadTask(this, loadingModels.back().second.get()));
 	}
 	else {
-		model = findModel->second.get();
+		model = findModel->second;
 	}
 	return model;
 }
@@ -118,6 +118,14 @@ MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, b
 		meshletModel = &findModel->second;
 	}
 	return meshletModel;
+}
+
+void ModelLoader::unloadModel(std::string name, std::string dir) {
+	std::lock_guard<std::mutex> lk(databaseLock);
+	auto findModel = loadedModels.find(dir + name);
+	if (findModel != loadedModels.end()) {
+		loadedModels.erase(findModel);
+	}
 }
 
 void ModelLoader::updateTransforms() {

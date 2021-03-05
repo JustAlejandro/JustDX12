@@ -136,7 +136,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		MessageBox(nullptr, L"Not Sure What",L"Oof, something broke.", MB_OK);
 		return 0;
 	}
-#if true
+#if false
 	ID3D12DebugDevice* debugInterface;
 	debugDev->QueryInterface(&debugInterface);
 	debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
@@ -203,8 +203,8 @@ bool DemoApp::initialize() {
 		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
 
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerMeshConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESH));
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerMeshConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 3, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
 
 		std::vector<DXDefine> defines = {
@@ -251,7 +251,7 @@ bool DemoApp::initialize() {
 		rDesc.meshletRootSignature.push_back(RootParamDesc("PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV, 4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rDesc.meshletRootSignature.push_back(RootParamDesc("MeshletCullData", ROOT_PARAMETER_TYPE_SRV, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rDesc.meshletRootSignature.push_back(RootParamDesc("PerObjectConstantsMeshlet", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 6, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_MESH));
+		rDesc.meshletRootSignature.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
 		rDesc.meshletRootSignature.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 8, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
 
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
@@ -719,6 +719,9 @@ void DemoApp::ImGuiPrepareUI() {
 		DirectX::XMFLOAT4X4 headTransform;
 		DirectX::XMStoreFloat4x4(&headTransform, DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixScaling(0.0005f, 0.0005f, 0.0005f), DirectX::XMMatrixTranslation(-18.0, 1.0f, 5.0f))));
 		renderStage->updateInstanceTransform("head", 0, headTransform);
+	}
+	if (ImGui::Button("UnLoad Head")) {
+		modelLoader->unloadModel(headFile, headDir);
 	}
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {

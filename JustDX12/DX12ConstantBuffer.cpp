@@ -1,4 +1,5 @@
 #include "DX12ConstantBuffer.h"
+#include "ResourceDecay.h"
 
 DX12ConstantBuffer::DX12ConstantBuffer(ConstantBufferData* data, ID3D12Device5* device) {
 	this->data = data->clone();
@@ -25,6 +26,7 @@ DX12ConstantBuffer::~DX12ConstantBuffer() {
 	for (UINT i = 0; i < CPU_FRAME_COUNT; i++) {
 		if (uploadBuffer[i] != nullptr) {
 			uploadBuffer[i]->Unmap(0, nullptr);
+			ResourceDecay::DestroyAfterDelay(uploadBuffer[i]);
 		}
 	}
 }

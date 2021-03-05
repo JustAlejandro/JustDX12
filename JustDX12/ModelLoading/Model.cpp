@@ -18,6 +18,11 @@ Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool uses
 	transform.setTransform(0, Identity());
 }
 
+Model::~Model() {
+	ResourceDecay::DestroyAfterDelay(vertexBufferGPU);
+	ResourceDecay::DestroyAfterDelay(indexBufferGPU);
+}
+
 bool Model::isLoaded() {
 	if ((indexBufferGPU.Get() == nullptr) || (vertexBufferGPU.Get() == nullptr)) {
 		return false;

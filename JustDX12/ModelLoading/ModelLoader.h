@@ -23,8 +23,9 @@ public:
 	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
 	bool allModelsLoaded();
 	std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
-	Model* loadModel(std::string name, std::string dir, bool usesRT);
+	std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
 	MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	void unloadModel(std::string name, std::string dir);
 	void updateTransforms();
 	HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
 	void buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
@@ -41,8 +42,8 @@ private:
 	std::mutex databaseLock;
 	bool newModelLoaded = false;
 	// string is dir + name
-	std::vector<std::pair<std::string, std::unique_ptr<Model>>> loadingModels;
-	std::unordered_map<std::string, std::unique_ptr<Model>> loadedModels;
+	std::vector<std::pair<std::string, std::shared_ptr<Model>>> loadingModels;
+	std::unordered_map<std::string, std::shared_ptr<Model>> loadedModels;
 	std::unordered_map<std::string, MeshletModel> loadedMeshlets;
 
 	UINT64 tlasSize;

@@ -66,14 +66,14 @@ protected:
 	void buildMeshTexturesDescriptors(Mesh* m);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
 	void BuildInputLayout() override;
-	void setupRenderObjects();
+	bool setupRenderObjects();
 	void setupOcclusionBoundingBoxes();
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS;
 
-	std::unordered_map<std::string, Model*> nameToModel;
-	std::vector<Model*> loadingRenderObjects;
-	std::vector<Model*> renderObjects;
+	std::unordered_map<std::string, std::weak_ptr<Model>> nameToModel;
+	std::vector<std::weak_ptr<Model>> loadingRenderObjects;
+	std::vector<std::weak_ptr<Model>> renderObjects;
 	std::vector<MeshletModel*> meshletRenderObjects;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionQueryResultBuffer;
@@ -83,7 +83,6 @@ protected:
 	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsIn;
 	std::vector<CD3DX12_RESOURCE_BARRIER> transitionsOut;
 
-	bool newObjectsLoaded = false;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> meshletPSO = nullptr;
 	Microsoft::WRL::ComPtr<IDxcBlob> meshletShader = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> occlusionPSO = nullptr;

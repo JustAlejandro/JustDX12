@@ -38,6 +38,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> CreateBlankBuffer(ID3D12Device5* device, 
 Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer) {
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
+	uploadBuffer.Reset();
 	auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
 	device->CreateCommittedResource(
 		&gDefaultHeapDesc,

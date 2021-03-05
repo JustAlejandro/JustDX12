@@ -88,10 +88,10 @@ void RenderPipelineStage::Execute() {
 	if (renderStageDesc.usesMeshlets) {
 		drawMeshletRenderObjects();
 	}
+	
+	bool modelAmountChanged = setupRenderObjects();
 
-	setupRenderObjects();
-
-	if (renderStageDesc.supportsCulling && newObjectsLoaded) {
+	if (modelAmountChanged && renderStageDesc.supportsCulling) {
 		setupOcclusionBoundingBoxes();
 		BuildQueryHeap();
 	}
@@ -108,7 +108,7 @@ void RenderPipelineStage::Execute() {
 }
 
 void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
-	Model* model = loader->loadModel(fileName, dirName, usesRT);
+	std::weak_ptr<Model> model = loader->loadModel(fileName, dirName, usesRT);
 	loadingRenderObjects.push_back(model);
 	nameToModel[referenceName] = model;
 }
@@ -118,11 +118,21 @@ void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string file
 }
 
 void RenderPipelineStage::updateInstanceCount(std::string referenceName, UINT instanceCount) {
-	nameToModel[referenceName]->transform.setInstanceCount(instanceCount);
+	if (auto ptr = nameToModel[referenceName].lock()) {
+		ptr->transform.setInstanceCount(instanceCount);
+	}
+	else {
+		throw "Referenced name has been unloaded";
+	}
 }
 
 void RenderPipelineStage::updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform) {
-	nameToModel[referenceName]->transform.setTransform(instanceIndex, transform);
+	if (auto ptr = nameToModel[referenceName].lock()) {
+		ptr->transform.setTransform(instanceIndex, transform);
+	}
+	else {
+		throw "Referenced name has been unloaded";
+	}
 }
 
 void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform) {
@@ -368,7 +378,6 @@ void RenderPipelineStage::bindRenderTarget() {
 
 void RenderPipelineStage::drawRenderObjects() {
 	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
-	int meshIndex = 0;
 	int modelIndex = 0;
 	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
 		D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_OVERRIDE };
@@ -379,7 +388,11 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->SetGraphicsRootShaderResourceView(renderStageDesc.rtTlasSlot, (*renderStageDesc.tlasPtr)->GetGPUVirtualAddress());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
-		Model* model = renderObjects[i];
+		std::shared_ptr<Model> model = renderObjects[i].lock();
+		if (!model) {
+			modelIndex++;
+			continue;
+		}
 
 		std::vector<DirectX::BoundingBox> boundingBoxes;
 		for (UINT i = 0; i < model->transform.getInstanceCount(); i++) {
@@ -388,7 +401,6 @@ void RenderPipelineStage::drawRenderObjects() {
 			boundingBoxes.push_back(instanceBB);
 		}
 		if (frustrumCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this] (DirectX::BoundingBox b) { return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
-			meshIndex += model->meshes.size();
 			modelIndex++;
 			continue;
 		}
@@ -426,7 +438,6 @@ void RenderPipelineStage::drawRenderObjects() {
 				}
 			}
 			if (frustrumCull && std::all_of(meshBoundingBoxes.begin(), meshBoundingBoxes.end(), [this](DirectX::BoundingBox b) {return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
-				meshIndex++;
 				continue;
 			}
 
@@ -435,7 +446,6 @@ void RenderPipelineStage::drawRenderObjects() {
 				mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), combiners);
 			}
 
-			bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, meshIndex);
 			m.meshTransform.bindTransformToRoot(renderStageDesc.perMeshTransformCBSlot, gFrameIndex, mCommandList.Get());
 			if (renderStageDesc.perMeshTextureSlot > -1) {
 				mCommandList->SetGraphicsRootDescriptorTable(renderStageDesc.perMeshTextureSlot, m.getDescriptorsForStage(this)[0].gpuHandle);
@@ -444,7 +454,6 @@ void RenderPipelineStage::drawRenderObjects() {
 			mCommandList->DrawIndexedInstanced(m.indexCount,
 				model->transform.getInstanceCount() * m.meshTransform.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
 
-			meshIndex++;
 		}
 		modelIndex++;
 	}
@@ -484,7 +493,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 			mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 		}
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, modelIndex, meshRootParameterDescs);
-		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_MESH, modelIndex, meshRootParameterDescs);
+
 		for (auto& mesh : *model) {
 			mCommandList->SetGraphicsRootConstantBufferView(0, mesh.MeshInfoResource->GetGPUVirtualAddress());
 			mCommandList->SetGraphicsRootShaderResourceView(1, mesh.VertexResources[0]->GetGPUVirtualAddress());
@@ -508,19 +517,27 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_ALL);
 	bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_PASS);
 	mCommandList->SetGraphicsRootSignature(rootSignature.Get());
-	mCommandList->IASetVertexBuffers(0, 1, &occlusionBoundingBoxBufferView);
-	for (int i = 0; i < renderObjects.size() + meshletRenderObjects.size(); i++) {
+	mCommandList->IASetVertexBuffers(0, 1, &occlusionBoundingBoxBufferView); 
+	for (int i = 0; i < renderObjects.size(); i++) {
+		auto mPtr = renderObjects[i].lock();
+		if (!mPtr) {
+			continue;
+		}
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
-		if (i < renderObjects.size()) {
-			renderObjects[i]->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
-		}
-		else {
-			meshletRenderObjects[i - renderObjects.size()]->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
-		}
+		mPtr->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
+		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
+		mCommandList->DrawInstanced(1, mPtr->transform.getInstanceCount(), i, 0);
+		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
+	}
+	for (int i = renderObjects.size(); i < renderObjects.size() + meshletRenderObjects.size(); i++) {
+		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
+
+		meshletRenderObjects[i - renderObjects.size()]->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
 
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
-		mCommandList->DrawInstanced(1, i >= renderObjects.size() ? 1 : renderObjects[i]->transform.getInstanceCount(), i, 0);
+		mCommandList->DrawInstanced(1, 1, i, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
 	auto copyTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -542,7 +559,7 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m) {
 		else {
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
 		}
-		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_PER_MESH);
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
 		descriptorJobs.push_back(job);
 	}
 	meshDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
@@ -564,7 +581,7 @@ void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int u
 		else {
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
 		}
-		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_PER_MESH);
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
 		descriptorJobs.push_back(job);
 	}
 	meshletDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
@@ -581,10 +598,16 @@ void RenderPipelineStage::BuildInputLayout() {
 	};
 }
 
-void RenderPipelineStage::setupRenderObjects() {
-	newObjectsLoaded = false;
+bool RenderPipelineStage::setupRenderObjects() {
+	bool newObjectsLoadedOrDeleted = false;
+
 	for (int i = 0; i < loadingRenderObjects.size(); i++) {
-		Model* obj = loadingRenderObjects[i];
+		std::shared_ptr<Model> obj = loadingRenderObjects[i].lock();
+		// Catches case where loading can fail (not implemented now, but possible)
+		if (!obj) {
+			loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
+			i--;
+		}
 		if (!obj->isLoaded()) {
 			continue;
 		}
@@ -594,29 +617,46 @@ void RenderPipelineStage::setupRenderObjects() {
 		renderObjects.push_back(obj);
 		loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
 		i--;
-		newObjectsLoaded = true;
+		newObjectsLoadedOrDeleted = true;
 	}
 
 	int index = 0;
 	for (auto& meshletRenderObj : meshletRenderObjects) {
 		if (!meshletRenderObj->loaded) {
-			return;
+			continue;
 		}
 		if (!meshletRenderObj->allTexturesLoaded()) {
-			return;
+			continue;
 		}
 		if (!meshletRenderObj->texturesBound) {
 			buildMeshletTexturesDescriptors(meshletRenderObj, index);
-			return;
+			continue;
 		}
 		index++;
 	}
+
+	for (int i = 0; i < renderObjects.size(); i++) {
+		std::shared_ptr<Model> obj = renderObjects[i].lock();
+		if (!obj) {
+			renderObjects.erase(renderObjects.begin() + i);
+			i--;
+			newObjectsLoadedOrDeleted = true;
+		}
+	}
+
+	return newObjectsLoadedOrDeleted;
 }
 
 void RenderPipelineStage::setupOcclusionBoundingBoxes() {
 	std::vector<CompactBoundingBox> boundingBoxes;
 	for (const auto& model : renderObjects) {
-		boundingBoxes.emplace_back(model->boundingBox.Center, model->boundingBox.Extents);
+		if (auto modelPtr = model.lock()) {
+			boundingBoxes.emplace_back(modelPtr->boundingBox.Center, modelPtr->boundingBox.Extents);
+		}
+		else {
+			// if the model was actually unloaded, this bogus 'padding' is necessary to keep indexing consistent when drawing BBs
+			boundingBoxes.emplace_back(CompactBoundingBox(DirectX::XMFLOAT3(), DirectX::XMFLOAT3()));
+		}
 	}
 	for (const auto& meshletModel : meshletRenderObjects) {
 		boundingBoxes.emplace_back(meshletModel->GetBoundingBox().Center, meshletModel->GetBoundingBox().Extents);

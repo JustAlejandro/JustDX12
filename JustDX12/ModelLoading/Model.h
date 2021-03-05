@@ -36,6 +36,7 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 
 	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
+	~Model();
 	bool isLoaded();
 	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 	void refreshAllTransforms();
