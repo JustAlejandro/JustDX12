@@ -20,7 +20,6 @@
 #include <ctime>
 #include <ResourceDecay.h>
 
-
 std::string baseDir = "..\\Models";
 std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
@@ -31,10 +30,6 @@ std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
 std::string headFile = "head.fbx";
 std::string armorMeshlet = "armor.bin";
-
-std::string warn;
-std::string err;
-
 
 class DemoApp : public DX12App {
 public:
@@ -100,21 +95,15 @@ private:
 	std::deque<float> frametime;
 	std::deque<float> cpuFrametime;
 
-	ComputePipelineStage* computeStage = nullptr;
-	ComputePipelineStage* hBlurStage = nullptr;
-	ComputePipelineStage* vBlurStage = nullptr;
-	ComputePipelineStage* vrsComputeStage = nullptr;
-	RenderPipelineStage* renderStage = nullptr;
-	RenderPipelineStage* deferStage = nullptr;
-	RenderPipelineStage* mergeStage = nullptr;
-	ModelLoader* modelLoader = nullptr;
+	std::unique_ptr<ComputePipelineStage> computeStage = nullptr;
+	std::unique_ptr<ComputePipelineStage> hBlurStage = nullptr;
+	std::unique_ptr<ComputePipelineStage> vBlurStage = nullptr;
+	std::unique_ptr<ComputePipelineStage> vrsComputeStage = nullptr;
+	std::unique_ptr<RenderPipelineStage> renderStage = nullptr;
+	std::unique_ptr<RenderPipelineStage> deferStage = nullptr;
+	std::unique_ptr<RenderPipelineStage> mergeStage = nullptr;
+	std::unique_ptr<ModelLoader> modelLoader = nullptr;
 	KeyboardWrapper keyboard;
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> mSSAORootSignature = nullptr;
-	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> shaders;
-	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> defaultPSO = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> ssaoPSO = nullptr;
 
 	PerPassConstants mainPassCB;
 	PerObjectConstants perObjCB;
@@ -170,14 +159,6 @@ DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
 DemoApp::~DemoApp() {
 	if (md3dDevice != nullptr)
 		FlushCommandQueue();
-	delete modelLoader;
-	delete computeStage;
-	delete hBlurStage;
-	delete vBlurStage;
-	delete renderStage;
-	delete deferStage;
-	delete mergeStage;
-	delete vrsComputeStage;
 	ResourceDecay::DestroyAll();
 	TextureLoader::getInstance().clearAll();
 	ImGui_ImplDX12_Shutdown();
@@ -190,7 +171,7 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
-	modelLoader = new ModelLoader(md3dDevice);
+	modelLoader = std::make_unique<ModelLoader>(md3dDevice);
 	std::vector<HANDLE> cpuWaitHandles;
 	// Create Render stage first because of dependencies later.
 	{
@@ -284,7 +265,7 @@ bool DemoApp::initialize() {
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "mesh_texture_emissive");
 
-		renderStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		renderStage = std::make_unique<RenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
 	}
@@ -344,7 +325,7 @@ bool DemoApp::initialize() {
 		mergeRDesc.usesDepthTex = false;
 		mergeRDesc.rtTlasSlot = 4;
 		mergeRDesc.tlasPtr = modelLoader->TLAS.GetAddressOf();
-		deferStage = new RenderPipelineStage(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		deferStage = std::make_unique<RenderPipelineStage>(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		deferStage->deferSetup(stageDesc);
 		WaitOnFenceForever(deferStage->getFence(), deferStage->triggerFence());
 		deferStage->frustrumCull = false;
@@ -394,7 +375,7 @@ bool DemoApp::initialize() {
 		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
 		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
 		cDesc.groupCount[2] = 1;
-		computeStage = new ComputePipelineStage(md3dDevice, cDesc);
+		computeStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		computeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(computeStage->getFence(), computeStage->triggerFence());
 	}
@@ -420,7 +401,7 @@ bool DemoApp::initialize() {
 		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 32.0f);
 		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT);
 		cDesc.groupCount[2] = 1;
-		hBlurStage = new ComputePipelineStage(md3dDevice, cDesc);
+		hBlurStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		hBlurStage->deferSetup(desc);
 		WaitOnFenceForever(hBlurStage->getFence(), hBlurStage->triggerFence());
 	}
@@ -446,7 +427,7 @@ bool DemoApp::initialize() {
 		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH);
 		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 32.0f);
 		cDesc.groupCount[2] = 1;
-		vBlurStage = new ComputePipelineStage(md3dDevice, cDesc);
+		vBlurStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		vBlurStage->deferSetup(desc);
 		WaitOnFenceForever(vBlurStage->getFence(), vBlurStage->triggerFence());
 	}
@@ -476,7 +457,7 @@ bool DemoApp::initialize() {
 		rDesc.usesMeshlets = false;
 		rDesc.usesDepthTex = false;
 
-		mergeStage = new RenderPipelineStage(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		mergeStage = std::make_unique<RenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		mergeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(mergeStage->getFence(), mergeStage->triggerFence());
 	}
@@ -511,13 +492,13 @@ bool DemoApp::initialize() {
 		cDesc.groupCount[1] = DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize);
 		cDesc.groupCount[2] = 1;
 		
-		vrsComputeStage = new ComputePipelineStage(md3dDevice, cDesc);
+		vrsComputeStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		vrsComputeStage->deferSetup(stageDesc);
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 	//renderStage->LoadModel(modelLoader, "testScene.fbx", baseDir, true);
-	deferStage->LoadModel(modelLoader, "screen", "screenTex.obj", baseDir);
-	mergeStage->LoadModel(modelLoader, "screen", "screenTex.obj", baseDir);
+	deferStage->LoadModel(modelLoader.get(), "screen", "screenTex.obj", baseDir);
+	mergeStage->LoadModel(modelLoader.get(), "screen", "screenTex.obj", baseDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
 
@@ -545,7 +526,7 @@ bool DemoApp::initialize() {
 
 	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
 	WaitForMultipleObjects((DWORD)cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
-	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage}, {computeStage, deferStage}, {hBlurStage}, {vBlurStage}, {mergeStage}, {vrsComputeStage} });
+	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage.get()}, {computeStage.get(), deferStage.get()}, {hBlurStage.get()}, {vBlurStage.get()}, {mergeStage.get()}, {vrsComputeStage.get()} });
 	mCommandList->ResourceBarrier((UINT)initialTransitions.size(), initialTransitions.data());
 
 	ThrowIfFailed(mCommandList->Close());
@@ -604,7 +585,7 @@ void DemoApp::draw() {
 	cmdListAlloc->Reset();
 	cmdComputeListAlloc->Reset();
 
-	mCommandList->Reset(cmdListAlloc.Get(), defaultPSO.Get());
+	mCommandList->Reset(cmdListAlloc.Get(), nullptr);
 	// Compute doesn't really need a command list.
 
 	SetName(mCommandList.Get(), L"Meta Command List");
@@ -821,7 +802,7 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 		DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z), 
 			DirectX::XMMatrixScaling(scale.x, scale.y, scale.z)), DirectX::XMMatrixTranslation(translate.x, translate.y, translate.z))));
 
-	renderStage->LoadModel(modelLoader, name, fileName, dirName, true);
+	renderStage->LoadModel(modelLoader.get(), name, fileName, dirName, true);
 	renderStage->updateInstanceCount(name, 1);
 	renderStage->updateInstanceTransform(name, 0, transform);
 }
@@ -829,7 +810,7 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 void DemoApp::unloadModel(std::string name) {
 	auto modelData = activeModels.find(name);
 	activeModels.erase(modelData);
-	renderStage->UnloadModel(modelLoader, name);
+	renderStage->UnloadModel(modelLoader.get(), name);
 }
 
 void DemoApp::BuildFrameResources() {
