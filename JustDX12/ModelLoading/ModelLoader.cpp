@@ -197,7 +197,7 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<Model*> models;
-	if (newModelLoaded) {
+	if (newModelLoaded || instanceCountChanged) {
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pResult);
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pScratch);
 	}
@@ -220,7 +220,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 		}
 	}
 
-	if (newModelLoaded) {
+	if (newModelLoaded || instanceCountChanged) {
 		Microsoft::WRL::ComPtr<ID3D12Resource> newTLAS = nullptr;
 		createTLAS(newTLAS, tlasSize, models, meshletModels, cmdList);
 		ResourceDecay::DestroyAfterDelay(TLAS);

@@ -33,6 +33,7 @@ public:
 	void updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS = nullptr;
+	bool instanceCountChanged = false;
 private:
 	int frame = 0;
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);

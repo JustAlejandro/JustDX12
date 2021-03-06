@@ -54,7 +54,24 @@ public:
 	virtual void onResize()override;
 
 private:
+	struct ModelData {
+		std::string name;
+		int instanceCount = 1;
+		std::array<DirectX::XMFLOAT3, MAX_INSTANCES> scale;
+		std::array<DirectX::XMFLOAT3, MAX_INSTANCES> translate;
+		std::array<DirectX::XMFLOAT3, MAX_INSTANCES> rotation;
+		ModelData() {
+			scale.fill(DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f));
+			translate.fill(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+			rotation.fill(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+		}
+	};
+
 	void BuildFrameResources();
+
+	void ApplyModelDataUpdate(ModelData* data);
+	void loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3 scale = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3 rotation = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+	void unloadModel(std::string name);
 
 	void onKeyboardInput();
 
@@ -105,6 +122,8 @@ private:
 	VrsConstants vrsCB;
 	SSAOConstants ssaoConstantCB;
 	LightData lightDataCB;
+
+	std::unordered_map<std::string, ModelData> activeModels;
 
 	DirectX::XMFLOAT4 eyePos = { -10.0f,2.5f,7.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
@@ -503,14 +522,14 @@ bool DemoApp::initialize() {
 
 	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
 
-	renderStage->LoadModel(modelLoader, "bistro", bistroFile, bistroDir, true);
+	loadModel("bistro", bistroFile, bistroDir);
+	auto& model = activeModels.at("bistro");
+	model.instanceCount = 1;
+	model.scale[0] = { 1.0f,1.0f,1.0f };
+	ApplyModelDataUpdate(&model);
+
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
-	perObjCB.data.World[0] = Identity();
-	float scale = 1.0f;
-	DirectX::XMStoreFloat4x4(&perObjCB.data.World[0], DirectX::XMMatrixScaling(scale, scale, scale));
-	renderStage->updateInstanceCount("bistro", 1);
-	renderStage->updateInstanceTransform("bistro", 0, perObjCB.data.World[0]);
 
 	while (!modelLoader->allModelsLoaded()) {
 		ResourceDecay::CheckDestroy();
@@ -714,14 +733,10 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
 	if (ImGui::Button("Load Head")) {
-		renderStage->LoadModel(modelLoader, "head", headFile, headDir, true);
-		renderStage->updateInstanceCount("head", 1);
-		DirectX::XMFLOAT4X4 headTransform;
-		DirectX::XMStoreFloat4x4(&headTransform, DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixScaling(0.0005f, 0.0005f, 0.0005f), DirectX::XMMatrixTranslation(-18.0, 1.0f, 5.0f))));
-		renderStage->updateInstanceTransform("head", 0, headTransform);
+		loadModel("head", headFile, headDir, { -18.0f, 1.0f, 5.0f }, { 0.0005f, 0.0005f, 0.0005f });
 	}
 	if (ImGui::Button("UnLoad Head")) {
-		modelLoader->unloadModel(headFile, headDir);
+		unloadModel("head");
 	}
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
@@ -745,6 +760,30 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::SliderFloat("Gamma", &lightDataCB.data.gamma, 0.0f, 5.0f);
 		ImGui::EndTabItem();
 	}
+	if (ImGui::BeginTabItem("Model Options")) {
+		for (auto& data : activeModels) {
+			ImGui::Text(("Name: " + data.first).c_str());
+			bool requiresUpdate = false;
+			requiresUpdate |= ImGui::SliderInt((data.first + " Instances: ").c_str(), &data.second.instanceCount, 1, MAX_INSTANCES);
+			ImGui::BeginTabBar(("Instance Params" + data.first).c_str());
+			if (requiresUpdate) {
+				modelLoader->instanceCountChanged = true;
+			}
+			for (int i = 0; i < data.second.instanceCount; i++) {
+				if (ImGui::BeginTabItem(("Instance: " + std::to_string(i)).c_str())) {
+					requiresUpdate |= ImGui::DragFloat3("Scale: ", (float*)&data.second.scale[i], 0.0001f);
+					requiresUpdate |= ImGui::DragFloat3("Translate: ", (float*)&data.second.translate[i], 0.01f);
+					requiresUpdate |= ImGui::DragFloat3("Rotation: ", (float*)&data.second.rotation[i], 0.01f);
+					ImGui::EndTabItem();
+				}
+			}
+			if (requiresUpdate) {
+				ApplyModelDataUpdate(&data.second);
+			}
+			ImGui::EndTabBar();
+		}
+		ImGui::EndTabItem();
+	}
 	ImGui::EndTabBar();
 	ImGui::End();
 }
@@ -754,6 +793,42 @@ void DemoApp::onResize() {
 
 	DirectX::XMMATRIX P = DirectX::XMMatrixPerspectiveFovLH(0.25f * DirectX::XM_PI, getAspectRatio(), NEAR_Z, FAR_Z);
 	XMStoreFloat4x4(&proj, P);
+}
+
+void DemoApp::ApplyModelDataUpdate(ModelData* data) {
+	renderStage->updateInstanceCount(data->name, data->instanceCount); 
+	DirectX::XMFLOAT4X4 transform;
+	for (int i = 0; i < data->instanceCount; i++) {
+		DirectX::XMStoreFloat4x4(&transform,
+			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->rotation[i])),
+				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->scale[i]))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->translate[i])))));
+		renderStage->updateInstanceTransform(data->name, i, transform);
+	}
+}
+
+void DemoApp::loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate, DirectX::XMFLOAT3 scale, DirectX::XMFLOAT3 rotation) {
+	ModelData defaultInitData;
+	defaultInitData.instanceCount = 1;
+	defaultInitData.name = name;
+	defaultInitData.rotation[0] = rotation;
+	defaultInitData.translate[0] = translate;
+	defaultInitData.scale[0] = scale;
+	activeModels[name] = defaultInitData;
+
+	DirectX::XMFLOAT4X4 transform;
+	DirectX::XMStoreFloat4x4(&transform, 
+		DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z), 
+			DirectX::XMMatrixScaling(scale.x, scale.y, scale.z)), DirectX::XMMatrixTranslation(translate.x, translate.y, translate.z))));
+
+	renderStage->LoadModel(modelLoader, name, fileName, dirName, true);
+	renderStage->updateInstanceCount(name, 1);
+	renderStage->updateInstanceTransform(name, 0, transform);
+}
+
+void DemoApp::unloadModel(std::string name) {
+	auto modelData = activeModels.find(name);
+	activeModels.erase(modelData);
+	renderStage->UnloadModel(modelLoader, name);
 }
 
 void DemoApp::BuildFrameResources() {

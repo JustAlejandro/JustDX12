@@ -35,6 +35,7 @@ public:
 	void Execute() override;
 	void LoadModel(ModelLoader* loader, std::string referenceName, std::string fileName, std::string dirName, bool usesRT = false);
 	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
+	void UnloadModel(ModelLoader* loader, std::string friendlyName);
 	void updateInstanceCount(std::string referenceName, UINT instanceCount);
 	void updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
 	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);

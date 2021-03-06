@@ -117,6 +117,11 @@ void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string file
 	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName, usesRT));
 }
 
+void RenderPipelineStage::UnloadModel(ModelLoader* loader, std::string friendlyName) {
+	auto ptr = nameToModel[friendlyName].lock();
+	loader->unloadModel(ptr->name, ptr->dir);
+}
+
 void RenderPipelineStage::updateInstanceCount(std::string referenceName, UINT instanceCount) {
 	if (auto ptr = nameToModel[referenceName].lock()) {
 		ptr->transform.setInstanceCount(instanceCount);
