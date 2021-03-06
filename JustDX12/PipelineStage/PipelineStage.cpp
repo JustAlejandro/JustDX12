@@ -215,7 +215,7 @@ void PipelineStage::BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignatur
 	auto samplers = GetStaticSamplers();
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-		rootSigDescs.size(),
+		(UINT)rootSigDescs.size(),
 		rootParameters.data(),
 		(UINT)samplers.size(),
 		samplers.data(),
@@ -394,7 +394,7 @@ void PipelineStage::resetCommandList() {
 
 void PipelineStage::bindDescriptorHeaps() {
 	std::vector<ID3D12DescriptorHeap*> descHeaps = descriptorManager.getAllBindableHeaps();
-	mCommandList->SetDescriptorHeaps(descHeaps.size(), descHeaps.data());
+	mCommandList->SetDescriptorHeaps((UINT)descHeaps.size(), descHeaps.data());
 }
 
 std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> PipelineStage::getRequiredResourceStates() {
@@ -410,6 +410,6 @@ void PipelineStage::setResourceStates() {
 		}
 	}
 	if (transitionQueue.size() > 0) {
-		mCommandList->ResourceBarrier(transitionQueue.size(), transitionQueue.data());
+		mCommandList->ResourceBarrier((UINT)transitionQueue.size(), transitionQueue.data());
 	}
 }

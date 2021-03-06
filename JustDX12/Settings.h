@@ -169,7 +169,7 @@ inline D3D12_SHADING_RATE getShadingRateFromDistance(const DirectX::XMFLOAT3& po
 	FLOAT distance = 0.0;
 	DirectX::XMVECTOR displaceVec = DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&pos), DirectX::XMLoadFloat3(&bb.Center));
 	DirectX::XMStoreFloat(&distance, DirectX::XMVector3Dot(displaceVec, displaceVec));
-	distance = sqrt(distance);
+	distance = (FLOAT)sqrt(distance);
 	for (int i = 0; i < SHADING_RATE_COUNT; i++) {
 		if (distance < shadingRateDistance[i]) {
 			return shadingRates[i];

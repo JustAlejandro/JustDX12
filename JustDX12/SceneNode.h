@@ -2,7 +2,7 @@
 #include <DX12Helper.h>
 #include <queue>
 
-struct Mesh;
+class Mesh;
 
 class SceneNode {
 public:

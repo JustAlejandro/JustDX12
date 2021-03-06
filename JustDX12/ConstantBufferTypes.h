@@ -100,7 +100,7 @@ public:
 class LightData : public ConstantBufferData {
 public:
 	struct LightDataStruct {
-		DirectX::XMFLOAT3 viewPos;
+		DirectX::XMFLOAT3 viewPos = { 0.0f, 0.0f, 0.0f };
 		float exposure = 0.7f;
 		UINT numPointLights = 0;
 		UINT numDirectionalLights = 0;

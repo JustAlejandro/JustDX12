@@ -60,7 +60,7 @@ float AverageVector(std::vector<float>& vec);
 
 UINT CalcConstantBufferByteSize(UINT byteSize);
 
-UINT CalcBufferByteSize(UINT byteSize, UINT alignment);
+UINT64 CalcBufferByteSize(UINT64 byteSize, UINT64 alignment);
 
 HANDLE EventFromFence(ID3D12Fence* fence, int destVal);
 

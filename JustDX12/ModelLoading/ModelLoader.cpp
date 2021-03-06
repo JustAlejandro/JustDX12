@@ -34,7 +34,7 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	std::vector<Light> spotLights;
 	for (const auto& model : loadedModels) {
 		for (const auto& light : model.second->lights) {
-			for (int i = 0; i < model.second->transform.getInstanceCount(); i++) {
+			for (UINT i = 0; i < model.second->transform.getInstanceCount(); i++) {
 				Light l;
 
 				l.color = DirectX::XMFLOAT3(light.mColorDiffuse.r, light.mColorDiffuse.g, light.mColorDiffuse.b);
@@ -70,9 +70,9 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 			}
 		}
 	}
-	numPoint = pointLights.size();
-	numDir = directionalLights.size();
-	numSpot = spotLights.size();
+	numPoint = (UINT)pointLights.size();
+	numDir = (UINT)directionalLights.size();
+	numSpot = (UINT)spotLights.size();
 
 	std::vector<Light> outVec;
 	outVec.reserve((UINT64)numPoint + numDir + numSpot);
@@ -236,7 +236,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs;
 	for (auto& mesh : model->meshes) {
-		for (int i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+		for (UINT i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
 			D3D12_RAYTRACING_GEOMETRY_DESC geomDesc = {};
 			geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 
@@ -261,7 +261,7 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
-	inputs.NumDescs = geomDescs.size();
+	inputs.NumDescs = (UINT)geomDescs.size();
 	inputs.pGeometryDescs = geomDescs.data();
 	inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 
@@ -291,7 +291,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	for (const auto& m : models) {
 		totalDescs += m->transform.getInstanceCount();
 	}
-	totalDescs += meshletModels.size();
+	totalDescs += (UINT)meshletModels.size();
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
@@ -325,9 +325,9 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	DirectX::XMFLOAT4X4 identity;
 	DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixIdentity());
 
-	int instanceIndex = 0;
-	for (int i = 0; i < models.size(); i++) {
-		for (int j = 0; j < models[i]->transform.getInstanceCount(); j++) {
+	UINT instanceIndex = 0;
+	for (UINT i = 0; i < models.size(); i++) {
+		for (UINT j = 0; j < models[i]->transform.getInstanceCount(); j++) {
 			auto transform = models[i]->transform.getTransform(j);
 			DirectX::XMStoreFloat4x4(&identity, (DirectX::XMLoadFloat4x4(&transform)));
 			instanceDescs[instanceIndex].InstanceID = instanceIndex;
@@ -340,7 +340,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 			instanceIndex++;
 		}
 	}
-	for (int i = 0; i < meshletModels.size(); i++) {
+	for (UINT i = 0; i < meshletModels.size(); i++) {
 		auto transform = meshletModels[i]->transform.getTransform(0);
 		DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&transform)));
 		instanceDescs[instanceIndex].InstanceID = instanceIndex;

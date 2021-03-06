@@ -45,8 +45,8 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	refreshAllTransforms();
 	refreshBoundingBox();
 
-	indexCount = indices.size();
-	vertexCount = vertices.size();
+	indexCount = (UINT)indices.size();
+	vertexCount = (UINT)vertices.size();
 
 	vertexByteStride = sizeof(Vertex);
 	indexFormat = DXGI_FORMAT_R32_UINT;
@@ -95,7 +95,7 @@ void Model::refreshBoundingBox() {
 	DirectX::BoundingBox scratchBB;
 	DirectX::BoundingBox meshBB;
 	for (const auto& mesh : meshes) {
-		for (int i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+		for (UINT i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
 			mesh.boundingBox.Transform(meshBB, TransposeLoad(mesh.meshTransform.getTransform(i)));
 			scratchBB = boundingBox;
 			DirectX::BoundingBox::CreateMerged(boundingBox, meshBB, scratchBB);
@@ -104,13 +104,13 @@ void Model::refreshBoundingBox() {
 }
 
 void Model::processLights(const aiScene* scene) {
-	for (int i = 0; i < scene->mNumLights; i++) {
+	for (UINT i = 0; i < scene->mNumLights; i++) {
 		lights.push_back(scene->mLights[0][i]);
 	}
 }
 
 void Model::processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
-	for (int i = 0; i < scene->mNumMeshes; i++) {
+	for (UINT i = 0; i < scene->mNumMeshes; i++) {
 		meshes.push_back(processMesh(scene->mMeshes[i], scene, vertices, indices, device));
 		meshes.back().parent = this;
 	}
@@ -130,13 +130,13 @@ void Model::processNodes(const aiScene* scene) {
 		currentAiNode = nodes.front().second;
 		nodes.pop();
 
-		for (int i = 0; i < currentAiNode->mNumChildren; i++) {
+		for (UINT i = 0; i < currentAiNode->mNumChildren; i++) {
 			DirectX::XMFLOAT4X4 childTranform = DirectX::XMFLOAT4X4(&currentAiNode->mChildren[i]->mTransformation.a1);
 			DirectX::XMStoreFloat4x4(&childTranform, DirectX::XMLoadFloat4x4(&childTranform));
 			nodes.push(std::make_pair(currentNode->addChild(childTranform, currentAiNode->mChildren[i]->mName.C_Str()), currentAiNode->mChildren[i]));
 		}
 
-		for (int j = 0; j < currentAiNode->mNumMeshes; j++) {
+		for (UINT j = 0; j < currentAiNode->mNumMeshes; j++) {
 			meshes[currentAiNode->mMeshes[j]].registerInstance(currentNode);
 		}
 	}
@@ -153,9 +153,9 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 							 std::numeric_limits<FLOAT>::lowest(),
 							 std::numeric_limits<FLOAT>::lowest() };
 
-	meshStorage.baseVertexLocation = vertices.size();
-	meshStorage.startIndexLocation = indices.size();
-	for (int i = 0; i < mesh->mNumVertices; i++) {
+	meshStorage.baseVertexLocation = (UINT)vertices.size();
+	meshStorage.startIndexLocation = (UINT)indices.size();
+	for (UINT i = 0; i < mesh->mNumVertices; i++) {
 		Vertex vertex;
 
 		vertex.pos = { mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
@@ -183,9 +183,9 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 		vertices.push_back(vertex);
 	}
 
-	for (int i = 0; i < mesh->mNumFaces; i++) {
+	for (UINT i = 0; i < mesh->mNumFaces; i++) {
 		aiFace face = mesh->mFaces[i];
-		for (int j = 0; j < face.mNumIndices; j++) {
+		for (UINT j = 0; j < face.mNumIndices; j++) {
 			indices.push_back(face.mIndices[j]);
 		}
 	}

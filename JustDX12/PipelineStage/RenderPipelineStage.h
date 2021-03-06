@@ -43,9 +43,9 @@ public:
 	~RenderPipelineStage();
 
 	DirectX::BoundingFrustum frustrum;
-	bool frustrumCull;
-	DirectX::XMFLOAT3 eyePos;
-	bool VRS;
+	bool frustrumCull = false;
+	DirectX::XMFLOAT3 eyePos = {};
+	bool VRS = false;
 	bool occlusionCull = true;
 protected:
 	RenderPipelineDesc renderStageDesc;
@@ -93,7 +93,7 @@ protected:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionBoundingBoxBufferGPUUploader = nullptr;
-	D3D12_VERTEX_BUFFER_VIEW occlusionBoundingBoxBufferView;
+	D3D12_VERTEX_BUFFER_VIEW occlusionBoundingBoxBufferView = { 0 };
 	std::vector<D3D12_INPUT_ELEMENT_DESC> occlusionInputLayout;
 
 	// Have to keep seperate rootsig for Meshes because vertex data is now a bound object.

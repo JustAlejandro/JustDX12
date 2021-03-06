@@ -29,6 +29,7 @@ const SceneNode* SceneNode::findNode(std::string name) const {
 			return childResult;
 		}
 	}
+	return nullptr;
 }
 
 DirectX::XMFLOAT4X4 SceneNode::getFullTransform() const {

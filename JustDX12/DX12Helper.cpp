@@ -101,8 +101,8 @@ Microsoft::WRL::ComPtr<IDxcBlob> compileShader(const std::wstring& filename, con
 		filename.c_str(),
 		entryPoint.c_str(),
 		target.c_str(),
-		arguements.data(), arguements.size(),
-		defines.data(), defines.size(),
+		arguements.data(), (UINT32)arguements.size(),
+		defines.data(), (UINT32)defines.size(),
 		pIncludeHandler.Get(),
 		&result);
 	
@@ -159,7 +159,7 @@ UINT CalcConstantBufferByteSize(UINT byteSize) {
 	return (byteSize + constBufferSize - 1) & ~(constBufferSize - 1);
 }
 
-UINT CalcBufferByteSize(UINT byteSize, UINT alignment) {
+UINT64 CalcBufferByteSize(UINT64 byteSize, UINT64 alignment) {
 	if ((alignment == 0) || (alignment & alignment - 1)) {
 		throw "Non power of 2 alignment";
 	}
@@ -177,13 +177,17 @@ HANDLE EventFromFence(ID3D12Fence* fence, int destVal) {
 void WaitOnFenceForever(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int destVal) {
 	if (fence->GetCompletedValue() < destVal) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
+		if (eventHandle != 0) {
+			fence->SetEventOnCompletion(destVal, eventHandle);
 
-		fence->SetEventOnCompletion(destVal, eventHandle);
+			PIXNotifyWakeFromFenceSignal(eventHandle);
 
-		PIXNotifyWakeFromFenceSignal(eventHandle);
-
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
+			WaitForSingleObject(eventHandle, INFINITE);
+			CloseHandle(eventHandle);
+		}
+		else {
+			throw "Couldn't create fence event.";
+		}
 	}
 }
 
@@ -197,13 +201,15 @@ void WaitOnMultipleFencesForever(std::vector<ID3D12Fence*> fences, std::vector<U
 	}
 	if (!alreadyFinished) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
-
-		device->SetEventOnMultipleFenceCompletion(fences.data(), destVals.data(), fences.size(), D3D12_MULTIPLE_FENCE_WAIT_FLAG_ALL, eventHandle);
-
-		PIXNotifyWakeFromFenceSignal(eventHandle);
-
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
+		if (eventHandle != 0) {
+			device->SetEventOnMultipleFenceCompletion(fences.data(), destVals.data(), (UINT)fences.size(), D3D12_MULTIPLE_FENCE_WAIT_FLAG_ALL, eventHandle);
+			PIXNotifyWakeFromFenceSignal(eventHandle);
+			WaitForSingleObject(eventHandle, INFINITE);
+			CloseHandle(eventHandle);
+		}
+		else {
+			throw "Couldn't create fence event.";
+		}
 	}
 }
 

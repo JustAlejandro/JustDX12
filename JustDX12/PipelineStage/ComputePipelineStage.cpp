@@ -8,7 +8,7 @@ ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5>
 void ComputePipelineStage::Execute() {
 	resetCommandList();
 
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(1.0, 0.0, 0.0), stageDesc.name.c_str());
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(255, 0, 0), stageDesc.name.c_str());
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -83,6 +83,7 @@ void ComputePipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usa
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
 				OutputDebugStringA("Not sure what this is");
+				break;
 			case DESCRIPTOR_TYPE_SRV:
 				mCommandList->SetComputeRootShaderResourceView(curRootParamDescs[usage][i].slot, resource);
 				break;

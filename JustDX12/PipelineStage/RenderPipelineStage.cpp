@@ -66,7 +66,7 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 void RenderPipelineStage::Execute() {
 	resetCommandList();
 
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), stageDesc.name.c_str());
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0, 255, 0), stageDesc.name.c_str());
 
 	PerformTransitionsIn();
 
@@ -167,7 +167,7 @@ void RenderPipelineStage::BuildPSO() {
 	graphicsPSO.DepthStencilState.DepthEnable = renderStageDesc.usesDepthTex;
 	graphicsPSO.SampleMask = UINT_MAX;
 	graphicsPSO.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	graphicsPSO.NumRenderTargets = renderStageDesc.renderTargets.size();
+	graphicsPSO.NumRenderTargets = (UINT)renderStageDesc.renderTargets.size();
 	for (int i = 0; i < renderStageDesc.renderTargets.size(); i++) {
 		graphicsPSO.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderStageDesc.renderTargets[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 	}
@@ -189,8 +189,8 @@ void RenderPipelineStage::BuildPSO() {
 		meshPSODesc.MS.BytecodeLength = shadersByType[SHADER_TYPE_MS]->GetBufferSize();
 		meshPSODesc.PS.pShaderBytecode = shaders["Mesh Pixel Shader"]->GetBufferPointer();
 		meshPSODesc.PS.BytecodeLength = shaders["Mesh Pixel Shader"]->GetBufferSize();
-		meshPSODesc.NumRenderTargets = renderStageDesc.renderTargets.size();
-		for (int i = 0; i < renderStageDesc.renderTargets.size(); i++) {
+		meshPSODesc.NumRenderTargets = (UINT)renderStageDesc.renderTargets.size();
+		for (UINT i = 0; i < (UINT)renderStageDesc.renderTargets.size(); i++) {
 			meshPSODesc.RTVFormats[i] = descriptorManager.getDescriptor(IndexedName(renderStageDesc.renderTargets[i].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->resourceTarget->getFormat();
 		}
 		meshPSODesc.SampleDesc.Count = 1;
@@ -254,13 +254,13 @@ bool RenderPipelineStage::PerformsTransitions() {
 
 void RenderPipelineStage::PerformTransitionsIn() {
 	if (transitionsIn.size() > 0) {
-		mCommandList->ResourceBarrier(transitionsIn.size(), transitionsIn.data());
+		mCommandList->ResourceBarrier((UINT)transitionsIn.size(), transitionsIn.data());
 	}
 }
 
 void RenderPipelineStage::PerformTransitionsOut() {
 	if (transitionsOut.size() > 0) {
-		mCommandList->ResourceBarrier(transitionsOut.size(), transitionsOut.data());
+		mCommandList->ResourceBarrier((UINT)transitionsOut.size(), transitionsOut.data());
 	}
 }
 
@@ -286,7 +286,7 @@ void RenderPipelineStage::BuildQueryHeap() {
 			nullptr,
 			IID_PPV_ARGS(&occlusionQueryResultBuffer));
 		D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
-		queryHeapDesc.Count = renderObjects.size() + meshletRenderObjects.size();
+		queryHeapDesc.Count = (UINT)renderObjects.size() + (UINT)meshletRenderObjects.size();
 		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_OCCLUSION;
 		md3dDevice->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&occlusionQueryHeap));
 
@@ -312,6 +312,7 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
 				OutputDebugStringA("Not sure what this is");
+				break;
 			case DESCRIPTOR_TYPE_SRV:
 				mCommandList->SetGraphicsRootDescriptorTable(curRootParamDescs[usage][i].slot,
 					descriptor->gpuHandle);
@@ -341,6 +342,7 @@ void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usag
 			switch (descriptorType) {
 			case DESCRIPTOR_TYPE_NONE:
 				OutputDebugStringA("Not sure what this is");
+				break;
 			case DESCRIPTOR_TYPE_SRV:
 				mCommandList->SetGraphicsRootShaderResourceView(curRootParamDescs[usage][i].slot, resPtr);
 				break;
@@ -375,14 +377,14 @@ void RenderPipelineStage::bindRenderTarget() {
 			nullptr);
 	}
 
-	mCommandList->OMSetRenderTargets(renderStageDesc.renderTargets.size(),
+	mCommandList->OMSetRenderTargets((UINT)renderStageDesc.renderTargets.size(),
 		&descriptorManager.getDescriptor(IndexedName(renderStageDesc.renderTargets[0].descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
 		true,
 		depthHandle);
 }
 
 void RenderPipelineStage::drawRenderObjects() {
-	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
+	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0, 255, 0), "Draw Calls");
 	int modelIndex = 0;
 	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
 		D3D12_SHADING_RATE_COMBINER combiners[2] = { D3D12_SHADING_RATE_COMBINER_OVERRIDE, D3D12_SHADING_RATE_COMBINER_OVERRIDE };
@@ -514,7 +516,7 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 }
 
 void RenderPipelineStage::drawOcclusionQuery() {
-	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0.0, 1.0, 0.0), "Draw Calls");
+	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0, 255, 0), "Draw Calls");
 	// Have to rebind if we're using meshlets.
 	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 	mCommandList->SetPipelineState(occlusionPSO.Get());
@@ -535,7 +537,7 @@ void RenderPipelineStage::drawOcclusionQuery() {
 		mCommandList->DrawInstanced(1, mPtr->transform.getInstanceCount(), i, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
-	for (int i = renderObjects.size(); i < renderObjects.size() + meshletRenderObjects.size(); i++) {
+	for (UINT i = (UINT)renderObjects.size(); i < renderObjects.size() + meshletRenderObjects.size(); i++) {
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
 
 		meshletRenderObjects[i - renderObjects.size()]->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
@@ -547,7 +549,7 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	}
 	auto copyTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST);
 	mCommandList->ResourceBarrier(1, &copyTransition);
-	mCommandList->ResolveQueryData(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, 0, renderObjects.size() + meshletRenderObjects.size(), occlusionQueryResultBuffer.Get(), 0);
+	mCommandList->ResolveQueryData(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, 0, (UINT)(renderObjects.size() + meshletRenderObjects.size()), occlusionQueryResultBuffer.Get(), 0);
 	auto predTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PREDICATION);
 	mCommandList->ResourceBarrier(1, &predTransition);
 }

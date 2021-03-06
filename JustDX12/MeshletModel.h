@@ -91,7 +91,7 @@ struct MeshletMesh {
 			return 0;
 		}
 		auto& subset = MeshletSubsets[subsetIndex];
-		auto& meshlet = Meshlets[subset.Offset + subset.Count - 1];
+		auto& meshlet = Meshlets[(UINT64)subset.Offset + subset.Count - 1];
 
 		return std::min(maxGroupVerts / meshlet.VertCount, maxGroupPrims / meshlet.PrimCount);
 	}
@@ -105,7 +105,7 @@ struct MeshletMesh {
 	}
 
 	UINT32 GetVertexIndex(UINT32 index) const {
-		const UINT8* addr = UniqueVertexIndices.data() + index * IndexSize;
+		const UINT8* addr = UniqueVertexIndices.data() + (UINT64)index * IndexSize;
 		if (IndexSize == 4) {
 			return *reinterpret_cast<const UINT32*>(addr);
 		}

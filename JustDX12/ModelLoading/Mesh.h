@@ -34,7 +34,8 @@ struct Vertex {
 class Model;
 class PipelineStage;
 
-struct Mesh {
+class Mesh {
+public:
 	UINT typeFlags = 0;
 	UINT indexCount = 0;
 	UINT vertexCount = 0;
@@ -52,6 +53,8 @@ struct Mesh {
 	std::array<SceneNode*, MAX_INSTANCES> instanceNodes;
 
 	Mesh(ID3D12Device5* device) : meshTransform(device) {
+		parent = nullptr;
+		instanceNodes.fill(nullptr);
 	}
 
 	std::vector<DX12Descriptor> getDescriptorsForStage(PipelineStage* stage) {
@@ -64,14 +67,14 @@ struct Mesh {
 	}
 
 	void registerPipelineStage(PipelineStage* stage, std::vector<DX12Descriptor> descriptors) {
-		UINT stageSlot = -1;
+		INT stageSlot = -1;
 		for (int i = 0; i < pipelineStageMappings.size(); i++) {
 			if (stage == pipelineStageMappings[i]) {
 				stageSlot = i;
 			}
 		}
 		if (stageSlot == -1) {
-			stageSlot = pipelineStageMappings.size();
+			stageSlot = (INT)pipelineStageMappings.size();
 			pipelineStageMappings.push_back(stage);
 			pipelineStageBindings.push_back(std::vector<DX12Descriptor>());
 		}
@@ -80,7 +83,7 @@ struct Mesh {
 	}
 
 	void updateTransform() {
-		for (int i = 0; i < meshTransform.getInstanceCount(); i++) {
+		for (UINT i = 0; i < meshTransform.getInstanceCount(); i++) {
 			meshTransform.setTransform(i, instanceNodes[i]->getFullTransform());
 		}
 	}
@@ -112,4 +115,3 @@ private:
 	std::vector<std::vector<DX12Descriptor>> pipelineStageBindings;
 	std::vector<PipelineStage*> pipelineStageMappings;
 };
-

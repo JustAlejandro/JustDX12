@@ -161,6 +161,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 	debugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 	debugInterface->Release();
 #endif // DEBUG
+	return 0;
 }
 
 DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
@@ -543,9 +544,9 @@ bool DemoApp::initialize() {
 	BuildFrameResources();
 
 	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
-	WaitForMultipleObjects(cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
+	WaitForMultipleObjects((DWORD)cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
 	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage}, {computeStage, deferStage}, {hBlurStage}, {vBlurStage}, {mergeStage}, {vrsComputeStage} });
-	mCommandList->ResourceBarrier(initialTransitions.size(), initialTransitions.data());
+	mCommandList->ResourceBarrier((UINT)initialTransitions.size(), initialTransitions.data());
 
 	ThrowIfFailed(mCommandList->Close());
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
@@ -578,7 +579,7 @@ void DemoApp::update() {
 
 	if (mCurrFrameResource->Fence != 0 && mFence->GetCompletedValue() < mCurrFrameResource->Fence) {
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, false, EVENT_ALL_ACCESS);
-		assert(eventHandle != NULL);
+		assert(eventHandle != 0);
 		mFence->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle);
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
@@ -623,9 +624,9 @@ void DemoApp::draw() {
 	// Update done on main thread since modelLoader thread could be busy loading.
 	modelLoader->updateRTAccelerationStructure(mCommandList.Get());
 
-	WaitForMultipleObjects(eventHandles.size(), eventHandles.data(), TRUE, INFINITE);
+	WaitForMultipleObjects((DWORD)eventHandles.size(), eventHandles.data(), TRUE, INFINITE);
 
-	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0.0, 0.0, 1.0), "Copy and Show");
+	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0, 0, 255), "Copy and Show");
 
 	// TODO: FIND A WAY TO MAKE SURE THIS RESOURCE ALWAYS GOES BACK TO THE CORRECT STATE
 	DX12Resource* mergeOut = mergeStage->getResource("mergedTex");
@@ -654,45 +655,45 @@ void DemoApp::draw() {
 	mCommandList->Close();
 
 	std::vector<ID3D12CommandList*> cmdList = { renderStage->mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
 
 
 	cmdList = { computeStage->mCommandList.Get() };
 	mComputeCommandQueue->Wait(mFence.Get(), mCurrentFence);
-	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mComputeCommandQueue->Signal(mAuxFences[0].Get(), ++mCurrentAuxFence[0]);
 
 
 	cmdList = { deferStage->mCommandList.Get() };
 	mCommandQueue->Wait(mFence.Get(), mCurrentFence);
-	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mCommandQueue->Signal(mAuxFences[1].Get(), ++mCurrentAuxFence[1]);
 
 	cmdList = { hBlurStage->mCommandList.Get() };
 	mComputeCommandQueue->Wait(mAuxFences[0].Get(), mCurrentAuxFence[0]);
-	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mComputeCommandQueue->Signal(mAuxFences[2].Get(), ++mCurrentAuxFence[2]);
 
 	cmdList = { vBlurStage->mCommandList.Get() };
 	mComputeCommandQueue->Wait(mAuxFences[2].Get(), mCurrentAuxFence[2]);
-	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mComputeCommandQueue->Signal(mAuxFences[2].Get(), ++mCurrentAuxFence[2]);
 
 	cmdList = { mergeStage->mCommandList.Get() };
 	mCommandQueue->Wait(mAuxFences[2].Get(), mCurrentAuxFence[2]);
 	mCommandQueue->Wait(mAuxFences[1].Get(), mCurrentAuxFence[1]);
-	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
 
 	cmdList = { vrsComputeStage->mCommandList.Get() };
 	mComputeCommandQueue->Wait(mFence.Get(), mCurrentFence);
-	mComputeCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mComputeCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mComputeCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
 
 	cmdList = { mCommandList.Get() };
 	mCommandQueue->Wait(mFence.Get(), mCurrentFence);
-	mCommandQueue->ExecuteCommandLists(cmdList.size(), cmdList.data());
+	mCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 
 	mSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
 	mCurrBackBuffer = (mCurrBackBuffer + 1) % SwapChainBufferCount;
@@ -703,7 +704,7 @@ void DemoApp::draw() {
 
 	std::chrono::high_resolution_clock::time_point endFrameTime = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> time_span = endFrameTime - startFrameTime;
-	cpuFrametime.push_back(time_span.count());
+	cpuFrametime.push_back((FLOAT)time_span.count());
 }
 
 void DemoApp::ImGuiPrepareUI() {
@@ -716,10 +717,10 @@ void DemoApp::ImGuiPrepareUI() {
 	if (cpuFrametime.size() > 1000) cpuFrametime.pop_front();
 	std::vector<float> frametimeVec(frametime.begin(), frametime.end());
 	std::vector<float> cpuFrametimeVec(cpuFrametime.begin(), cpuFrametime.end());
-	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), frametimeVec.size(), 0, "Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
+	ImGui::PlotLines("Frame Times (ms)", frametimeVec.data(), (int)frametimeVec.size(), 0, "Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::Text("Last 1000 Frame Average %.3f ms/frame", AverageVector(frametimeVec));
-	ImGui::PlotLines("CPU Frame Times (ms)", cpuFrametimeVec.data(), cpuFrametimeVec.size(), 0, "CPU Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
+	ImGui::PlotLines("CPU Frame Times (ms)", cpuFrametimeVec.data(), (int)cpuFrametimeVec.size(), 0, "CPU Frame Times (ms)", 0.0f, 8.0f, ImVec2(ImGui::GetWindowWidth(), 100));
 	ImGui::Text("Last 1000 CPU Frame Average %.3f ms/frame", AverageVector(cpuFrametimeVec));
 	ImGui::Text("Position: %.3f %.3f %.3f", eyePos.x, eyePos.y, eyePos.z);
 	ImGui::Checkbox("Frustrum Culling", &renderStage->frustrumCull);

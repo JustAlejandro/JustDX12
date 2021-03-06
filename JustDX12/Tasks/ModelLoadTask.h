@@ -6,7 +6,6 @@
 #include "ModelLoading/ModelLoader.h"
 
 #include <iostream>
-#define AI_SLM_DEFAULT_MAX_VERTICES 1000
 #include <assimp/Importer.hpp>		// C++ importer interface
 #include <assimp/scene.h>			// Output data structure
 #include <assimp/postprocess.h>		// Post processing flags

@@ -20,7 +20,7 @@ std::vector<DX12Descriptor> DescriptorManager::makeDescriptors(std::vector<Descr
 			continue;
 		}
 		DX12DescriptorHeap& heap = heaps[i];
-		std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, CD3DX12_GPU_DESCRIPTOR_HANDLE> handles = heap.reserveHeapSpace(jobByHeap[i].size());
+		std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, CD3DX12_GPU_DESCRIPTOR_HANDLE> handles = heap.reserveHeapSpace((UINT)jobByHeap[i].size());
 		for (DescriptorJob& job : jobByHeap[i]) {
 			DX12Descriptor desc;
 			desc.cpuHandle = handles.first;
