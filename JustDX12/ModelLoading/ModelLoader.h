@@ -41,7 +41,7 @@ private:
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;
-	bool newModelLoaded = false;
+	bool modelCountChanged = false;
 	// string is dir + name
 	std::vector<std::pair<std::string, std::shared_ptr<Model>>> loadingModels;
 	std::unordered_map<std::string, std::shared_ptr<Model>> loadedModels;

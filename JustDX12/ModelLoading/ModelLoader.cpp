@@ -8,14 +8,13 @@ ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 
 }
 bool ModelLoader::allModelsLoaded() {
-	newModelLoaded = false;
 	for (int i = 0; i < loadingModels.size(); i++) {
 		Model* m = loadingModels[i].second.get();
 		if (m->isLoaded()) {
 			loadedModels[loadingModels[i].first] = std::move(loadingModels[i].second);
 			loadingModels.erase(loadingModels.begin() + i);
 			i--;
-			newModelLoaded = true;
+			modelCountChanged = true;
 		}
 	}
 	if (!loadingModels.empty()) {
@@ -126,6 +125,7 @@ void ModelLoader::unloadModel(std::string name, std::string dir) {
 	if (findModel != loadedModels.end()) {
 		loadedModels.erase(findModel);
 	}
+	modelCountChanged = true;
 }
 
 void ModelLoader::updateTransforms() {
@@ -197,7 +197,7 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<Model*> models;
-	if (newModelLoaded || instanceCountChanged) {
+	if (modelCountChanged || instanceCountChanged) {
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pResult);
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pScratch);
 	}
@@ -220,7 +220,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 		}
 	}
 
-	if (newModelLoaded || instanceCountChanged) {
+	if (modelCountChanged || instanceCountChanged) {
 		Microsoft::WRL::ComPtr<ID3D12Resource> newTLAS = nullptr;
 		createTLAS(newTLAS, tlasSize, models, meshletModels, cmdList);
 		ResourceDecay::DestroyAfterDelay(TLAS);
@@ -230,6 +230,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	else {
 		createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
 	}
+	modelCountChanged = false;
 	frame++;
 }
 
