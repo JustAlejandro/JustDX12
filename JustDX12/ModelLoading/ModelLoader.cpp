@@ -14,6 +14,7 @@ ModelLoader& ModelLoader::getInstance() {
 }
 bool ModelLoader::allModelsLoaded() {
 	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
 	for (int i = 0; i < instance.loadingModels.size(); i++) {
 		Model* m = instance.loadingModels[i].second.get();
 		if (m->isLoaded()) {
@@ -164,6 +165,7 @@ void ModelLoader::unloadModel(std::string name, std::string dir) {
 
 void ModelLoader::updateTransforms() {
 	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
 	for (auto& model : instance.loadedModels) {
 		model.second->transform.submitUpdates(gFrameIndex);
 	}
@@ -193,6 +195,7 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 
 	std::vector<AccelerationStructureBuffers> blasVec;
 	std::vector<Model*> models;
+	std::lock_guard<std::mutex> lk(databaseLock);
 	for (auto& model : loadedModels) {
 		if (model.second->usesRT) {
 			blasVec.push_back(createBLAS(model.second.get(), cmdList));
@@ -234,6 +237,7 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<Model*> models;
+	std::lock_guard<std::mutex> lk(databaseLock);
 	if (modelCountChanged || instanceCountChanged) {
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pResult);
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pScratch);
