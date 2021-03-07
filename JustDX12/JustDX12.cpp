@@ -102,7 +102,6 @@ private:
 	std::unique_ptr<RenderPipelineStage> renderStage = nullptr;
 	std::unique_ptr<RenderPipelineStage> deferStage = nullptr;
 	std::unique_ptr<RenderPipelineStage> mergeStage = nullptr;
-	std::unique_ptr<ModelLoader> modelLoader = nullptr;
 	KeyboardWrapper keyboard;
 
 	PerPassConstants mainPassCB;
@@ -159,6 +158,8 @@ DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
 DemoApp::~DemoApp() {
 	if (md3dDevice != nullptr)
 		FlushCommandQueue();
+	// Have to explicitly call ModelLoader clear first since it dumps resources into ResourceDecay.
+	ModelLoader::DestroyAll();
 	ResourceDecay::DestroyAll();
 	TextureLoader::getInstance().clearAll();
 	ImGui_ImplDX12_Shutdown();
@@ -171,7 +172,7 @@ bool DemoApp::initialize() {
 		return false;
 	}
 
-	modelLoader = std::make_unique<ModelLoader>(md3dDevice);
+	ModelLoader& modelLoader = ModelLoader::getInstance();
 	std::vector<HANDLE> cpuWaitHandles;
 	// Create Render stage first because of dependencies later.
 	{
@@ -324,7 +325,7 @@ bool DemoApp::initialize() {
 		mergeRDesc.usesMeshlets = false;
 		mergeRDesc.usesDepthTex = false;
 		mergeRDesc.rtTlasSlot = 4;
-		mergeRDesc.tlasPtr = modelLoader->TLAS.GetAddressOf();
+		mergeRDesc.tlasPtr = modelLoader.TLAS.GetAddressOf();
 		deferStage = std::make_unique<RenderPipelineStage>(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		deferStage->deferSetup(stageDesc);
 		WaitOnFenceForever(deferStage->getFence(), deferStage->triggerFence());
@@ -497,8 +498,8 @@ bool DemoApp::initialize() {
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 	//renderStage->LoadModel(modelLoader, "testScene.fbx", baseDir, true);
-	deferStage->LoadModel(modelLoader.get(), "screen", "screenTex.obj", baseDir);
-	mergeStage->LoadModel(modelLoader.get(), "screen", "screenTex.obj", baseDir);
+	deferStage->LoadModel("screen", "screenTex.obj", baseDir);
+	mergeStage->LoadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
 
@@ -513,14 +514,15 @@ bool DemoApp::initialize() {
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
 
-	while (!modelLoader->allModelsLoaded()) {
+	// Have to wait for at least one model to be in eacch RenderPipelineStage or some issues arise.
+	while (!modelLoader.allModelsLoaded()) {
 		ResourceDecay::CheckDestroy();
 	}
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
 	std::vector<AccelerationStructureBuffers> scratchBuffers;
-	cpuWaitHandles.push_back(modelLoader->buildRTAccelerationStructureDeferred(mCommandList.Get(), scratchBuffers));
+	cpuWaitHandles.push_back(modelLoader.buildRTAccelerationStructureDeferred(mCommandList.Get(), scratchBuffers));
 
 	BuildFrameResources();
 
@@ -567,7 +569,7 @@ void DemoApp::update() {
 	}
 
 	ResourceDecay::CheckDestroy();
-	modelLoader->allModelsLoaded();
+	ModelLoader::getInstance().allModelsLoaded();
 
 	UpdateObjectCBs();
 	UpdateMaterialCBs();
@@ -603,7 +605,7 @@ void DemoApp::draw() {
 	eventHandles.push_back(mergeStage->deferExecute());
 	eventHandles.push_back(vrsComputeStage->deferExecute());
 	// Update done on main thread since modelLoader thread could be busy loading.
-	modelLoader->updateRTAccelerationStructure(mCommandList.Get());
+	ModelLoader::getInstance().updateRTAccelerationStructure(mCommandList.Get());
 
 	WaitForMultipleObjects((DWORD)eventHandles.size(), eventHandles.data(), TRUE, INFINITE);
 
@@ -749,7 +751,7 @@ void DemoApp::ImGuiPrepareUI() {
 			requiresUpdate |= ImGui::SliderInt((data.first + " Instances: ").c_str(), &data.second.instanceCount, 1, MAX_INSTANCES);
 			ImGui::BeginTabBar(("Instance Params" + data.first).c_str());
 			if (requiresUpdate) {
-				modelLoader->instanceCountChanged = true;
+				ModelLoader::getInstance().instanceCountChanged = true;
 			}
 			for (int i = 0; i < data.second.instanceCount; i++) {
 				if (ImGui::BeginTabItem(("Instance: " + std::to_string(i)).c_str())) {
@@ -802,7 +804,7 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 		DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z), 
 			DirectX::XMMatrixScaling(scale.x, scale.y, scale.z)), DirectX::XMMatrixTranslation(translate.x, translate.y, translate.z))));
 
-	renderStage->LoadModel(modelLoader.get(), name, fileName, dirName, true);
+	renderStage->LoadModel(name, fileName, dirName, true);
 	renderStage->updateInstanceCount(name, 1);
 	renderStage->updateInstanceTransform(name, 0, transform);
 }
@@ -810,7 +812,7 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 void DemoApp::unloadModel(std::string name) {
 	auto modelData = activeModels.find(name);
 	activeModels.erase(modelData);
-	renderStage->UnloadModel(modelLoader.get(), name);
+	renderStage->UnloadModel(name);
 }
 
 void DemoApp::BuildFrameResources() {
@@ -940,7 +942,7 @@ void DemoApp::UpdateMainPassCB() {
 
 	lightDataCB.data.viewPos = mainPassCB.data.EyePosW;
 
-	std::vector<Light> lights = modelLoader->getAllLights(lightDataCB.data.numPointLights, lightDataCB.data.numDirectionalLights, lightDataCB.data.numPointLights);
+	std::vector<Light> lights = ModelLoader::getAllLights(lightDataCB.data.numPointLights, lightDataCB.data.numDirectionalLights, lightDataCB.data.numPointLights);
 	memcpy(lightDataCB.data.lights, lights.data(), lights.size() * sizeof(Light));
 
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
@@ -949,7 +951,7 @@ void DemoApp::UpdateMainPassCB() {
 	renderStage->deferUpdateConstantBuffer("PerObjectConstants", perObjCB);
 	renderStage->deferUpdateConstantBuffer("PerObjectConstantsMeshlet", perMeshletObjCB);
 
-	modelLoader->updateTransforms();
+	ModelLoader::updateTransforms();
 
 	if (!freezeCull) {
 		renderStage->frustrum = DirectX::BoundingFrustum(proj);

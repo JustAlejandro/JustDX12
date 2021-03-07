@@ -20,21 +20,28 @@ struct AccelerationStructureBuffers {
 
 class ModelLoader: public TaskQueueThread {
 public:
-	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
-	bool allModelsLoaded();
-	std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
-	std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
-	MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
-	void unloadModel(std::string name, std::string dir);
-	void updateTransforms();
-	HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
+	static ModelLoader& getInstance();
+	static bool allModelsLoaded();
+	static void DestroyAll();
+	static std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
+	static std::vector<std::shared_ptr<Model>> getAllRTModels();
+	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
+	static MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	static bool isModelCountChanged();
+	static void unloadModel(std::string name, std::string dir);
+	static void updateTransforms();
+	static HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
 	void buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
-	HANDLE updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	static HANDLE updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	void updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS = nullptr;
 	bool instanceCountChanged = false;
 private:
+	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
+	ModelLoader(ModelLoader const&) = delete;
+	void operator=(ModelLoader const&) = delete;
+
 	int frame = 0;
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);

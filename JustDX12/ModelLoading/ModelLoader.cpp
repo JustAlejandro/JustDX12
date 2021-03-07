@@ -2,36 +2,51 @@
 #include "Tasks\ModelLoadTask.h"
 #include "DX12Helper.h"
 #include "ResourceDecay.h"
+#include "DX12App.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
 
 }
+ModelLoader& ModelLoader::getInstance() {
+	static ModelLoader instance(DX12App::getDevice());
+	return instance;
+}
 bool ModelLoader::allModelsLoaded() {
-	for (int i = 0; i < loadingModels.size(); i++) {
-		Model* m = loadingModels[i].second.get();
+	auto& instance = ModelLoader::getInstance();
+	for (int i = 0; i < instance.loadingModels.size(); i++) {
+		Model* m = instance.loadingModels[i].second.get();
 		if (m->isLoaded()) {
-			loadedModels[loadingModels[i].first] = std::move(loadingModels[i].second);
-			loadingModels.erase(loadingModels.begin() + i);
+			instance.loadedModels[instance.loadingModels[i].first] = std::move(instance.loadingModels[i].second);
+			instance.loadingModels.erase(instance.loadingModels.begin() + i);
 			i--;
-			modelCountChanged = true;
+			instance.modelCountChanged = true;
 		}
 	}
-	if (!loadingModels.empty()) {
+	if (!instance.loadingModels.empty()) {
 		return false;
 	}
-	for (auto& meshletModel : loadedMeshlets) {
+	for (auto& meshletModel : instance.loadedMeshlets) {
 		if (!meshletModel.second.loaded) {
 			return false;
 		}
 	}
 	return true;
 }
+void ModelLoader::DestroyAll() {
+	auto& instance = ModelLoader::getInstance();
+	instance.BLAS.clear();
+	instance.TLAS.Reset();
+	instance.loadedModels.clear();
+	instance.loadedMeshlets.clear();
+	instance.loadingModels.clear();
+}
 std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot) {
+	auto& instance = ModelLoader::getInstance();
 	std::vector<Light> pointLights;
 	std::vector<Light> directionalLights;
 	std::vector<Light> spotLights;
-	for (const auto& model : loadedModels) {
+	for (const auto& model : instance.loadedModels) {
 		for (const auto& light : model.second->lights) {
 			for (UINT i = 0; i < model.second->transform.getInstanceCount(); i++) {
 				Light l;
@@ -81,21 +96,33 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	return outVec;
 }
 
-std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
-	std::lock_guard<std::mutex> lk(databaseLock);
+std::vector<std::shared_ptr<Model>> ModelLoader::getAllRTModels() {
+	auto& instance = ModelLoader::getInstance();
+	std::vector<std::shared_ptr<Model>> allModels;
+	for (auto& m : instance.loadedModels) {
+		if (m.second->usesRT) {
+			allModels.push_back(m.second);
+		}
+	}
+	return allModels;
+}
 
-	auto findModel = loadedModels.find(dir + name);
+std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
+	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
+
+	auto findModel = instance.loadedModels.find(dir + name);
 	std::weak_ptr<Model> model;
-	if (findModel == loadedModels.end()) {
+	if (findModel == instance.loadedModels.end()) {
 		// Search through what's loading for the model
-		for (int i = 0; i < loadingModels.size(); i++) {
-			if (loadingModels[i].first == (dir + name)) {
-				return loadingModels[i].second;
+		for (int i = 0; i < instance.loadingModels.size(); i++) {
+			if (instance.loadingModels[i].first == (dir + name)) {
+				return instance.loadingModels[i].second;
 			}
 		}
-		loadingModels.push_back(std::make_pair(dir + name, std::make_shared<Model>(name, dir, md3dDevice.Get(), usesRT)));
-		model = loadingModels.back().second;
-		enqueue(new ModelLoadTask(this, loadingModels.back().second.get()));
+		instance.loadingModels.push_back(std::make_pair(dir + name, std::make_shared<Model>(name, dir, instance.md3dDevice.Get(), usesRT)));
+		model = instance.loadingModels.back().second;
+		instance.enqueue(new ModelLoadTask(&instance, instance.loadingModels.back().second.get()));
 	}
 	else {
 		model = findModel->second;
@@ -104,14 +131,15 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 }
 
 MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, bool usesRT) {
-	std::lock_guard<std::mutex> lk(databaseLock);
+	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
 
-	auto findModel = loadedMeshlets.find(dir + name);
+	auto findModel = instance.loadedMeshlets.find(dir + name);
 	MeshletModel* meshletModel;
-	if (findModel == loadedMeshlets.end()) {
-		auto inserted = loadedMeshlets.try_emplace((dir + name), name, dir, usesRT, md3dDevice.Get());
+	if (findModel == instance.loadedMeshlets.end()) {
+		auto inserted = instance.loadedMeshlets.try_emplace((dir + name), name, dir, usesRT, instance.md3dDevice.Get());
 		meshletModel = &inserted.first->second;
-		enqueue(new MeshletModelLoadTask(this, meshletModel));
+		instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
 	}
 	else {
 		meshletModel = &findModel->second;
@@ -119,35 +147,43 @@ MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, b
 	return meshletModel;
 }
 
+bool ModelLoader::isModelCountChanged() {
+	auto& instance = ModelLoader::getInstance();
+	return instance.modelCountChanged;
+}
+
 void ModelLoader::unloadModel(std::string name, std::string dir) {
-	std::lock_guard<std::mutex> lk(databaseLock);
-	auto findModel = loadedModels.find(dir + name);
-	if (findModel != loadedModels.end()) {
-		loadedModels.erase(findModel);
+	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
+	auto findModel = instance.loadedModels.find(dir + name);
+	if (findModel != instance.loadedModels.end()) {
+		instance.loadedModels.erase(findModel);
 	}
-	modelCountChanged = true;
+	instance.modelCountChanged = true;
 }
 
 void ModelLoader::updateTransforms() {
-	for (auto& model : loadedModels) {
+	auto& instance = ModelLoader::getInstance();
+	for (auto& model : instance.loadedModels) {
 		model.second->transform.submitUpdates(gFrameIndex);
 	}
-	for (auto& model : loadingModels) {
+	for (auto& model : instance.loadingModels) {
 		model.second->transform.submitUpdates(gFrameIndex);
 	}
-	for (auto& meshletModel : loadedMeshlets) {
+	for (auto& meshletModel : instance.loadedMeshlets) {
 		meshletModel.second.transform.submitUpdates(gFrameIndex);
 	}
 }
 
 HANDLE ModelLoader::buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) {
-	enqueue(new RTStructureLoadTask(this, cmdList, scratchBuffers));
+	auto& instance = ModelLoader::getInstance();
+	instance.enqueue(new RTStructureLoadTask(&instance, cmdList, scratchBuffers));
 	HANDLE ev = CreateEvent(
 		NULL,
 		FALSE,
 		FALSE,
 		NULL);
-	enqueue(new SetCpuEventTask(ev));
+	instance.enqueue(new SetCpuEventTask(ev));
 	return ev;
 }
 
@@ -185,13 +221,14 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 }
 
 HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
-	enqueue(new RTStructureUpdateTask(this, cmdList));
+	auto& instance = ModelLoader::getInstance();
+	instance.enqueue(new RTStructureUpdateTask(&instance, cmdList));
 	HANDLE ev = CreateEvent(
 		NULL,
 		FALSE,
 		FALSE,
 		NULL);
-	enqueue(new SetCpuEventTask(ev));
+	instance.enqueue(new SetCpuEventTask(ev));
 	return ev;
 }
 
@@ -327,11 +364,14 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixIdentity());
 
 	UINT instanceIndex = 0;
+	UINT startMeshIndex = 0;
 	for (UINT i = 0; i < models.size(); i++) {
 		for (UINT j = 0; j < models[i]->transform.getInstanceCount(); j++) {
 			auto transform = models[i]->transform.getTransform(j);
 			DirectX::XMStoreFloat4x4(&identity, (DirectX::XMLoadFloat4x4(&transform)));
-			instanceDescs[instanceIndex].InstanceID = instanceIndex;
+			// We can use this later to index when we perform deferred shading. (Technically not what this is intended for,
+			//	but what it's intended for can be obtained through CandidateInstanceIndex, so we'll hijack).
+			instanceDescs[instanceIndex].InstanceID = startMeshIndex;
 			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 			memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
@@ -340,6 +380,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 
 			instanceIndex++;
 		}
+		startMeshIndex += models[i]->meshes.size();
 	}
 	for (UINT i = 0; i < meshletModels.size(); i++) {
 		auto transform = meshletModels[i]->transform.getTransform(0);

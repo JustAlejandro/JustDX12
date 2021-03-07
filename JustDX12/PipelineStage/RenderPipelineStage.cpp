@@ -107,19 +107,19 @@ void RenderPipelineStage::Execute() {
 	ThrowIfFailed(mCommandList->Close());
 }
 
-void RenderPipelineStage::LoadModel(ModelLoader* loader, std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
-	std::weak_ptr<Model> model = loader->loadModel(fileName, dirName, usesRT);
+void RenderPipelineStage::LoadModel(std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
+	std::weak_ptr<Model> model = ModelLoader::loadModel(fileName, dirName, usesRT);
 	loadingRenderObjects.push_back(model);
 	nameToModel[referenceName] = model;
 }
 
-void RenderPipelineStage::LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT) {
-	meshletRenderObjects.push_back(loader->loadMeshletModel(fileName, dirName, usesRT));
+void RenderPipelineStage::LoadMeshletModel(std::string fileName, std::string dirName, bool usesRT) {
+	meshletRenderObjects.push_back(ModelLoader::loadMeshletModel(fileName, dirName, usesRT));
 }
 
-void RenderPipelineStage::UnloadModel(ModelLoader* loader, std::string friendlyName) {
+void RenderPipelineStage::UnloadModel(std::string friendlyName) {
 	auto ptr = nameToModel[friendlyName].lock();
-	loader->unloadModel(ptr->name, ptr->dir);
+	ModelLoader::unloadModel(ptr->name, ptr->dir);
 }
 
 void RenderPipelineStage::updateInstanceCount(std::string referenceName, UINT instanceCount) {

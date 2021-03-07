@@ -33,9 +33,9 @@ public:
 	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 	void setup(PipeLineStageDesc stageDesc) override;
 	void Execute() override;
-	void LoadModel(ModelLoader* loader, std::string referenceName, std::string fileName, std::string dirName, bool usesRT = false);
-	void LoadMeshletModel(ModelLoader* loader, std::string fileName, std::string dirName, bool usesRT = false);
-	void UnloadModel(ModelLoader* loader, std::string friendlyName);
+	void LoadModel(std::string referenceName, std::string fileName, std::string dirName, bool usesRT = false);
+	void LoadMeshletModel(std::string fileName, std::string dirName, bool usesRT = false);
+	void UnloadModel(std::string friendlyName);
 	void updateInstanceCount(std::string referenceName, UINT instanceCount);
 	void updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
 	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);

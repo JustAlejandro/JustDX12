@@ -86,6 +86,7 @@ void Model::refreshAllTransforms() {
 		mesh.updateTransform();
 		mesh.meshTransform.submitUpdatesAll();
 	}
+	transform.submitUpdatesAll();
 }
 
 void Model::refreshBoundingBox() {
