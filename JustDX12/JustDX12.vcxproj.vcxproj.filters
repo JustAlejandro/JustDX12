@@ -43,6 +43,7 @@
     <ClCompile Include="TransformData.cpp" />
     <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="ResourceDecay.cpp" />
+    <ClCompile Include="RtRenderPipelineStage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -110,6 +111,7 @@
     <ClInclude Include="TransformData.h" />
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="ResourceDecay.h" />
+    <ClInclude Include="RtRenderPipelineStage.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

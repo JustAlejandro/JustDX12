@@ -187,6 +187,7 @@
     <ClCompile Include="PipelineStage\RenderPipelineStage.cpp" />
     <ClCompile Include="ResourceClasses\ResourceManager.cpp" />
     <ClCompile Include="ResourceDecay.cpp" />
+    <ClCompile Include="RtRenderPipelineStage.cpp" />
     <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Tasks\TaskQueueThread.cpp" />
@@ -216,6 +217,7 @@
     <ClInclude Include="ResourceClasses\DX12Resource.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="ResourceDecay.h" />
+    <ClInclude Include="RtRenderPipelineStage.h" />
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="Tasks\ModelLoadTask.h" />
     <ClInclude Include="PipelineStage\PipelineStage.h" />
