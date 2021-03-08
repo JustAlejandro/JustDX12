@@ -8,6 +8,10 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device5> device) {
 	makeDescriptorHeaps();
 }
 
+void DescriptorManager::freeDescriptorRangeInHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size) {
+	heaps[type].freeHeapSpace(startHandle, size);
+}
+
 std::vector<DX12Descriptor> DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager, bool registerIntoManager) {
 	std::vector<DescriptorJob> jobByHeap[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	for (DescriptorJob& job : descriptorJobs) {
@@ -28,21 +32,14 @@ std::vector<DX12Descriptor> DescriptorManager::makeDescriptors(std::vector<Descr
 			desc.usage = job.usage;
 			desc.usageIndex = job.usageIndex;
 
-			if (job.type == DESCRIPTOR_TYPE_CBV) {
-				// Can't make a CBV descriptor because constant buffers are ring buffered per frame.
-				OutputDebugStringA("Error: Can't make a CBV descriptor, try binding the CBV directly with root params");
-				continue;
+			if (job.directBinding) {
+				desc.resourceTarget = job.directBindingTarget;
 			}
 			else {
-				if (job.directBinding) {
-					desc.resourceTarget = job.directBindingTarget;
-				}
-				else {
-					desc.resourceTarget = resourceManager->getResource(job.indirectTarget);
-				}
+				desc.resourceTarget = resourceManager->getResource(job.indirectTarget);
 			}
 
-			desc.descriptorHeap = heap.getHeap();
+			desc.descriptorHeap = &heap;
 			createDescriptorView(desc, job);
 			if (registerIntoManager) {
 				auto registeredValue = descriptors.insert_or_assign(std::make_pair(IndexedName(job.name, job.usageIndex), job.type), desc);
@@ -121,6 +118,12 @@ void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, Descrip
 		break;
 	case DESCRIPTOR_TYPE_UAV:
 		device->CreateUnorderedAccessView(descriptor.resourceTarget->get(), nullptr, job.autoDesc ? nullptr : &job.view.uavDesc, descriptor.cpuHandle);
+		break;
+	case DESCRIPTOR_TYPE_CBV:
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+		cbvDesc.BufferLocation = descriptor.resourceTarget->get()->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = job.view.cbvSize;
+		device->CreateConstantBufferView(&cbvDesc, descriptor.cpuHandle);
 		break;
 	default:
 		OutputDebugStringA(("Couldn't create DescriptorView of type: " + std::to_string(job.type)).c_str());

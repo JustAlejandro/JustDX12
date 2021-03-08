@@ -10,6 +10,7 @@
 #include <DirectXColors.h>
 #include "PipelineStage/ComputePipelineStage.h"
 #include "PipelineStage\RenderPipelineStage.h"
+#include "RtRenderPipelineStage.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
@@ -100,7 +101,7 @@ private:
 	std::unique_ptr<ComputePipelineStage> vBlurStage = nullptr;
 	std::unique_ptr<ComputePipelineStage> vrsComputeStage = nullptr;
 	std::unique_ptr<RenderPipelineStage> renderStage = nullptr;
-	std::unique_ptr<RenderPipelineStage> deferStage = nullptr;
+	std::unique_ptr<RtRenderPipelineStage> deferStage = nullptr;
 	std::unique_ptr<RenderPipelineStage> mergeStage = nullptr;
 	KeyboardWrapper keyboard;
 
@@ -310,13 +311,17 @@ bool DemoApp::initialize() {
 		stageDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 2, D3D12_DESCRIPTOR_RANGE_TYPE_CBV));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("TLAS", ROOT_PARAMETER_TYPE_SRV, 4));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("IndexBuffers", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 1));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("VertexBuffers", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 6, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 2));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("Textures", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 3));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
 
 		stageDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
 		stageDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec_pbr.dds"));
-		stageDesc.textureFiles.push_back(std::make_pair("default_diff", "default_diff.dds"));
+		stageDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
+		stageDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
 
 		RenderPipelineDesc mergeRDesc;
 		mergeRDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
@@ -324,9 +329,25 @@ bool DemoApp::initialize() {
 		mergeRDesc.supportsCulling = false;
 		mergeRDesc.usesMeshlets = false;
 		mergeRDesc.usesDepthTex = false;
-		mergeRDesc.rtTlasSlot = 4;
-		mergeRDesc.tlasPtr = modelLoader.TLAS.GetAddressOf();
-		deferStage = std::make_unique<RenderPipelineStage>(md3dDevice, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+
+		mergeRDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
+		mergeRDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
+		mergeRDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
+		mergeRDesc.defaultTextures[MODEL_FORMAT_EMMISIVE_TEX] = "default_emissive";
+
+		mergeRDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
+		mergeRDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
+		mergeRDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
+		mergeRDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "texture_emissive");
+
+		RtRenderPipelineStageDesc rtDesc;
+		rtDesc.rtTlasSlot = 4;
+		rtDesc.tlasPtr = modelLoader.TLAS.GetAddressOf();
+		rtDesc.rtIndexBufferSlot = 5;
+		rtDesc.rtVertexBufferSlot = 6;
+		rtDesc.rtTexturesSlot = 7;
+
+		deferStage = std::make_unique<RtRenderPipelineStage>(md3dDevice, rtDesc, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		deferStage->deferSetup(stageDesc);
 		WaitOnFenceForever(deferStage->getFence(), deferStage->triggerFence());
 		deferStage->frustrumCull = false;

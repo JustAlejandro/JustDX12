@@ -7,6 +7,7 @@
 #include "TextureLoader.h"
 #include "ConstantBufferTypes.h"
 #include "ResourceDecay.h"
+#include "ResourceClasses/DX12Resource.h"
 
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
@@ -32,6 +33,8 @@ bool Model::isLoaded() {
 			return false;
 		}
 	}
+	indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	return true;
 }
 

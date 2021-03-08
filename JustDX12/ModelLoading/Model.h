@@ -32,6 +32,10 @@ public:
 
 	DirectX::BoundingBox boundingBox;
 
+	// TODO: Redundant, but needed for RT. Should replace this later.
+	std::unique_ptr<DX12Resource> vertexBuffer;
+	std::unique_ptr<DX12Resource> indexBuffer;
+
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
 

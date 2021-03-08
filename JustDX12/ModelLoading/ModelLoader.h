@@ -18,6 +18,8 @@ struct AccelerationStructureBuffers {
 	Microsoft::WRL::ComPtr<ID3D12Resource> pInstanceDesc;
 };
 
+class RtRenderPipelineStage;
+
 class ModelLoader: public TaskQueueThread {
 public:
 	static ModelLoader& getInstance();
@@ -27,6 +29,7 @@ public:
 	static std::vector<std::shared_ptr<Model>> getAllRTModels();
 	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
 	static MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	static void registerRtUser(RtRenderPipelineStage* user);
 	static bool isModelCountChanged();
 	static void unloadModel(std::string name, std::string dir);
 	static void updateTransforms();
@@ -44,7 +47,7 @@ private:
 
 	int frame = 0;
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;
@@ -53,6 +56,8 @@ private:
 	std::vector<std::pair<std::string, std::shared_ptr<Model>>> loadingModels;
 	std::unordered_map<std::string, std::shared_ptr<Model>> loadedModels;
 	std::unordered_map<std::string, MeshletModel> loadedMeshlets;
+
+	std::vector<RtRenderPipelineStage*> rtUsers;
 
 	UINT64 tlasSize;
 	std::unordered_map<Model*, Microsoft::WRL::ComPtr<ID3D12Resource>> BLAS;

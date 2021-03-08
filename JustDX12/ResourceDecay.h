@@ -1,6 +1,8 @@
 #pragma once
 #include <Settings.h>
 
+class DescriptorManager;
+
 class ResourceDecay {
 public:
 	static void CheckDestroy();
@@ -15,12 +17,21 @@ public:
 	// resource is the parameter flagged to be destroyed, at which point, dest will take on the value of src.
 	static void DestroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
 	static void DestroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
+
+	static void FreeDescriptorsAferDelay(DescriptorManager* manager, D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size);
 private:
 	ResourceDecay() = default;
 	ResourceDecay(ResourceDecay const&) = delete;
 	void operator=(ResourceDecay const&) = delete;
 
 	static ResourceDecay& getInstance();
+
+	struct FreeDescriptor {
+		DescriptorManager* manager;
+		D3D12_DESCRIPTOR_HEAP_TYPE type;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle;
+		UINT size;
+	};
 
 	struct SwapEvent {
 		union {
@@ -41,6 +52,8 @@ private:
 			this->dest = dest;
 		}
 	};
+
+	std::array<std::vector<FreeDescriptor>, CPU_FRAME_COUNT> onDelayFreeDescriptor;
 
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, SwapEvent>> onEventResources;
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, int>> onSpecificDelayResources;

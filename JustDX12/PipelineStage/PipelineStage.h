@@ -35,14 +35,16 @@ struct RootParamDesc {
 	D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	int numConstants = 1;
 	DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL;
+	UINT space = 0;
 	RootParamDesc() = default;
-	RootParamDesc(std::string name, ROOT_PARAMETER_TYPE type, int slot = 0, D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV, int numConstants = 1, DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL) {
+	RootParamDesc(std::string name, ROOT_PARAMETER_TYPE type, int slot = 0, D3D12_DESCRIPTOR_RANGE_TYPE rangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV, int numConstants = 1, DESCRIPTOR_USAGE usagePattern = DESCRIPTOR_USAGE_ALL, UINT space = 0) {
 		this->name = name;
 		this->type = type;
 		this->slot = slot;
 		this->rangeType = rangeType;
 		this->numConstants = numConstants;
 		this->usagePattern = usagePattern;
+		this->space = space;
 	}
 };
 
@@ -119,7 +121,7 @@ protected:
 	virtual void AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
 	virtual void AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
 
-	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
+	void initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<std::vector<int>>& registers, CD3DX12_DESCRIPTOR_RANGE& table);
 	std::wstring getCompileTargetFromType(SHADER_TYPE type);
 	ROOT_PARAMETER_TYPE getRootParamTypeFromRangeType(D3D12_DESCRIPTOR_RANGE_TYPE range);
 	DESCRIPTOR_TYPE getDescriptorTypeFromRootParameterDesc(RootParamDesc desc);

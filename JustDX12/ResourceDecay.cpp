@@ -4,6 +4,7 @@ void ResourceDecay::CheckDestroy() {
 	ResourceDecay& instance = getInstance();
 
 	instance.onDelayResources[gFrameIndex].clear();
+	instance.onDelayFreeDescriptor[gFrameIndex].clear();
 
 	for (auto iter = instance.onSpecificDelayResources.begin(); iter != instance.onSpecificDelayResources.end();) {
 		iter->second--;
@@ -98,6 +99,11 @@ void ResourceDecay::DestroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Re
 void ResourceDecay::DestroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest) {
 	ResourceDecay& instance = getInstance();
 	instance.onDelaySwapResources.push_back(std::make_pair(resource, SwapEvent(delay, src, dest)));
+}
+
+void ResourceDecay::FreeDescriptorsAferDelay(DescriptorManager* manager, D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size) {
+	ResourceDecay& instance = getInstance();
+	instance.onDelayFreeDescriptor[gFrameIndex].push_back({ manager, type, startHandle, size });
 }
 
 ResourceDecay& ResourceDecay::getInstance() {

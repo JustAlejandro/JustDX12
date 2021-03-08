@@ -3,6 +3,7 @@
 #include "DX12Helper.h"
 #include "ResourceDecay.h"
 #include "DX12App.h"
+#include "RtRenderPipelineStage.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
@@ -148,6 +149,11 @@ MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, b
 	return meshletModel;
 }
 
+void ModelLoader::registerRtUser(RtRenderPipelineStage* user) {
+	auto& instance = ModelLoader::getInstance();
+	instance.rtUsers.push_back(user);
+}
+
 bool ModelLoader::isModelCountChanged() {
 	auto& instance = ModelLoader::getInstance();
 	return instance.modelCountChanged;
@@ -194,12 +200,12 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	waitOnFence();
 
 	std::vector<AccelerationStructureBuffers> blasVec;
-	std::vector<Model*> models;
+	std::vector<std::shared_ptr<Model>> models;
 	std::lock_guard<std::mutex> lk(databaseLock);
 	for (auto& model : loadedModels) {
 		if (model.second->usesRT) {
 			blasVec.push_back(createBLAS(model.second.get(), cmdList));
-			models.push_back(model.second.get());
+			models.push_back(model.second);
 		}
 	}
 	std::vector<MeshletModel*> meshletModels;
@@ -213,9 +219,13 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	}
 
 	for (int i = 0; i < blasVec.size(); i++) {
-		BLAS[models[i]] = blasVec[i].pResult;
+		BLAS[models[i].get()] = blasVec[i].pResult;
 		ResourceDecay::DestroyAfterDelay(blasVec[i].pScratch);
-		SetName(BLAS[models[i]].Get(), L"BLAS");
+		SetName(BLAS[models[i].get()].Get(), L"BLAS");
+	}
+
+	for (auto& rtUser : rtUsers) {
+		rtUser->DeferRebuildRtData(models);
 	}
 
 	createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
@@ -236,7 +246,7 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 }
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
-	std::vector<Model*> models;
+	std::vector<std::shared_ptr<Model>> models;
 	std::lock_guard<std::mutex> lk(databaseLock);
 	if (modelCountChanged || instanceCountChanged) {
 		ResourceDecay::DestroyAfterDelay(tlasScratch.pResult);
@@ -244,7 +254,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	}
 	for (auto& model : loadedModels) {
 		if (model.second->usesRT) {
-			models.push_back(model.second.get());
+			models.push_back(model.second);
 			if (BLAS.find(model.second.get()) == BLAS.end()) {
 				AccelerationStructureBuffers blasScratch = createBLAS(model.second.get(), cmdList);
 				ResourceDecay::DestroyAfterDelay(blasScratch.pScratch);
@@ -267,6 +277,11 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 		ResourceDecay::DestroyAfterDelay(TLAS);
 		// Problem: Can't get ComPtr to play nice here. So we get stuck with the TLAS going null if this runs .GetAdressOf() gets the actual address of the underlying interface, but it also sucks.
 		ResourceDecay::DestroyOnDelayAndFillPointer(nullptr, 1, newTLAS, std::addressof(TLAS));
+		if (modelCountChanged) {
+			for (auto& rtUser : rtUsers) {
+				rtUser->DeferRebuildRtData(models);
+			}
+		}
 	}
 	else {
 		createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
@@ -327,7 +342,7 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	return buffers;
 }
 
-void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<Model*>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	// Find the total number of models.
 	UINT totalDescs = 0;
 	for (const auto& m : models) {
@@ -379,7 +394,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 			instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
 			instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 			memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
-			instanceDescs[instanceIndex].AccelerationStructure = BLAS[models[i]]->GetGPUVirtualAddress();
+			instanceDescs[instanceIndex].AccelerationStructure = BLAS[models[i].get()]->GetGPUVirtualAddress();
 			instanceDescs[instanceIndex].InstanceMask = 0xFF;
 
 			instanceIndex++;

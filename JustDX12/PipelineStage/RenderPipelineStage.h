@@ -14,9 +14,6 @@ struct RenderPipelineDesc {
 	bool usesDepthTex = true;
 	bool supportsCulling = false;
 	bool supportsVRS = false;
-	int rtTlasSlot = -1;
-	int rtTlasMeshletSlot = -1;
-	ID3D12Resource** tlasPtr = nullptr;
 	std::string VrsTextureName = "VRS";
 	int perObjTransformCBSlot = -1;
 	int perMeshTransformCBSlot = -1;
@@ -61,10 +58,10 @@ protected:
 	void BuildQueryHeap();
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;
 	void bindRenderTarget();
-	void drawRenderObjects();
+	virtual void drawRenderObjects();
 	void drawMeshletRenderObjects();
 	void drawOcclusionQuery();
-	void buildMeshTexturesDescriptors(Mesh* m);
+	std::vector<DescriptorJob> buildMeshTexturesDescriptorJobs(Mesh* m);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
 	void BuildInputLayout() override;
 	bool setupRenderObjects();

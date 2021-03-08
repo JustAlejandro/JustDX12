@@ -205,7 +205,15 @@ void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 
 void PipelineStage::BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSig, std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(rootSigDescs.size(), CD3DX12_ROOT_PARAMETER());
-	std::vector<int> shaderRegisters(ROOT_PARAMETER_TYPE_MAX_LENGTH, 0);
+	std::vector<std::vector<int>> shaderRegisters;
+	for (auto& rootSigDesc : rootSigDescs) {
+		if (rootSigDesc.space + 1 > shaderRegisters.size()) {
+			shaderRegisters.resize(rootSigDesc.space + 1, std::vector<int>());
+		}
+	}
+	for (auto& registerSpace : shaderRegisters) {
+		registerSpace = std::vector<int>(ROOT_PARAMETER_TYPE_MAX_LENGTH, 0);
+	}
 	std::vector<CD3DX12_DESCRIPTOR_RANGE> tables(rootSigDescs.size(), CD3DX12_DESCRIPTOR_RANGE());
 
 	for (int i = 0; i < rootSigDescs.size(); i++) {
@@ -301,29 +309,33 @@ void PipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES st
 	throw "Not Available";
 }
 
-void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<int>& registers, CD3DX12_DESCRIPTOR_RANGE& table) {
+void PipelineStage::initRootParameterFromType(CD3DX12_ROOT_PARAMETER& param, RootParamDesc desc, std::vector<std::vector<int>>& registers, CD3DX12_DESCRIPTOR_RANGE& table) {
 	switch (desc.type) {
 	case ROOT_PARAMETER_TYPE_CONSTANTS:
-		param.InitAsConstants(desc.numConstants, registers[ROOT_PARAMETER_TYPE_CONSTANTS]++);
-		registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++;
+		param.InitAsConstants(desc.numConstants, registers[desc.space][ROOT_PARAMETER_TYPE_CONSTANTS]++, desc.space);
+		registers[desc.space][ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++;
 		break;
 	case ROOT_PARAMETER_TYPE_CONSTANT_BUFFER:
-		param.InitAsConstantBufferView(registers[ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++);
-		registers[ROOT_PARAMETER_TYPE_CONSTANTS]++;
+		param.InitAsConstantBufferView(registers[desc.space][ROOT_PARAMETER_TYPE_CONSTANT_BUFFER]++, desc.space);
+		registers[desc.space][ROOT_PARAMETER_TYPE_CONSTANTS]++;
 		break;
 	case ROOT_PARAMETER_TYPE_SRV:
-		param.InitAsShaderResourceView(registers[ROOT_PARAMETER_TYPE_SRV]++);
+		param.InitAsShaderResourceView(registers[desc.space][ROOT_PARAMETER_TYPE_SRV]++, desc.space);
 		break;
 	case ROOT_PARAMETER_TYPE_UAV:
-		param.InitAsUnorderedAccessView(registers[ROOT_PARAMETER_TYPE_UAV]++);
+		param.InitAsUnorderedAccessView(registers[desc.space][ROOT_PARAMETER_TYPE_UAV]++, desc.space);
 		break;
 	case ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
 		{
-			int& startIndex = registers.at(getRootParamTypeFromRangeType(desc.rangeType));
-			table.Init(desc.rangeType, desc.numConstants, startIndex);
+			int& startIndex = registers[desc.space].at(getRootParamTypeFromRangeType(desc.rangeType));
+			table.Init(desc.rangeType, desc.numConstants, startIndex, desc.space);
 			param.InitAsDescriptorTable(1, &table);
 			// Here's where we'd init the other descriptor table types if we had them, but for now, 1 type per entry
 			startIndex += desc.numConstants;
+			if (desc.numConstants == -1) {
+				// Unbounded, so trying to bind another descriptor here should cause a crash.
+				startIndex = INT_MIN;
+			}
 		}		
 		break;
 	default:

@@ -7,6 +7,8 @@ using namespace Microsoft::WRL;
 
 struct DX12Descriptor;
 
+// Note: CBV descriptors generally don't work since descriptors
+//	aren't aware of the ring buffering of ConstantBuffers
 typedef enum DESCRIPTOR_TYPES {
 	DESCRIPTOR_TYPE_NONE	= 0,
 	DESCRIPTOR_TYPE_RTV		= 1,

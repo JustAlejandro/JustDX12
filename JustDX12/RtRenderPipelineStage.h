@@ -1,11 +1,25 @@
 #pragma once
 #include "PipelineStage/RenderPipelineStage.h"
 
+struct RtRenderPipelineStageDesc {
+	int rtTlasSlot = -1;
+	ID3D12Resource** tlasPtr = nullptr;
+	int rtIndexBufferSlot = -1;
+	int rtVertexBufferSlot = -1;
+	int rtTexturesSlot = -1;
+};
+
 class RtRenderPipelineStage : public RenderPipelineStage {
 public:
+	RtRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RtRenderPipelineStageDesc rtDesc, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
+
 	void DeferRebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
+
+	void setup(PipeLineStageDesc stageDesc) override;
 private:
 	void RebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
+
+	void drawRenderObjects() override;
 
 	class RebuildRtDataTask : public Task {
 	public:
@@ -18,18 +32,17 @@ private:
 	};
 
 	struct RtData {
-		// Used for binding to lookup texture values from shaders.
-		CD3DX12_CPU_DESCRIPTOR_HANDLE TexRangeCpuHandle;
-		CD3DX12_GPU_DESCRIPTOR_HANDLE TexRangeGpuHandle;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE VertRangeCpuHandle;
-		CD3DX12_GPU_DESCRIPTOR_HANDLE VertRangeGpuHandle;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE IndexRangeCpuHandle;
-		CD3DX12_GPU_DESCRIPTOR_HANDLE IndexRangeGpuHandle;
-		// These will be used to free the descriptor ranges after they are no longer in use.
-		UINT heapStartIndex = 0;
-		UINT heapEndIndex = 0;
+		struct DescriptorRange {
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle;
+			CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;
+			UINT numDescriptors = 0;
+		};
+		DescriptorRange indexRange;
+		DescriptorRange vertRange;
+		DescriptorRange texRange;
 	};
 
 	RtData rtDescriptors;
+	RtRenderPipelineStageDesc rtStageDesc;
 };
 

@@ -36,9 +36,6 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 			else if (iter->slot == renderStageDesc.perMeshTextureSlot) {
 				iter = rootParameterDescs[i].erase(iter);
 			}
-			else if (iter->slot == renderStageDesc.rtTlasSlot) {
-				iter = rootParameterDescs[i].erase(iter);
-			}
 			else {
 				iter++;
 			}
@@ -51,9 +48,6 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 				iter = meshRootParameterDescs[i].erase(iter);
 			}
 			else if (iter->slot == renderStageDesc.perObjTextureMeshletSlot) {
-				iter = meshRootParameterDescs[i].erase(iter);
-			}
-			else if (iter->slot == renderStageDesc.rtTlasMeshletSlot) {
 				iter = meshRootParameterDescs[i].erase(iter);
 			}
 			else {
@@ -391,9 +385,6 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->RSSetShadingRate(D3D12_SHADING_RATE_1X1, combiners);
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
-	if (renderStageDesc.rtTlasSlot > -1) {
-		mCommandList->SetGraphicsRootShaderResourceView(renderStageDesc.rtTlasSlot, (*renderStageDesc.tlasPtr)->GetGPUVirtualAddress());
-	}
 	for (int i = 0; i < renderObjects.size(); i++) {
 		std::shared_ptr<Model> model = renderObjects[i].lock();
 		if (!model) {
@@ -475,9 +466,6 @@ void RenderPipelineStage::drawMeshletRenderObjects() {
 	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
-	if (renderStageDesc.rtTlasMeshletSlot > -1) {
-		mCommandList->SetGraphicsRootShaderResourceView(renderStageDesc.rtTlasMeshletSlot, (*renderStageDesc.tlasPtr)->GetGPUVirtualAddress());
-	}
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
 		DirectX::BoundingBox modelBB;
@@ -554,8 +542,7 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	mCommandList->ResourceBarrier(1, &predTransition);
 }
 
-void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m) {
-	std::vector<DX12Descriptor> meshDescriptors;
+std::vector<DescriptorJob> RenderPipelineStage::buildMeshTexturesDescriptorJobs(Mesh* m) {
 	std::vector<DescriptorJob> descriptorJobs;
 	for (const auto& texMap : renderStageDesc.textureToDescriptor) {
 		MODEL_FORMAT textureType = texMap.first;
@@ -569,10 +556,7 @@ void RenderPipelineStage::buildMeshTexturesDescriptors(Mesh* m) {
 		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
 		descriptorJobs.push_back(job);
 	}
-	meshDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
-	// Register the descriptors to easily fetch them later
-	m->registerPipelineStage(this, meshDescriptors);
-	m->texturesBound = true;
+	return descriptorJobs;
 }
 
 void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex) {
@@ -619,7 +603,11 @@ bool RenderPipelineStage::setupRenderObjects() {
 			continue;
 		}
 		for (auto& m : obj->meshes) {
-			buildMeshTexturesDescriptors(&m);
+			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&m),
+				&resourceManager, &constantBufferManager, false);
+			// Register the descriptors to easily fetch them later
+			m.registerPipelineStage(this, meshDescriptors);
+			m.texturesBound = true;
 		}
 		renderObjects.push_back(obj);
 		loadingRenderObjects.erase(loadingRenderObjects.begin() + i);

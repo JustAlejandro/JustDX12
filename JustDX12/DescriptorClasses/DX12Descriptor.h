@@ -18,19 +18,6 @@ enum DESCRIPTOR_USAGE {
 	DESCRIPTOR_USAGE_MAX = 5
 };
 
-struct DX12Descriptor {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;
-	union {
-		DX12Resource* resourceTarget;
-		DX12ConstantBuffer* constantBufferTarget;
-		DX12Texture* textureTarget;
-	};
-	int usageIndex = 0;
-	DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_ALL;
-	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
-};
-
 struct DX12DescriptorHeap {
 	DX12DescriptorHeap() = default;
 	DX12DescriptorHeap(Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT offset, UINT size) {
@@ -41,6 +28,13 @@ struct DX12DescriptorHeap {
 		this->startCPUHandle = heap->GetCPUDescriptorHandleForHeapStart();
 		this->startGPUHandle = heap->GetGPUDescriptorHandleForHeapStart();
 		this->availabilityBitmap = std::vector<bool>(size, true);
+	}
+
+	void freeHeapSpace(CD3DX12_CPU_DESCRIPTOR_HANDLE start, UINT size) {
+		UINT startIdx = ((UINT64)start.ptr - startCPUHandle.ptr) / offset;
+		for (UINT i = 0; i < size; i++) {
+			availabilityBitmap[i + (size_t)startIdx] = false;
+		}
 	}
 
 	ID3D12DescriptorHeap* getHeap() const {
@@ -68,8 +62,8 @@ struct DX12DescriptorHeap {
 					availabilityBitmap[index - i] = false;
 				}
 				return std::make_pair(
-					CD3DX12_CPU_DESCRIPTOR_HANDLE(startCPUHandle, index, offset),
-					CD3DX12_GPU_DESCRIPTOR_HANDLE(startGPUHandle, index, offset));
+					CD3DX12_CPU_DESCRIPTOR_HANDLE(startCPUHandle, index - numDescriptors + 1, offset),
+					CD3DX12_GPU_DESCRIPTOR_HANDLE(startGPUHandle, index - numDescriptors + 1, offset));
 			}
 			index++;
 		}
@@ -85,4 +79,17 @@ private:
 	CD3DX12_GPU_DESCRIPTOR_HANDLE startGPUHandle;
 
 	std::vector<bool> availabilityBitmap;
+};
+
+struct DX12Descriptor {
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;
+	union {
+		DX12Resource* resourceTarget;
+		DX12ConstantBuffer* constantBufferTarget;
+		DX12Texture* textureTarget;
+	};
+	int usageIndex = 0;
+	DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_ALL;
+	DX12DescriptorHeap* descriptorHeap = nullptr;
 };
