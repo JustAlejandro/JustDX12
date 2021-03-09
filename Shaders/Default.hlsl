@@ -14,11 +14,11 @@ SamplerState anisoWrap : register(s4);
 
 struct VertexIn
 {
+	float2 TexC : TEXCOORD;
 	float3 PosL : POSITION;
 	float3 NormalL : NORMAL;
 	float3 TangentL : TANGENT;
 	float3 BiNormalL : BINORMAL;
-	float2 TexC : TEXCOORD;
 };
 
 VertexOut VS(VertexIn vin, uint instance : SV_InstanceID)

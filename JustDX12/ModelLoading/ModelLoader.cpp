@@ -301,15 +301,15 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 			geomDesc.Triangles.IndexCount = mesh.indexCount;
 			geomDesc.Triangles.IndexFormat = model->indexFormat;
 
-			geomDesc.Triangles.VertexBuffer.StartAddress = model->vertexBufferGPU->GetGPUVirtualAddress() + sizeof(Vertex) * (UINT64)mesh.baseVertexLocation;
+			geomDesc.Triangles.VertexBuffer.StartAddress = model->vertexBufferGPU->GetGPUVirtualAddress() + sizeof(Vertex) * (UINT64)mesh.baseVertexLocation + offsetof(Vertex, pos);
 			geomDesc.Triangles.VertexBuffer.StrideInBytes = model->vertexByteStride;
 			geomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
 			geomDesc.Triangles.VertexCount = mesh.vertexCount;
 
 			geomDesc.Triangles.Transform3x4 = mesh.meshTransform.getFrameTransformVirtualAddress(i, gFrameIndex);
 
-			geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-
+			// Optimization here would be to attach an opaque or not flag here.
+			geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 
 			geomDescs.push_back(geomDesc);
 		}

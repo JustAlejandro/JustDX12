@@ -76,8 +76,9 @@ void RtRenderPipelineStage::RebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 		bufferJob.view.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		bufferJob.view.srvDesc.Buffer.FirstElement = 0;
 		bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		bufferJob.view.srvDesc.Buffer.NumElements = model->indexCount;
-		bufferJob.view.srvDesc.Buffer.StructureByteStride = 4;
+		// Since we're using triangle list format, it's more efficient to read 3 values at once.
+		bufferJob.view.srvDesc.Buffer.NumElements = model->indexCount / 3;
+		bufferJob.view.srvDesc.Buffer.StructureByteStride = 12;
 		bufferJob.directBinding = true;
 		bufferJob.directBindingTarget = model->indexBuffer.get();
 		bufferJob.type = DESCRIPTOR_TYPE_SRV;

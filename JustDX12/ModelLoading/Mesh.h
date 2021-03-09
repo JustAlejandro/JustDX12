@@ -24,11 +24,11 @@ struct CompactBoundingBox {
 };
 
 struct Vertex {
+	DirectX::XMFLOAT2 texC;
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 norm;
 	DirectX::XMFLOAT3 tan;
 	DirectX::XMFLOAT3 biTan;
-	DirectX::XMFLOAT2 texC;
 };
 
 class Model;
