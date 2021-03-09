@@ -1,13 +1,5 @@
 #include "Common.hlsl"
 
-struct VertexIn {
-	float3 PosL : POSITION;
-	float3 NormalL : NORMAL;
-	float3 TangentL : TANGENT;
-	float3 BiNormalL : BINORMAL;
-	float2 TexC : TEXCOORD;
-};
-
 struct VertexOutMerge {
 	float4 PosH : SV_Position;
 	float2 TexC : TEXCOORD;
@@ -29,6 +21,11 @@ Texture2D tangentTex : register(t4);
 Texture2D emissiveTex : register(t5);
 
 RaytracingAccelerationStructure TLAS : register(t6);
+
+Buffer<uint3> indexBuffers[] : register(t0,space1);
+StructuredBuffer<VertexIn> vertexBuffers[] : register(t0,space2);
+// Texture order is diffuse,spec(packed),normal,emissive
+Texture2D textures[] : register(t0,space3);
 
 SamplerState gsamPoint : register(s1);
 
@@ -104,7 +101,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		}
 	}
 	else {
-		RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
+		RayQuery<RAY_FLAG_NONE> query;
 
 		uint ray_flags = 0; // Any this ray requires in addition those above.
 		uint ray_instance_mask = 0xffffffff;
@@ -116,8 +113,18 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		ray.Direction = lightDir;
 		query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
 
-		query.Proceed();
-
+		while (query.Proceed()) {
+			uint instanceID = query.CandidateInstanceID() + query.CandidateGeometryIndex();
+			uint3 primitive = uint3(indexBuffers[instanceID].Load(query.CandidatePrimitiveIndex()));
+			float2 texCoord0 = vertexBuffers[instanceID].Load(primitive.x).TexC;
+			float2 texCoord1 = vertexBuffers[instanceID].Load(primitive.y).TexC;
+			float2 texCoord2 = vertexBuffers[instanceID].Load(primitive.z).TexC;
+			float2 uvCoord = query.CandidateTriangleBarycentrics();
+			float2 texCoord = texCoord0 + uvCoord.x * (texCoord1 - texCoord0) + uvCoord.y * (texCoord2 - texCoord0);
+			if (textures[instanceID * 4 + 0].Sample(gsamPoint, texCoord).w > 0.3f) {
+				query.CommitNonOpaqueTriangleHit();
+			}
+		}
 		if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
 			unoccluded = 0.0f;
 		}
@@ -194,7 +201,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 
 	float3 ambient = 0.05 * albedo;
 
-	float3 color = ambient + Lo;
+	float3 color = ambient +Lo;
 
 	float3 emissive = emissiveTex.Sample(gsamPoint, vout.TexC).xyz;
 

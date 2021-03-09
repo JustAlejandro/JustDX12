@@ -1,14 +1,5 @@
 #include "Common.hlsl"
 
-struct VertexIn
-{
-	float3 PosL : POSITION;
-	float3 NormalL : NORMAL;
-	float3 TangentL : TANGENT;
-	float3 BiNormalL : BINORMAL;
-	float2 TexC : TEXCOORD;
-};
-
 struct VertexOutMerge
 {
 	float4 PosH : SV_Position;

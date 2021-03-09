@@ -64,6 +64,14 @@ struct SSAOSettings {
 	float4 lightPos;
 };
 
+struct VertexIn {
+	float2 TexC : TEXCOORD;
+	float3 PosL : POSITION;
+	float3 NormalL : NORMAL;
+	float3 TangentL : TANGENT;
+	float3 BiNormalL : BINORMAL;
+};
+
 struct VertexOut
 {
 	float4 PosH : SV_Position;

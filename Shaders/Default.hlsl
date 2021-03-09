@@ -12,15 +12,6 @@ Texture2D gEmissiveMap : register(t3);
 SamplerState gsamLinear : register(s0);
 SamplerState anisoWrap : register(s4);
 
-struct VertexIn
-{
-	float2 TexC : TEXCOORD;
-	float3 PosL : POSITION;
-	float3 NormalL : NORMAL;
-	float3 TangentL : TANGENT;
-	float3 BiNormalL : BINORMAL;
-};
-
 VertexOut VS(VertexIn vin, uint instance : SV_InstanceID)
 {
 	VertexOut vout = (VertexOut) 0.0f;

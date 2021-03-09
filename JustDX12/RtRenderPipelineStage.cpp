@@ -66,34 +66,38 @@ void RtRenderPipelineStage::RebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 	UINT index = 0;
 	for (auto& model : RtModels) {
 		for (auto& mesh : model->meshes) {
-			std::vector<DescriptorJob> meshJobs = buildMeshTexturesDescriptorJobs(&mesh);
-			texJobVec.insert(texJobVec.end(), meshJobs.begin(), meshJobs.end());
-		}
-		DescriptorJob bufferJob;
-		bufferJob.autoDesc = false;
-		bufferJob.view.srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		bufferJob.view.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		bufferJob.view.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		bufferJob.view.srvDesc.Buffer.FirstElement = 0;
-		bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		// Since we're using triangle list format, it's more efficient to read 3 values at once.
-		bufferJob.view.srvDesc.Buffer.NumElements = model->indexCount / 3;
-		bufferJob.view.srvDesc.Buffer.StructureByteStride = 12;
-		bufferJob.directBinding = true;
-		bufferJob.directBindingTarget = model->indexBuffer.get();
-		bufferJob.type = DESCRIPTOR_TYPE_SRV;
-		bufferJob.usage = DESCRIPTOR_USAGE_SYSTEM_DEFINED;
-		indexJobVec.push_back(bufferJob);
+			for (UINT i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+				std::vector<DescriptorJob> meshJobs = buildMeshTexturesDescriptorJobs(&mesh);
+				texJobVec.insert(texJobVec.end(), meshJobs.begin(), meshJobs.end());
 
-		bufferJob.view.srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		bufferJob.view.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		bufferJob.view.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		bufferJob.view.srvDesc.Buffer.FirstElement = 0;
-		bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		bufferJob.view.srvDesc.Buffer.NumElements = model->vertexCount;
-		bufferJob.view.srvDesc.Buffer.StructureByteStride = model->vertexByteStride;
-		bufferJob.directBindingTarget = model->vertexBuffer.get();
-		vertexJobVec.push_back(bufferJob);
+				DescriptorJob bufferJob;
+				bufferJob.autoDesc = false;
+				bufferJob.view.srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+				bufferJob.view.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				bufferJob.view.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				bufferJob.view.srvDesc.Buffer.FirstElement = mesh.startIndexLocation / 3;
+				bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+				// Since we're using triangle list format, it's more efficient to read 3 values at once.
+				bufferJob.view.srvDesc.Buffer.NumElements = mesh.indexCount / 3;
+				bufferJob.view.srvDesc.Buffer.StructureByteStride = 12;
+				bufferJob.directBinding = true;
+				bufferJob.directBindingTarget = model->indexBuffer.get();
+				bufferJob.type = DESCRIPTOR_TYPE_SRV;
+				bufferJob.usage = DESCRIPTOR_USAGE_SYSTEM_DEFINED;
+				indexJobVec.push_back(bufferJob);
+
+				bufferJob.view.srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+				bufferJob.view.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				bufferJob.view.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				bufferJob.view.srvDesc.Buffer.FirstElement = mesh.baseVertexLocation;
+				bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+				bufferJob.view.srvDesc.Buffer.NumElements = mesh.vertexCount;
+				bufferJob.view.srvDesc.Buffer.StructureByteStride = model->vertexByteStride;
+				bufferJob.directBindingTarget = model->vertexBuffer.get();
+				vertexJobVec.push_back(bufferJob);
+			}
+		}
+		
 	}
 	// Need all textures in continuous descriptor table.
 	DX12Descriptor firstDesc = descriptorManager.makeDescriptors(indexJobVec, &resourceManager, &constantBufferManager, false)[0];
