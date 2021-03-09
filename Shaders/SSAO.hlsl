@@ -32,13 +32,19 @@ void SSAO(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 {
 	depthTex.GetDimensions(resolution.x, resolution.y);
 	noiseTex.GetDimensions(noiseTexResolution.x, noiseTexResolution.y);
+
+	float depth = depthTex[dispatchThreadID.xy].x;
+	if (depth == 1.0f) {
+		outTex[dispatchThreadID.xy] = 1.0f;
+		return;
+	}
+
+	float4 worldPos = float4(positionFromDepthVal(depth, float2(dispatchThreadID.xy) / resolution, PerPass), 1.0f);
 	
 	float3 inNormal = normalize(normalTex[dispatchThreadID.xy].xyz);
 	float3 inTan = normalize(tangentTex[dispatchThreadID.xy].xyz);
 	float3 inBinormal = normalize(cross(inNormal, inTan));
 	float3x3 TBN = float3x3(inTan, inBinormal, inNormal);
-	float depth = depthTex[dispatchThreadID.xy].x;
-	float4 worldPos = float4(positionFromDepthVal(depth, float2(dispatchThreadID.xy) / resolution, PerPass), 1.0f);
 	
 	float outCol = 0.0f;
 	

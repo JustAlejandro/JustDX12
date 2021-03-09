@@ -107,7 +107,8 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		uint ray_instance_mask = 0xffffffff;
 
 		RayDesc ray;
-		ray.TMin = 0.03f;
+		float3 viewToWorldVec = LightData.viewPos - worldPos;
+		ray.TMin = clamp(dot(viewToWorldVec, viewToWorldVec) / 1000.0f, 0.01f, 0.2f);
 		ray.TMax = distance(lightPos, worldPos);
 		ray.Origin = worldPos;
 		ray.Direction = lightDir;
@@ -160,9 +161,15 @@ float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, f
 }
 
 PixelOutMerge DeferPS(VertexOutMerge vout) {
-	depthTex.GetDimensions(resolution.x, resolution.y);
-
 	PixelOutMerge pout;
+
+	float depth = depthTex.Sample(gsamPoint, vout.TexC).x;
+	if (depth == 1.0f) {
+		pout.color = float4(0.4f, 0.4f, 1.0f, 1.0f);
+		return pout;
+	}
+
+	depthTex.GetDimensions(resolution.x, resolution.y);
 
 	float3 albedo = colorTex.Sample(gsamPoint, vout.TexC).xyz;
 	albedo = pow(albedo, LightData.gamma);
@@ -172,7 +179,6 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	float metallic = specSample.z;
 	float emmisive = specSample.w;
 
-	float depth = depthTex.Sample(gsamPoint, vout.TexC).x;
 	float3 worldPos = positionFromDepthVal(depth, vout.TexC, PerPass);
 
 	float3 viewDir = normalize(LightData.viewPos - worldPos);
@@ -212,5 +218,6 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	color = pow(color, 1.0f / LightData.gamma);
 
 	pout.color = float4(color, 1.0f);
+	//pout.color = (dot(normal, -LightData.lights[j].dir) + 1.0f) / 2.0f;
 	return pout;
 }
