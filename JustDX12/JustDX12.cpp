@@ -743,7 +743,7 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
 	if (ImGui::Button("Load Head")) {
-		loadModel("head", headFile, headDir, { -18.0f, 1.0f, 5.0f }, { 0.0005f, 0.0005f, 0.0005f });
+		loadModel("head", headFile, headDir, { -18000.0f, 1000.0f, 5000.0f }, { 0.5f, 0.5f, 0.5f });
 	}
 	if (ImGui::Button("UnLoad Head")) {
 		unloadModel("head");
@@ -781,8 +781,8 @@ void DemoApp::ImGuiPrepareUI() {
 			}
 			for (int i = 0; i < data.second.instanceCount; i++) {
 				if (ImGui::BeginTabItem(("Instance: " + std::to_string(i)).c_str())) {
-					requiresUpdate |= ImGui::DragFloat3("Scale: ", (float*)&data.second.scale[i], 0.0001f);
-					requiresUpdate |= ImGui::DragFloat3("Translate: ", (float*)&data.second.translate[i], 0.01f);
+					requiresUpdate |= ImGui::DragFloat3("Scale: ", (float*)&data.second.scale[i], 0.01f);
+					requiresUpdate |= ImGui::DragFloat3("Translate: ", (float*)&data.second.translate[i], 1.0f);
 					requiresUpdate |= ImGui::DragFloat3("Rotation: ", (float*)&data.second.rotation[i], 0.01f);
 					ImGui::EndTabItem();
 				}
@@ -837,8 +837,10 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 
 void DemoApp::unloadModel(std::string name) {
 	auto modelData = activeModels.find(name);
-	activeModels.erase(modelData);
-	renderStage->unloadModel(name);
+	if (modelData != activeModels.end()) {
+		activeModels.erase(modelData);
+		renderStage->unloadModel(name);
+	}
 }
 
 void DemoApp::BuildFrameResources() {
@@ -901,8 +903,8 @@ void DemoApp::mouseButtonUp(WPARAM btnState, int x, int y) {
 }
 
 void DemoApp::mouseMove(WPARAM btnState, int x, int y) {
-	float dx = float(x - (SCREEN_WIDTH / 2));
-	float dy = float(y - (SCREEN_HEIGHT / 2) + 17);
+	float dx = float(x - hWindowClientCenter.x);
+	float dy = float(y - hWindowClientCenter.y);
 
 	lookAngle[0] = std::min(std::max((lookAngle[0] + DirectX::XMConvertToRadians(0.25f * dy)), -AI_MATH_HALF_PI_F + 0.01f), AI_MATH_HALF_PI_F - 0.01f);
 	lookAngle[1] = (lookAngle[1] + DirectX::XMConvertToRadians(0.25f * dx));

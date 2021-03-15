@@ -121,6 +121,11 @@ bool DX12App::initWindow() {
 	ClipCursor(&hWindowPos);
 	hWindowCenter.x = (hWindowPos.left + hWindowPos.right) / 2;
 	hWindowCenter.y = (hWindowPos.top + hWindowPos.bottom) / 2;
+
+	GetClientRect(hWindow, &hWindowClientPos);
+	hWindowClientCenter = hWindowCenter;
+	ScreenToClient(hWindow, &hWindowClientCenter);
+
 	SetCursorPos(hWindowCenter.x, hWindowCenter.y);
 	return true;
 }
@@ -281,6 +286,11 @@ LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		ClipCursor(&hWindowPos);
 		hWindowCenter.x = (hWindowPos.left + hWindowPos.right) / 2;
 		hWindowCenter.y = (hWindowPos.top + hWindowPos.bottom) / 2;
+
+		GetClientRect(hWindow, &hWindowClientPos);
+		hWindowClientCenter = hWindowCenter;
+		ScreenToClient(hWindow, &hWindowClientCenter);
+
 		SetCursorPos(hWindowCenter.x, hWindowCenter.y);
 	}
 	switch (msg) {

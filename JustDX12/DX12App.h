@@ -65,6 +65,8 @@ protected:
 	HWND hWindow = nullptr;
 	RECT hWindowPos = { 0 };
 	POINT hWindowCenter = { 0 };
+	RECT hWindowClientPos = { 0 };
+	POINT hWindowClientCenter = { 0 };
 
 	Microsoft::WRL::ComPtr<IDXGIFactory6> mdxgiFactory;
 	Microsoft::WRL::ComPtr<IDXGISwapChain> mSwapChain;
