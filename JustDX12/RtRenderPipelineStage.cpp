@@ -8,12 +8,15 @@ RtRenderPipelineStage::RtRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device
 	ModelLoader::registerRtUser(this);
 }
 
-void RtRenderPipelineStage::DeferRebuildRtData(std::vector<std::shared_ptr<Model>> RtModels) {
+void RtRenderPipelineStage::deferRebuildRtData(std::vector<std::shared_ptr<Model>> RtModels) {
 	enqueue(new RebuildRtDataTask(this, RtModels));
 }
 
 void RtRenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	RenderPipelineStage::setup(stageDesc);
+	// Have to remove the root parameter descs that map to RT data
+	// speeds up binding and removes clutter
+	// TODO: find a cleaner way to do this.
 	for (int i = 0; i < DESCRIPTOR_USAGE_MAX; i++) {
 		auto iter = rootParameterDescs[i].begin();
 		while (iter != rootParameterDescs[i].end()) {
@@ -56,10 +59,10 @@ void RtRenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	}
 }
 
-void RtRenderPipelineStage::RebuildRtData(std::vector<std::shared_ptr<Model>> RtModels) {
-	ResourceDecay::FreeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.indexRange.cpuHandle, rtDescriptors.indexRange.numDescriptors);
-	ResourceDecay::FreeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.vertRange.cpuHandle, rtDescriptors.vertRange.numDescriptors);
-	ResourceDecay::FreeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.texRange.cpuHandle, rtDescriptors.texRange.numDescriptors);
+void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> RtModels) {
+	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.indexRange.cpuHandle, rtDescriptors.indexRange.numDescriptors);
+	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.vertRange.cpuHandle, rtDescriptors.vertRange.numDescriptors);
+	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.texRange.cpuHandle, rtDescriptors.texRange.numDescriptors);
 	std::vector<DescriptorJob> texJobVec;
 	std::vector<DescriptorJob> indexJobVec;
 	std::vector<DescriptorJob> vertexJobVec;
@@ -125,7 +128,7 @@ void RtRenderPipelineStage::drawRenderObjects() {
 }
 
 void RtRenderPipelineStage::RebuildRtDataTask::execute() {
-	stage->RebuildRtData(RtModels);
+	stage->rebuildRtData(RtModels);
 }
 
 RtRenderPipelineStage::RebuildRtDataTask::RebuildRtDataTask(RtRenderPipelineStage* stage, std::vector<std::shared_ptr<Model>> RtModels) {

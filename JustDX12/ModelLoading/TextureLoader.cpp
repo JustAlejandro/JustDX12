@@ -1,18 +1,25 @@
 #include "ModelLoading\TextureLoader.h"
+
+#include <d3dx12.h>
 #include <DirectXTex.h>
+
 #include "Settings.h"
 #include "DX12Helper.h"
-#include <d3dx12.h>
+
 #include "TextureLoadTask.h"
-#include "DX12App.h"
 #include "ResourceDecay.h"
+#include "DX12App.h"
+
+TextureLoader::TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device5> dev) :
+	TaskQueueThread(dev, D3D12_COMMAND_LIST_TYPE_COPY) {
+}
 
 TextureLoader& TextureLoader::getInstance() {
 	static TextureLoader instance(DX12App::getDevice());
 	return instance;
 }
 
-void TextureLoader::clearAll() {
+void TextureLoader::destroyAll() {
 	textures.clear();
 }
 
@@ -156,7 +163,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
 	int fenceVal = getFenceValue() + 1;
-	ResourceDecay::DestroyOnEventAndFillPointer(UploadHeap, EventFromFence(getFence().Get(), fenceVal), textureData, &tex->resource);
+	ResourceDecay::destroyOnEventAndFillPointer(UploadHeap, EventFromFence(getFence().Get(), fenceVal), textureData, &tex->resource);
 	fenceValueForWait[usageIndex] = fenceVal;
 	setFence(fenceVal);
 	tex->curState = D3D12_RESOURCE_STATE_COPY_DEST;
@@ -169,8 +176,4 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 
 void TextureLoader::loadMip(int mipLevel, DX12Texture* texture) {
 	// TODO
-}
-
-TextureLoader::TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device5> dev) :
-	TaskQueueThread(dev, D3D12_COMMAND_LIST_TYPE_COPY) {
 }

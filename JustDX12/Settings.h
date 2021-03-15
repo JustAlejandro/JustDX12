@@ -8,12 +8,11 @@
 #include <math.h>
 
 #define USE_PIX
-#define CLEAR_MODEL_MEMORY
 
 #define CPU_FRAME_COUNT 3
 #define AUXILLARY_FENCE_COUNT 5
 
-#define GPU_DEBUG true
+#define GPU_DEBUG false
 
 #define SCREEN_WIDTH 3200
 #define SCREEN_HEIGHT 1800
@@ -21,11 +20,11 @@
 #define MAX_LIGHTS 10
 #define MAX_INSTANCES 15
 
-#define MOVE_SPEED 3.0f
+#define MOVE_SPEED 3000.0f
 #define RUN_MULTIPLIER 4.0f
 
-#define NEAR_Z 1.0f
-#define FAR_Z 1000.0f
+#define NEAR_Z 1000.0f
+#define FAR_Z 100000.0f
 
 #define COLOR_TEXTURE_FORMAT DXGI_FORMAT_R8G8B8A8_UNORM
 #define HELPER_TEXTURE_FORMAT DXGI_FORMAT_R16G16B16A16_FLOAT

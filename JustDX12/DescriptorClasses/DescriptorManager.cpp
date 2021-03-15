@@ -1,6 +1,8 @@
+#include <string>
+
 #include "DescriptorClasses\DescriptorManager.h"
 #include "ResourceClasses\ResourceManager.h"
-#include <string>
+
 #include "Settings.h"
 
 DescriptorManager::DescriptorManager(ComPtr<ID3D12Device5> device) {
@@ -8,14 +10,10 @@ DescriptorManager::DescriptorManager(ComPtr<ID3D12Device5> device) {
 	makeDescriptorHeaps();
 }
 
-void DescriptorManager::freeDescriptorRangeInHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size) {
-	heaps[type].freeHeapSpace(startHandle, size);
-}
-
 std::vector<DX12Descriptor> DescriptorManager::makeDescriptors(std::vector<DescriptorJob> descriptorJobs, ResourceManager* resourceManager, ConstantBufferManager* constantBufferManager, bool registerIntoManager) {
 	std::vector<DescriptorJob> jobByHeap[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 	for (DescriptorJob& job : descriptorJobs) {
-		jobByHeap[heapTypeFromDescriptorType(job.type)].push_back(job);
+		jobByHeap[getHeapTypeFromDescriptorType(job.type)].push_back(job);
 	}
 	// Seperating jobs into their respective heaps speeds up allocation since they can be placed contiguously.
 	std::vector<DX12Descriptor> newDescriptors;
@@ -54,6 +52,10 @@ std::vector<DX12Descriptor> DescriptorManager::makeDescriptors(std::vector<Descr
 	return newDescriptors;
 }
 
+bool DescriptorManager::containsDescriptorsOfType(DESCRIPTOR_TYPE type) {
+	return descriptorsByType.find(type) != descriptorsByType.end();
+}
+
 DX12Descriptor* DescriptorManager::getDescriptor(const IndexedName& indexedName, const DESCRIPTOR_TYPE& type) {
 	auto out = descriptors.find(std::make_pair(indexedName, type));
 	if (out == descriptors.end()) {
@@ -62,12 +64,16 @@ DX12Descriptor* DescriptorManager::getDescriptor(const IndexedName& indexedName,
 	return &out->second;
 }
 
+std::vector<DX12Descriptor*>* DescriptorManager::getAllDescriptorsOfType(DESCRIPTOR_TYPE type) {
+	return &descriptorsByType.at(type);
+}
+
 std::vector<ID3D12DescriptorHeap*> DescriptorManager::getAllBindableHeaps() {
 	return { heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].getHeap(),
 			 heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].getHeap() };
 }
 
-std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::requiredResourceStates() {
+std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::getRequiredResourceStates() {
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> states;
 	for (auto& entry : descriptors) {
 		switch (entry.first.second) {
@@ -97,12 +103,26 @@ std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> DescriptorManager::
 	return states;
 }
 
-bool DescriptorManager::containsDescriptorsOfType(DESCRIPTOR_TYPE type) {
-	return descriptorsByType.find(type) != descriptorsByType.end();
+void DescriptorManager::freeDescriptorRangeInHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size) {
+	heaps[type].freeHeapSpace(startHandle, size);
 }
 
-std::vector<DX12Descriptor*>* DescriptorManager::getAllDescriptorsOfType(DESCRIPTOR_TYPE type) {
-	return &descriptorsByType.at(type);
+void DescriptorManager::makeDescriptorHeaps() {
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+
+	for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
+		D3D12_DESCRIPTOR_HEAP_TYPE type = static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i);
+		heapDesc.NumDescriptors = maxDescriptorHeapSize[type];
+		heapDesc.Type = type;
+		heapDesc.Flags = getShaderVisibleFlagFromHeapType(type);
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heapRes;
+		HRESULT result = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&heapRes));
+		if (result != S_OK) {
+			OutputDebugStringA("Heap Creation Failed");
+			throw "HEAP CREATION FAILED";
+		}
+		heaps[i] = DX12DescriptorHeap(heapRes, type, getDescriptorOffsetForType(type), heapDesc.NumDescriptors);
+	}
 }
 
 void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, DescriptorJob& job) {
@@ -131,25 +151,23 @@ void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, Descrip
 	}
 }
 
-void DescriptorManager::makeDescriptorHeaps() {
-	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-
-	for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
-		D3D12_DESCRIPTOR_HEAP_TYPE type = static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i);
-		heapDesc.NumDescriptors = maxDescriptorHeapSize[type];
-		heapDesc.Type = type;
-		heapDesc.Flags = shaderVisibleFromHeapType(type);
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heapRes;
-		HRESULT result = device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&heapRes));
-		if (result != S_OK) {
-			OutputDebugStringA("Heap Creation Failed");
-			throw "HEAP CREATION FAILED";
-		}
-		heaps[i] = DX12DescriptorHeap(heapRes, type, getDescriptorOffsetForType(type), heapDesc.NumDescriptors);
+UINT DescriptorManager::getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE type) {
+	switch (type) {
+	case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
+		return gCbvSrvUavDescriptorSize;
+	case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
+		return gSamplerDescriptorSize;
+		break;
+	case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
+		return gRtvDescriptorSize;
+	case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
+		return gDsvDescriptorSize;
+	default:
+		break;
 	}
+	return -1;
 }
-
-D3D12_DESCRIPTOR_HEAP_TYPE DescriptorManager::heapTypeFromDescriptorType(DESCRIPTOR_TYPE type) {
+D3D12_DESCRIPTOR_HEAP_TYPE DescriptorManager::getHeapTypeFromDescriptorType(DESCRIPTOR_TYPE type) {
 	D3D12_DESCRIPTOR_HEAP_TYPE descriptorHeapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	int typeCounter = 0;
 	if (type & DESCRIPTOR_TYPE_RTV) {
@@ -170,26 +188,9 @@ D3D12_DESCRIPTOR_HEAP_TYPE DescriptorManager::heapTypeFromDescriptorType(DESCRIP
 	return descriptorHeapType;
 }
 
-D3D12_DESCRIPTOR_HEAP_FLAGS DescriptorManager::shaderVisibleFromHeapType(D3D12_DESCRIPTOR_HEAP_TYPE type) {
+D3D12_DESCRIPTOR_HEAP_FLAGS DescriptorManager::getShaderVisibleFlagFromHeapType(D3D12_DESCRIPTOR_HEAP_TYPE type) {
 	if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV || type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
 		return D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	}
 	return D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-}
-
-UINT DescriptorManager::getDescriptorOffsetForType(D3D12_DESCRIPTOR_HEAP_TYPE type) {
-	switch (type) {
-	case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
-		return gCbvSrvUavDescriptorSize;
-	case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
-		return gSamplerDescriptorSize;
-		break;
-	case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
-		return gRtvDescriptorSize;
-	case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
-		return gDsvDescriptorSize;
-	default:
-		break;
-	}
-	return -1;
 }

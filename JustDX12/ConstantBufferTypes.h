@@ -1,11 +1,18 @@
 #pragma once
+#include <iostream>
 #include <DirectXMath.h>
-#include <DX12Helper.h>
+
 #include "ConstantBufferData.h"
+#include <DX12Helper.h>
+
 #include <Settings.h>
 #include "Common.h"
 
-#include <iostream>
+// ConstantBufferTypes.h: contains all ConstantBuffer types used in program
+// this is possible through subclassing and virtual methods found in base class
+// from ConstantBufferData
+// Unfortunately, this means that if you try to write a type that mismatches the 'data'
+// member of the ConstantBuffer, there could be major problems
 
 class SSAOConstants : public ConstantBufferData {
 public:
@@ -15,12 +22,12 @@ public:
 		DirectX::XMFLOAT2 padding = {0.0f, 0.0f};
 		DirectX::XMFLOAT4X4 viewProj = Identity();
 		int rayCount = 3;
-		float rayLength = 0.05f;
+		float rayLength = 100.0f;
 		int TAA = 0;
 		float range = 0.0f;
 		float rangeXNear = 0.0f;
 		int shadowSteps = 10;
-		float shadowStepSize = 0.05f;
+		float shadowStepSize = 100.0f;
 	};
 
 	SSAOConstantsStruct data;

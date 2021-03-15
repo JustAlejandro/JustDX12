@@ -10,8 +10,10 @@ public:
 	SceneNode(DirectX::XMFLOAT4X4 initTransform, std::string name);
 
 	SceneNode* addChild(DirectX::XMFLOAT4X4 initTransform, std::string name);
+
 	void calculateFullTransform();
 	const SceneNode* findNode(std::string name) const;
+
 	DirectX::XMFLOAT4X4 getFullTransform() const;
 
 	std::string name;

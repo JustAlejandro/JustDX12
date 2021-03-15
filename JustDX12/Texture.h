@@ -1,9 +1,11 @@
 #pragma once
+#define NOMINMAX
 #include <string>
-#include "Settings.h"
 #include <wrl.h>
+
 #include "ResourceClasses/DX12Resource.h"
 
+// Soon to be deprecated, once Meshlet loading is done in a similar manner as regular Models, enum will be removed
 enum TEX_STATUS {
 	TEX_STATUS_NOT_LOADED = 0,
 	TEX_STATUS_LOADED = 1,

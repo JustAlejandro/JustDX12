@@ -40,7 +40,6 @@
     <ClCompile Include="MeshletModel.cpp">
       <Filter>ModelLoading</Filter>
     </ClCompile>
-    <ClCompile Include="TransformData.cpp" />
     <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="ResourceDecay.cpp" />
     <ClCompile Include="RtRenderPipelineStage.cpp" />

@@ -20,22 +20,8 @@ Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool uses
 }
 
 Model::~Model() {
-	ResourceDecay::DestroyAfterDelay(vertexBufferGPU);
-	ResourceDecay::DestroyAfterDelay(indexBufferGPU);
-}
-
-bool Model::isLoaded() {
-	if ((indexBufferGPU.Get() == nullptr) || (vertexBufferGPU.Get() == nullptr)) {
-		return false;
-	}
-	for (auto& m : meshes) {
-		if (!m.allTexturesLoaded()) {
-			return false;
-		}
-	}
-	indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	return true;
+	ResourceDecay::destroyAfterDelay(vertexBufferGPU);
+	ResourceDecay::destroyAfterDelay(indexBufferGPU);
 }
 
 void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
@@ -72,16 +58,39 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 
 	// the ResourceDecay class will tell the model about the resource only once the copy is completed.
 	int fenceVal = thread->getFenceValue() + 1;
-	ResourceDecay::DestroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), vertexBuffer, &vertexBufferGPU);
-	ResourceDecay::DestroyOnEventAndFillPointer(indexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), indexBuffer, &indexBufferGPU);
+	ResourceDecay::destroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), vertexBuffer, &vertexBufferGPU);
+	ResourceDecay::destroyOnEventAndFillPointer(indexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), indexBuffer, &indexBufferGPU);
 	thread->setFence(fenceVal);
+}
 
-#ifdef CLEAR_MODEL_MEMORY
-	std::vector<Vertex>().swap(vertices);
-	vertices.shrink_to_fit();
-	std::vector<unsigned int>().swap(indices);
-	indices.shrink_to_fit();
-#endif // CLEAR_MODEL_MEMORY
+bool Model::isLoaded() {
+	if ((indexBufferGPU.Get() == nullptr) || (vertexBufferGPU.Get() == nullptr)) {
+		return false;
+	}
+	for (auto& m : meshes) {
+		if (!m.allTexturesLoaded()) {
+			return false;
+		}
+	}
+	indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	return true;
+}
+
+D3D12_VERTEX_BUFFER_VIEW Model::getVertexBufferView() const {
+	D3D12_VERTEX_BUFFER_VIEW vbv;
+	vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
+	vbv.StrideInBytes = vertexByteStride;
+	vbv.SizeInBytes = vertexBufferByteSize;
+	return vbv;
+}
+
+D3D12_INDEX_BUFFER_VIEW Model::getIndexBufferView() const {
+	D3D12_INDEX_BUFFER_VIEW ibv;
+	ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
+	ibv.Format = indexFormat;
+	ibv.SizeInBytes = indexBufferByteSize;
+	return ibv;
 }
 
 void Model::refreshAllTransforms() {
@@ -250,20 +259,4 @@ DX12Texture* Model::loadMaterialTexture(aiMaterial* mat, aiTextureType type) {
 	path = path.substr(0, path.find_last_of('.')) + ".dds";
 	texture = textureLoader.deferLoad(path, dir + "\\textures");
 	return texture;
-}
-
-D3D12_VERTEX_BUFFER_VIEW Model::vertexBufferView() const {
-	D3D12_VERTEX_BUFFER_VIEW vbv;
-	vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
-	vbv.StrideInBytes = vertexByteStride;
-	vbv.SizeInBytes = vertexBufferByteSize;
-	return vbv;
-}
-
-D3D12_INDEX_BUFFER_VIEW Model::indexBufferView() const {
-	D3D12_INDEX_BUFFER_VIEW ibv;
-	ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
-	ibv.Format = indexFormat;
-	ibv.SizeInBytes = indexBufferByteSize;
-	return ibv;
 }

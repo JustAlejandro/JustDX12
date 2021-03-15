@@ -1,23 +1,29 @@
 #pragma once
 #include "PipelineStage/RenderPipelineStage.h"
 
+// Describes where the shader/rootsig expect the RT data to be in a DXR 1.1 setup.
 struct RtRenderPipelineStageDesc {
 	int rtTlasSlot = -1;
 	ID3D12Resource** tlasPtr = nullptr;
+	// Additional information, able to supply the Index/Vertex/Texture data of all Models in the RT
+	// structure, for effects such as reflections, or shadows with masking
 	int rtIndexBufferSlot = -1;
 	int rtVertexBufferSlot = -1;
 	int rtTexturesSlot = -1;
 };
 
+// RenderPipelineStage that specifically uses RT data in it's shaders
 class RtRenderPipelineStage : public RenderPipelineStage {
 public:
 	RtRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RtRenderPipelineStageDesc rtDesc, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 
-	void DeferRebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
-
 	void setup(PipeLineStageDesc stageDesc) override;
+
+	// Enqueues an update operation onto the CPU thread, used by the ModelLoader to let this Stage know there's been a change.
+	void deferRebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
+
 private:
-	void RebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
+	void rebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
 
 	void drawRenderObjects() override;
 

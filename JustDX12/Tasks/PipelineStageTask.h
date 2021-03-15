@@ -3,6 +3,10 @@
 #include "PipelineStage\PipelineStage.h"
 #include "IndexedName.h"
 
+// Handles all Tasks that a PipelineStage would want to perform
+// asynchronously on it's worker thread
+// TODO: refactor this to be in the PipelineStage.h file
+
 class PipelineStageTask : public Task {
 public:
 	virtual void execute()=0;
@@ -51,7 +55,7 @@ class PipelineStageTaskRun : public PipelineStageTask {
 public:
 	PipelineStageTaskRun(PipelineStage* stage) : PipelineStageTask(stage) {}
 	virtual ~PipelineStageTaskRun() override = default;
-	void execute() override { stage->Execute(); }
+	void execute() override { stage->execute(); }
 };
 
 class PipelineStageTaskUpdateConstantBuffer : public PipelineStageTask {

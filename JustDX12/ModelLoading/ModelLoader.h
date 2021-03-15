@@ -1,17 +1,24 @@
 #pragma once
-#include <assimp/Importer.hpp>		// C++ importer interface
-#include <assimp/scene.h>			// Output data structure
-#include <assimp/postprocess.h>		// Post processing flags
+// Used STL thread because of familiarity
+// TODO: Use Windows specific thread interface to gain priority access
 #include <thread>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <string>
-#include "Tasks\TaskQueueThread.h"
-#include "ModelLoading\Model.h"
-#include "MeshletModel.h"
+#include <assimp/Importer.hpp>		// C++ importer interface
+#include <assimp/scene.h>			// Output data structure
+#include <assimp/postprocess.h>		// Post processing flags
+
 #include "Common.h"
 
+#include "ModelLoading\Model.h"
+#include "MeshletModel.h"
+
+#include "Tasks\TaskQueueThread.h"
+
+// Buffers required to be held until build process completed.
+// TODO: move structure to ModelLoader's private
 struct AccelerationStructureBuffers {
 	Microsoft::WRL::ComPtr<ID3D12Resource> pScratch;
 	Microsoft::WRL::ComPtr<ID3D12Resource> pResult;
@@ -20,35 +27,54 @@ struct AccelerationStructureBuffers {
 
 class RtRenderPipelineStage;
 
+// Handles all Model loading actions and contains all data needed for RT structures
+// load actions are run on a seperate thread, which is why this is a singleton (want only one loading thread ATM)
+// recommended to not use any of the RT 'Deferred' functions since they'll hang until all enqued ModelLoad actions are complete
 class ModelLoader: public TaskQueueThread {
-public:
-	static ModelLoader& getInstance();
-	static bool allModelsLoaded();
-	static void DestroyAll();
-	static std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
-	static std::vector<std::shared_ptr<Model>> getAllRTModels();
-	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
-	static MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
-	static void registerRtUser(RtRenderPipelineStage* user);
-	static bool isModelCountChanged();
-	static void unloadModel(std::string name, std::string dir);
-	static void updateTransforms();
-	static HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
-	void buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
-	static HANDLE updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-	void updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS = nullptr;
-	bool instanceCountChanged = false;
 private:
 	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
 	ModelLoader(ModelLoader const&) = delete;
 	void operator=(ModelLoader const&) = delete;
 
-	int frame = 0;
+public:
+	static ModelLoader& getInstance();
+
+	// Process if any new models have been loaded by the loading thread.
+	// This should be called by someone at the start of every frame so we don't have a sudden
+	// update of resources in the middle of a frame, which would necessitate more synchronization
+	static bool allModelsLoaded();
+	// Clears all Models, required that this is called before the ResourceDecay singleton
+	// dies, since Model deletion dumps resources into ResourceDecay
+	static void destroyAll();
+
+	static bool isModelCountChanged();
+
+	static std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
+	static std::vector<std::shared_ptr<Model>> getAllRTModels();
+	
+	static void updateTransforms();
+
+	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
+	static MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	static void unloadModel(std::string name, std::string dir);
+
+	// Called in RtRenderPipelineStage setup, sets up a listener to changes in the RT data.
+	static void registerRtUser(RtRenderPipelineStage* user);
+	// Initial build of RT data, runs on ModelLoader thread, return HANDLE that can be waited on.
+	// TODO: remove 'build' methods and only use 'update' operations
+	static HANDLE buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
+	void buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
+	// Appends RT structure building commands to 'cmdList', never call Deferred option since if a Model is loading the operation won't start until the model is finished loading
+	static HANDLE updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	// Appends RT structure building commands to 'cmdList', safe to call this from a seperate thread than the thread owned by this object
+	void updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS = nullptr;
+	bool instanceCountChanged = false;
+private:
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-
+	
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;
 	bool modelCountChanged = false;

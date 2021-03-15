@@ -16,14 +16,17 @@ RenderPipelineStage::RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d
 	frustrumCull = true;
 }
 
+RenderPipelineStage::~RenderPipelineStage() {
+}
+
 void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	if (renderStageDesc.usesMeshlets) {
-		BuildRootSignature(meshRootSignature, renderStageDesc.meshletRootSignature, meshRootParameterDescs);
+		buildRootSignature(meshRootSignature, renderStageDesc.meshletRootSignature, meshRootParameterDescs);
 	}
 
 	PipelineStage::setup(stageDesc);
-	BuildDescriptors(stageDesc.descriptorJobs);
-	BuildPSO();
+	buildDescriptors(stageDesc.descriptorJobs);
+	buildPSO();
 	for (int i = 0; i < DESCRIPTOR_USAGE_MAX; i++) {
 		auto iter = rootParameterDescs[i].begin();
 		while (iter != rootParameterDescs[i].end()) {
@@ -57,12 +60,12 @@ void RenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	}
 }
 
-void RenderPipelineStage::Execute() {
+void RenderPipelineStage::execute() {
 	resetCommandList();
 
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(0, 255, 0), stageDesc.name.c_str());
 
-	PerformTransitionsIn();
+	performTransitionsIn();
 
 	bindDescriptorHeaps();
 	setResourceStates();
@@ -87,31 +90,31 @@ void RenderPipelineStage::Execute() {
 
 	if (modelAmountChanged && renderStageDesc.supportsCulling) {
 		setupOcclusionBoundingBoxes();
-		BuildQueryHeap();
+		buildQueryHeap();
 	}
 
 	if (renderStageDesc.supportsCulling && occlusionCull) {
 		drawOcclusionQuery();
 	}
 
-	PerformTransitionsOut();
+	performTransitionsOut();
 
 	PIXEndEvent(mCommandList.Get());
 
 	ThrowIfFailed(mCommandList->Close());
 }
 
-void RenderPipelineStage::LoadModel(std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
+void RenderPipelineStage::loadModel(std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
 	std::weak_ptr<Model> model = ModelLoader::loadModel(fileName, dirName, usesRT);
 	loadingRenderObjects.push_back(model);
 	nameToModel[referenceName] = model;
 }
 
-void RenderPipelineStage::LoadMeshletModel(std::string fileName, std::string dirName, bool usesRT) {
+void RenderPipelineStage::loadMeshletModel(std::string fileName, std::string dirName, bool usesRT) {
 	meshletRenderObjects.push_back(ModelLoader::loadMeshletModel(fileName, dirName, usesRT));
 }
 
-void RenderPipelineStage::UnloadModel(std::string friendlyName) {
+void RenderPipelineStage::unloadModel(std::string friendlyName) {
 	auto ptr = nameToModel[friendlyName].lock();
 	ModelLoader::unloadModel(ptr->name, ptr->dir);
 }
@@ -138,14 +141,7 @@ void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLO
 	meshletRenderObjects[modelIndex]->transform.setTransform(0, transform);
 }
 
-void RenderPipelineStage::setTLAS(Microsoft::WRL::ComPtr<ID3D12Resource> TLAS) {
-	this->TLAS = TLAS;
-}
-
-RenderPipelineStage::~RenderPipelineStage() {
-}
-
-void RenderPipelineStage::BuildPSO() {
+void RenderPipelineStage::buildPSO() {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPSO;
 	ZeroMemory(&graphicsPSO, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 
@@ -234,43 +230,11 @@ void RenderPipelineStage::BuildPSO() {
 	}
 }
 
-std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> RenderPipelineStage::getRequiredResourceStates() {
-	auto requiredStates = PipelineStage::getRequiredResourceStates();
-	if (renderStageDesc.supportsVRS) {
-		requiredStates.push_back(std::make_pair(D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE, resourceManager.getResource(renderStageDesc.VrsTextureName)));
-	}
-	return requiredStates;
-}
-
-bool RenderPipelineStage::PerformsTransitions() {
-	return true;
-}
-
-void RenderPipelineStage::PerformTransitionsIn() {
-	if (transitionsIn.size() > 0) {
-		mCommandList->ResourceBarrier((UINT)transitionsIn.size(), transitionsIn.data());
-	}
-}
-
-void RenderPipelineStage::PerformTransitionsOut() {
-	if (transitionsOut.size() > 0) {
-		mCommandList->ResourceBarrier((UINT)transitionsOut.size(), transitionsOut.data());
-	}
-}
-
-void RenderPipelineStage::AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
-	transitionsIn.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
-}
-
-void RenderPipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
-	transitionsOut.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
-}
-
-void RenderPipelineStage::BuildQueryHeap() {
+void RenderPipelineStage::buildQueryHeap() {
 	if (renderStageDesc.supportsCulling) {
 		// Due to the occlusion query being used from the previous frame it has a lifetime of 1 more than other resources.
-		ResourceDecay::DestroyAfterSpecificDelay(occlusionQueryResultBuffer, CPU_FRAME_COUNT + 1);
-		ResourceDecay::DestroyAfterSpecificDelay(occlusionQueryHeap, CPU_FRAME_COUNT + 1);
+		ResourceDecay::destroyAfterSpecificDelay(occlusionQueryResultBuffer, CPU_FRAME_COUNT + 1);
+		ResourceDecay::destroyAfterSpecificDelay(occlusionQueryHeap, CPU_FRAME_COUNT + 1);
 
 		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer((renderObjects.size() + meshletRenderObjects.size()) * 8);
 		md3dDevice->CreateCommittedResource(&gDefaultHeapDesc,
@@ -287,6 +251,141 @@ void RenderPipelineStage::BuildQueryHeap() {
 		SetName(occlusionQueryResultBuffer.Get(), L"Occlusion Query Result");
 		SetName(occlusionQueryHeap.Get(), L"Occlusion Query Heap");
 	}
+}
+
+std::vector<DescriptorJob> RenderPipelineStage::buildMeshTexturesDescriptorJobs(Mesh* m) {
+	std::vector<DescriptorJob> descriptorJobs;
+	for (const auto& texMap : renderStageDesc.textureToDescriptor) {
+		MODEL_FORMAT textureType = texMap.first;
+		DX12Resource* texture = nullptr;
+		if ((m->typeFlags & textureType) != 0) {
+			texture = m->textures.at(textureType);
+		}
+		else {
+			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
+		}
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
+		descriptorJobs.push_back(job);
+	}
+	return descriptorJobs;
+}
+
+void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex) {
+	std::vector<DX12Descriptor> meshletDescriptors;
+	std::vector<DescriptorJob> descriptorJobs;
+	for (const auto& texMap : renderStageDesc.meshletTextureToDescriptor) {
+		MODEL_FORMAT textureType = texMap.first;
+		DX12Resource* texture = nullptr;
+		auto textureIter = m->textures.find(textureType);
+		if (textureIter != m->textures.end()) {
+			texture = textureIter->second;
+		}
+		else {
+			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
+		}
+		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
+		descriptorJobs.push_back(job);
+	}
+	meshletDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
+	// TODO: make a similar binding as with the regular models
+	m->texturesBound = true;
+}
+
+void RenderPipelineStage::buildInputLayout() {
+	PipelineStage::buildInputLayout();
+
+	occlusionInputLayout = {
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0 , 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA}
+	};
+}
+
+bool RenderPipelineStage::setupRenderObjects() {
+	bool newObjectsLoadedOrDeleted = false;
+
+	for (int i = 0; i < loadingRenderObjects.size(); i++) {
+		std::shared_ptr<Model> obj = loadingRenderObjects[i].lock();
+		// Catches case where loading can fail (not implemented now, but possible)
+		if (!obj) {
+			loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
+			i--;
+		}
+		if (!obj->isLoaded()) {
+			continue;
+		}
+		for (auto& m : obj->meshes) {
+			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&m),
+				&resourceManager, &constantBufferManager, false);
+			// Register the descriptors to easily fetch them later
+			m.registerPipelineStage(this, meshDescriptors);
+		}
+		renderObjects.push_back(obj);
+		loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
+		i--;
+		newObjectsLoadedOrDeleted = true;
+	}
+
+	int index = 0;
+	for (auto& meshletRenderObj : meshletRenderObjects) {
+		if (!meshletRenderObj->loaded) {
+			continue;
+		}
+		if (!meshletRenderObj->allTexturesLoaded()) {
+			continue;
+		}
+		if (!meshletRenderObj->texturesBound) {
+			buildMeshletTexturesDescriptors(meshletRenderObj, index);
+			continue;
+		}
+		index++;
+	}
+
+	for (int i = 0; i < renderObjects.size(); i++) {
+		std::shared_ptr<Model> obj = renderObjects[i].lock();
+		if (!obj) {
+			renderObjects.erase(renderObjects.begin() + i);
+			i--;
+			newObjectsLoadedOrDeleted = true;
+		}
+	}
+
+	return newObjectsLoadedOrDeleted;
+}
+
+void RenderPipelineStage::setupOcclusionBoundingBoxes() {
+	std::vector<CompactBoundingBox> boundingBoxes;
+	for (const auto& model : renderObjects) {
+		if (auto modelPtr = model.lock()) {
+			boundingBoxes.emplace_back(modelPtr->boundingBox.Center, modelPtr->boundingBox.Extents);
+		}
+		else {
+			// if the model was actually unloaded, this bogus 'padding' is necessary to keep indexing consistent when drawing BBs
+			boundingBoxes.emplace_back(CompactBoundingBox(DirectX::XMFLOAT3(), DirectX::XMFLOAT3()));
+		}
+	}
+	for (const auto& meshletModel : meshletRenderObjects) {
+		boundingBoxes.emplace_back(meshletModel->GetBoundingBox().Center, meshletModel->GetBoundingBox().Extents);
+	}
+
+	UINT byteSize = (UINT)boundingBoxes.size() * sizeof(CompactBoundingBox);
+
+	ResourceDecay::destroyAfterDelay(occlusionBoundingBoxBufferGPU);
+	occlusionBoundingBoxBufferGPU.Reset();
+	ResourceDecay::destroyAfterDelay(occlusionBoundingBoxBufferGPUUploader);
+	occlusionBoundingBoxBufferGPUUploader.Reset();
+
+	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
+		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);
+
+	SetName(occlusionBoundingBoxBufferGPU.Get(), L"Occlusion BB Buffer GPU");
+	SetName(occlusionBoundingBoxBufferGPUUploader.Get(), L"Occlusion BB Buffer GPU Uploader");
+
+	auto transToVertexBuffer = CD3DX12_RESOURCE_BARRIER::Transition(occlusionBoundingBoxBufferGPU.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	mCommandList->ResourceBarrier(1, &transToVertexBuffer);
+
+	occlusionBoundingBoxBufferView.BufferLocation = occlusionBoundingBoxBufferGPU->GetGPUVirtualAddress();
+	occlusionBoundingBoxBufferView.StrideInBytes = sizeof(CompactBoundingBox);
+	occlusionBoundingBoxBufferView.SizeInBytes = byteSize;
 }
 
 void RenderPipelineStage::bindDescriptorsToRoot(DESCRIPTOR_USAGE usage, int usageIndex, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
@@ -377,6 +476,30 @@ void RenderPipelineStage::bindRenderTarget() {
 		depthHandle);
 }
 
+bool RenderPipelineStage::performsTransitions() {
+	return true;
+}
+
+void RenderPipelineStage::performTransitionsIn() {
+	if (transitionsIn.size() > 0) {
+		mCommandList->ResourceBarrier((UINT)transitionsIn.size(), transitionsIn.data());
+	}
+}
+
+void RenderPipelineStage::performTransitionsOut() {
+	if (transitionsOut.size() > 0) {
+		mCommandList->ResourceBarrier((UINT)transitionsOut.size(), transitionsOut.data());
+	}
+}
+
+void RenderPipelineStage::addTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	transitionsIn.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+}
+
+void RenderPipelineStage::addTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	transitionsOut.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
+}
+
 void RenderPipelineStage::drawRenderObjects() {
 	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0, 255, 0), "Draw Calls");
 	int modelIndex = 0;
@@ -406,8 +529,8 @@ void RenderPipelineStage::drawRenderObjects() {
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
 		model->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
 
-		auto vertexBufferView = model->vertexBufferView();
-		auto indexBufferView = model->indexBufferView();
+		auto vertexBufferView = model->getVertexBufferView();
+		auto indexBufferView = model->getIndexBufferView();
 		mCommandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 		mCommandList->IASetIndexBuffer(&indexBufferView);
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -542,138 +665,10 @@ void RenderPipelineStage::drawOcclusionQuery() {
 	mCommandList->ResourceBarrier(1, &predTransition);
 }
 
-std::vector<DescriptorJob> RenderPipelineStage::buildMeshTexturesDescriptorJobs(Mesh* m) {
-	std::vector<DescriptorJob> descriptorJobs;
-	for (const auto& texMap : renderStageDesc.textureToDescriptor) {
-		MODEL_FORMAT textureType = texMap.first;
-		DX12Resource* texture = nullptr;
-		if ((m->typeFlags & textureType) != 0) {
-			texture = m->textures.at(textureType);
-		}
-		else {
-			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
-		}
-		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, 0, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
-		descriptorJobs.push_back(job);
+std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> RenderPipelineStage::getRequiredResourceStates() {
+	auto requiredStates = PipelineStage::getRequiredResourceStates();
+	if (renderStageDesc.supportsVRS) {
+		requiredStates.push_back(std::make_pair(D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE, resourceManager.getResource(renderStageDesc.VrsTextureName)));
 	}
-	return descriptorJobs;
-}
-
-void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex) {
-	std::vector<DX12Descriptor> meshletDescriptors;
-	std::vector<DescriptorJob> descriptorJobs;
-	for (const auto& texMap : renderStageDesc.meshletTextureToDescriptor) {
-		MODEL_FORMAT textureType = texMap.first;
-		DX12Resource* texture = nullptr;
-		auto textureIter = m->textures.find(textureType);
-		if (textureIter != m->textures.end()) {
-			texture = textureIter->second;
-		}
-		else {
-			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
-		}
-		DescriptorJob job(texMap.second, texture, DESCRIPTOR_TYPE_SRV, true, usageIndex, DESCRIPTOR_USAGE_SYSTEM_DEFINED);
-		descriptorJobs.push_back(job);
-	}
-	meshletDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
-	// TODO: make a similar binding as with the regular models
-	m->texturesBound = true;
-}
-
-void RenderPipelineStage::BuildInputLayout() {
-	PipelineStage::BuildInputLayout();
-
-	occlusionInputLayout = {
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
-		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0 , 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA}
-	};
-}
-
-bool RenderPipelineStage::setupRenderObjects() {
-	bool newObjectsLoadedOrDeleted = false;
-
-	for (int i = 0; i < loadingRenderObjects.size(); i++) {
-		std::shared_ptr<Model> obj = loadingRenderObjects[i].lock();
-		// Catches case where loading can fail (not implemented now, but possible)
-		if (!obj) {
-			loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
-			i--;
-		}
-		if (!obj->isLoaded()) {
-			continue;
-		}
-		for (auto& m : obj->meshes) {
-			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&m),
-				&resourceManager, &constantBufferManager, false);
-			// Register the descriptors to easily fetch them later
-			m.registerPipelineStage(this, meshDescriptors);
-			m.texturesBound = true;
-		}
-		renderObjects.push_back(obj);
-		loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
-		i--;
-		newObjectsLoadedOrDeleted = true;
-	}
-
-	int index = 0;
-	for (auto& meshletRenderObj : meshletRenderObjects) {
-		if (!meshletRenderObj->loaded) {
-			continue;
-		}
-		if (!meshletRenderObj->allTexturesLoaded()) {
-			continue;
-		}
-		if (!meshletRenderObj->texturesBound) {
-			buildMeshletTexturesDescriptors(meshletRenderObj, index);
-			continue;
-		}
-		index++;
-	}
-
-	for (int i = 0; i < renderObjects.size(); i++) {
-		std::shared_ptr<Model> obj = renderObjects[i].lock();
-		if (!obj) {
-			renderObjects.erase(renderObjects.begin() + i);
-			i--;
-			newObjectsLoadedOrDeleted = true;
-		}
-	}
-
-	return newObjectsLoadedOrDeleted;
-}
-
-void RenderPipelineStage::setupOcclusionBoundingBoxes() {
-	std::vector<CompactBoundingBox> boundingBoxes;
-	for (const auto& model : renderObjects) {
-		if (auto modelPtr = model.lock()) {
-			boundingBoxes.emplace_back(modelPtr->boundingBox.Center, modelPtr->boundingBox.Extents);
-		}
-		else {
-			// if the model was actually unloaded, this bogus 'padding' is necessary to keep indexing consistent when drawing BBs
-			boundingBoxes.emplace_back(CompactBoundingBox(DirectX::XMFLOAT3(), DirectX::XMFLOAT3()));
-		}
-	}
-	for (const auto& meshletModel : meshletRenderObjects) {
-		boundingBoxes.emplace_back(meshletModel->GetBoundingBox().Center, meshletModel->GetBoundingBox().Extents);
-	}
-
-	UINT byteSize = (UINT)boundingBoxes.size() * sizeof(CompactBoundingBox);
-
-	ResourceDecay::DestroyAfterDelay(occlusionBoundingBoxBufferGPU);
-	occlusionBoundingBoxBufferGPU.Reset();
-	ResourceDecay::DestroyAfterDelay(occlusionBoundingBoxBufferGPUUploader);
-	occlusionBoundingBoxBufferGPUUploader.Reset();
-
-	occlusionBoundingBoxBufferGPU = CreateDefaultBuffer(md3dDevice.Get(), mCommandList.Get(),
-		boundingBoxes.data(), byteSize, occlusionBoundingBoxBufferGPUUploader);
-
-	SetName(occlusionBoundingBoxBufferGPU.Get(), L"Occlusion BB Buffer GPU");
-	SetName(occlusionBoundingBoxBufferGPUUploader.Get(), L"Occlusion BB Buffer GPU Uploader");
-
-	auto transToVertexBuffer = CD3DX12_RESOURCE_BARRIER::Transition(occlusionBoundingBoxBufferGPU.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	mCommandList->ResourceBarrier(1, &transToVertexBuffer);
-
-	occlusionBoundingBoxBufferView.BufferLocation = occlusionBoundingBoxBufferGPU->GetGPUVirtualAddress();
-	occlusionBoundingBoxBufferView.StrideInBytes = sizeof(CompactBoundingBox);
-	occlusionBoundingBoxBufferView.SizeInBytes = byteSize;
+	return requiredStates;
 }

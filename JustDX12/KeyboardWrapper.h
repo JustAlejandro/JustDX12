@@ -20,6 +20,7 @@ struct Key {
 	SHORT curStatus;
 };
 
+// Simple keyboard IO processor
 class KeyboardWrapper {
 public:
 	void registerKey(int val);

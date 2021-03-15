@@ -1,23 +1,30 @@
 #pragma once
+#include <vector>
+
 #include <wrl.h>
 #include <d3d12.h>
 #include <d3dx12.h>
-#include <vector>
+
 using namespace Microsoft::WRL;
 
 class DX12Resource;
 class DX12ConstantBuffer;
 class DX12Texture;
 
+// Describes the context the Descriptor is used in
+// Underutilized at the moment
+// TODO: Revisit this concept.
 enum DESCRIPTOR_USAGE {
-	DESCRIPTOR_USAGE_ALL = 0,
-	DESCRIPTOR_USAGE_PER_PASS = 1,
-	DESCRIPTOR_USAGE_PER_OBJECT = 2,
-	DESCRIPTOR_USAGE_PER_MESHLET = 3,
-	DESCRIPTOR_USAGE_SYSTEM_DEFINED = 4,
-	DESCRIPTOR_USAGE_MAX = 5
+	DESCRIPTOR_USAGE_ALL = 0,				// Bound once, never unbound
+	DESCRIPTOR_USAGE_PER_PASS = 1,			// Bound for a single pass, then possibly repaced (unused until Passes implemented)
+	DESCRIPTOR_USAGE_PER_OBJECT = 2,		// Bound only when a specific object is drawn (Renderer still uses, User-side deprecated)
+	DESCRIPTOR_USAGE_PER_MESHLET = 3,		// Bound only for each meshlet individually
+	DESCRIPTOR_USAGE_SYSTEM_DEFINED = 4,	// RESERVED, use for resources accessed through unique fields in PipelineStageDesc or other StageDescs (ex: TLAS for RT)
+	DESCRIPTOR_USAGE_MAX = 5				// Limit Constant, not user compatible
 };
 
+// Wrapper over ID3D12DescriptorHeap that finds free descriptor ranges for continuous DX12Descriptor allocation
+// Also capable of marking ranges as available for future reuse
 struct DX12DescriptorHeap {
 	DX12DescriptorHeap() = default;
 	DX12DescriptorHeap(Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap, D3D12_DESCRIPTOR_HEAP_TYPE type, UINT offset, UINT size) {
@@ -30,19 +37,19 @@ struct DX12DescriptorHeap {
 		this->availabilityBitmap = std::vector<bool>(size, true);
 	}
 
-	void freeHeapSpace(CD3DX12_CPU_DESCRIPTOR_HANDLE start, UINT size) {
-		UINT startIdx = ((UINT64)start.ptr - startCPUHandle.ptr) / offset;
-		for (UINT i = 0; i < size; i++) {
-			availabilityBitmap[i + (size_t)startIdx] = false;
-		}
-	}
-
 	ID3D12DescriptorHeap* getHeap() const {
 		return heap.Get();
 	}
 
 	UINT getOffset() const {
 		return offset;
+	}
+
+	void freeHeapSpace(CD3DX12_CPU_DESCRIPTOR_HANDLE start, UINT size) {
+		UINT startIdx = ((UINT64)start.ptr - startCPUHandle.ptr) / offset;
+		for (UINT i = 0; i < size; i++) {
+			availabilityBitmap[i + (size_t)startIdx] = false;
+		}
 	}
 
 	std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, CD3DX12_GPU_DESCRIPTOR_HANDLE> reserveHeapSpace(UINT numDescriptors) {
@@ -74,6 +81,7 @@ private:
 	UINT size;
 	D3D12_DESCRIPTOR_HEAP_TYPE type;
 	UINT offset;
+
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> heap;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE startCPUHandle;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE startGPUHandle;
@@ -81,6 +89,8 @@ private:
 	std::vector<bool> availabilityBitmap;
 };
 
+// Contains all data needed to bind the descriptor to the root signature
+// Or to free the descriptor when it's no longer needed.
 struct DX12Descriptor {
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;

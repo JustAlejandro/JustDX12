@@ -1,6 +1,6 @@
 #include "ResourceDecay.h"
 
-void ResourceDecay::CheckDestroy() {
+void ResourceDecay::checkDestroy() {
 	ResourceDecay& instance = getInstance();
 
 	instance.onDelayResources[gFrameIndex].clear();
@@ -58,7 +58,7 @@ void ResourceDecay::CheckDestroy() {
 	}
 }
 
-void ResourceDecay::DestroyAll() {
+void ResourceDecay::destroyAll() {
 	ResourceDecay& instance = getInstance();
 
 	for (auto& vec : instance.onDelayResources) {
@@ -69,39 +69,39 @@ void ResourceDecay::DestroyAll() {
 	instance.onSpecificDelayResources.clear();
 }
 
-void ResourceDecay::DestroyAfterDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource) {
+void ResourceDecay::destroyAfterDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource) {
 	ResourceDecay& instance = getInstance();
 	instance.onDelayResources[gFrameIndex].push_back(resource);
 }
 
-void ResourceDecay::DestroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay) {
+void ResourceDecay::destroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay) {
 	ResourceDecay& instance = getInstance();
 
 	instance.onSpecificDelayResources.push_back(std::make_pair(resource, delay));
 }
 
-void ResourceDecay::DestroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12QueryHeap> resource, UINT delay) {
+void ResourceDecay::destroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12QueryHeap> resource, UINT delay) {
 	ResourceDecay& instance = getInstance();
 
 	instance.onSpecificDelayQueries.push_back(std::make_pair(resource, delay));
 }
 
-void ResourceDecay::DestroyOnEvent(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev) {
+void ResourceDecay::destroyOnEvent(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev) {
 	ResourceDecay& instance = getInstance();
 	instance.onEventResources.push_back(std::make_pair(resource, SwapEvent(ev)));
 }
 
-void ResourceDecay::DestroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest) {
+void ResourceDecay::destroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest) {
 	ResourceDecay& instance = getInstance();
 	instance.onEventResources.push_back(std::make_pair(resource, SwapEvent(ev, src, dest)));
 }
 
-void ResourceDecay::DestroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest) {
+void ResourceDecay::destroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest) {
 	ResourceDecay& instance = getInstance();
 	instance.onDelaySwapResources.push_back(std::make_pair(resource, SwapEvent(delay, src, dest)));
 }
 
-void ResourceDecay::FreeDescriptorsAferDelay(DescriptorManager* manager, D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size) {
+void ResourceDecay::freeDescriptorsAferDelay(DescriptorManager* manager, D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size) {
 	ResourceDecay& instance = getInstance();
 	instance.onDelayFreeDescriptor[gFrameIndex].push_back({ manager, type, startHandle, size });
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 
+// Simple representation of a pair of an index and a string name
 // IndexedName is used in almost all maps as a key and is immutable
 class IndexedName {
 public:

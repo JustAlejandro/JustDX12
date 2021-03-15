@@ -26,7 +26,7 @@ DX12ConstantBuffer::~DX12ConstantBuffer() {
 	for (UINT i = 0; i < CPU_FRAME_COUNT; i++) {
 		if (uploadBuffer[i] != nullptr) {
 			uploadBuffer[i]->Unmap(0, nullptr);
-			ResourceDecay::DestroyAfterDelay(uploadBuffer[i]);
+			ResourceDecay::destroyAfterDelay(uploadBuffer[i]);
 		}
 	}
 }

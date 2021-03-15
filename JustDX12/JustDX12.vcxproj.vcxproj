@@ -194,7 +194,6 @@
     <ClCompile Include="ModelLoading\Model.cpp" />
     <ClCompile Include="ModelLoading\ModelLoader.cpp" />
     <ClCompile Include="ModelLoading\TextureLoader.cpp" />
-    <ClCompile Include="TransformData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

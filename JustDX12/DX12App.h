@@ -10,6 +10,9 @@
 #pragma comment(lib, "D3D12.lib")
 #pragma comment(lib, "dxgi.lib")
 
+// Base class that just abstracts away some of the annoyances of having to do starter DX12 code
+// This class' Window management and initial setup are based on the base code from Frank Luna
+// https://github.com/d3dcoder/d3d12book
 
 class DX12App {
 protected:
@@ -47,11 +50,11 @@ protected:
 	void createCommandObjects();
 	void createSwapChain();
 
-	void FlushCommandQueue();
+	void flushCommandQueue();
 
-	ID3D12Resource* CurrentBackBuffer()const;
-	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView()const;
-	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView()const;
+	ID3D12Resource* currentBackBuffer()const;
+	D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView()const;
+	D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView()const;
 
 protected:
 	static DX12App* app;

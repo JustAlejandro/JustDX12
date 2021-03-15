@@ -37,7 +37,7 @@ DX12App::DX12App(HINSTANCE hInstance) : hAppInst(hInstance) {
 
 DX12App::~DX12App() {
 	if (md3dDevice != nullptr)
-		FlushCommandQueue();
+		flushCommandQueue();
 }
 
 float DX12App::getAspectRatio() const {
@@ -234,7 +234,7 @@ void DX12App::createSwapChain() {
 		mSwapChain.GetAddressOf()));
 }
 
-void DX12App::FlushCommandQueue() {
+void DX12App::flushCommandQueue() {
 	mCurrentFence++;
 
 	mCommandQueue->Signal(mFence.Get(), mCurrentFence);
@@ -249,18 +249,18 @@ void DX12App::FlushCommandQueue() {
 	}
 }
 
-ID3D12Resource* DX12App::CurrentBackBuffer()const {
+ID3D12Resource* DX12App::currentBackBuffer()const {
 	return mSwapChainBuffer[mCurrBackBuffer].Get();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE DX12App::CurrentBackBufferView()const {
+D3D12_CPU_DESCRIPTOR_HANDLE DX12App::currentBackBufferView()const {
 	return CD3DX12_CPU_DESCRIPTOR_HANDLE(
 		mRtvHeap->GetCPUDescriptorHandleForHeapStart(),
 		mCurrBackBuffer,
 		mRtvDescriptorSize);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE DX12App::DepthStencilView()const {
+D3D12_CPU_DESCRIPTOR_HANDLE DX12App::depthStencilView()const {
 	return mDsvHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
@@ -349,7 +349,7 @@ void DX12App::onResize() {
 	assert(mDirectCmdListAlloc);
 
 	// Flush before changing any resources.
-	FlushCommandQueue();
+	flushCommandQueue();
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -414,7 +414,7 @@ void DX12App::onResize() {
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Format = mDepthStencilFormat;
 	dsvDesc.Texture2D.MipSlice = 0;
-	md3dDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
+	md3dDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), &dsvDesc, depthStencilView());
 
 	// Transition the resource from its initial state to be used as a depth buffer.
 	auto depthTransition = CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBuffer.Get(),
@@ -427,7 +427,7 @@ void DX12App::onResize() {
 	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
 	// Wait until resize is complete.
-	FlushCommandQueue();
+	flushCommandQueue();
 
 	// Update the viewport transform to cover the client area.
 	mScreenViewport.TopLeftX = 0;

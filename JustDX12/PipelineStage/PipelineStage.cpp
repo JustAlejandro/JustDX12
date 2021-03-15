@@ -15,61 +15,6 @@ PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3
 	}
 }
 
-void PipelineStage::LoadTextures(std::vector<std::pair<std::string,std::string>> textureFiles) {
-	TextureLoader& tloader = TextureLoader::getInstance();
-	for (const auto& file : textureFiles) {
-		DX12Resource* tex = tloader.deferLoad(file.second, "..\\Models\\");
-		while (!tex->get()) {
-			ResourceDecay::CheckDestroy();
-		}
-		resourceManager.importResource(file.first, tex);
-	}
-}
-
-void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
-	enqueue(new	PipelineStageTaskSetup(this, stageDesc));
-}
-
-HANDLE PipelineStage::deferExecute() {
-	enqueue(new PipelineStageTaskRun(this));
-	return deferSetCpuEvent();
-}
-
-void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex) {
-	constantBufferManager.getConstantBuffer(IndexedName(name, usageIndex))->prepareUpdateBuffer(&data);
-	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, IndexedName(name, usageIndex)));
-}
-
-void PipelineStage::updateConstantBuffer(IndexedName indexName) {
-	constantBufferManager.getConstantBuffer(indexName)->updateBuffer(gFrameIndex);
-}
-
-int PipelineStage::triggerFence() {
-	int dest = getFenceValue() + 1;
-	enqueue(new PipelineStageTaskFence(this, dest));
-	return dest;
-}
-
-void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
-	enqueue(new PipelineStageTaskWaitFence(this, val, fence));
-}
-
-DX12ConstantBuffer* PipelineStage::getConstantBuffer(IndexedName indexName) {
-	return constantBufferManager.getConstantBuffer(indexName);
-}
-
-DX12Resource* PipelineStage::getResource(std::string name) {
-	return resourceManager.getResource(name);
-}
-
-void PipelineStage::importResource(std::string name, DX12Resource* resource) {
-	resourceManager.importResource(name, resource);
-}
-
-void PipelineStage::importResource(std::string name, ID3D12Resource* resource) {
-	resourceManager.makeFromExisting(name, DESCRIPTOR_TYPE_FLAG_RT_ACCEL_STRUCT, resource, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
-}
-
 // To be able to build multiple command lists at once we need all the stages to agree on what transitions happen when.
 // Return the initial transistions needed to put us in the cycle we want.
 std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(std::vector<std::vector<PipelineStage*>> stages) {
@@ -134,10 +79,10 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 				bool found = false;
 				// Trips if triggering a transition would break a stage.
 				bool conflicts = false;
-				for (int j = i-1; j >= 0; j--) {
+				for (int j = i - 1; j >= 0; j--) {
 					for (auto& stage : stages[j]) {
-						if (!found && !conflicts && stage->PerformsTransitions()) {
-							stage->AddTransitionOut(res, prevState, desiredState->second);
+						if (!found && !conflicts && stage->performsTransitions()) {
+							stage->addTransitionOut(res, prevState, desiredState->second);
 							prevState = desiredState->second;
 							found = true;
 						}
@@ -150,7 +95,7 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 
 				if (!found) {
 					for (auto& stage : stages[i]) {
-						if (!stage->PerformsTransitions()) {
+						if (!stage->performsTransitions()) {
 							continue;
 						}
 						auto requiredStates = stage->getRequiredResourceStates();
@@ -159,7 +104,7 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 								if (found) {
 									throw "Multiple stages require same state, synchronization required";
 								}
-								stage->AddTransitionIn(res, prevState, desiredState->second);
+								stage->addTransitionIn(res, prevState, desiredState->second);
 								prevState = desiredState->second;
 								found = true;
 								break;
@@ -182,28 +127,64 @@ std::vector<CD3DX12_RESOURCE_BARRIER> PipelineStage::setupResourceTransitions(st
 	return requiredInitialTranisitions;
 }
 
+void PipelineStage::deferSetup(PipeLineStageDesc stageDesc) {
+	enqueue(new	PipelineStageTaskSetup(this, stageDesc));
+}
+
 void PipelineStage::setup(PipeLineStageDesc stageDesc) {
 	SetThreadDescription(GetCurrentThread(), std::wstring(stageDesc.name.begin(), stageDesc.name.end()).c_str());
 	for (auto& frameRes : frameResourceArray) {
 		SetName(frameRes->CmdListAlloc.Get(), (std::wstring(stageDesc.name.begin(), stageDesc.name.end()) + L" Command List Allocator").c_str());
 	}
 	//This causes a race condition, if the TextureLoader doesn't finish before the setup() ends.
-	LoadTextures(stageDesc.textureFiles);
+	loadTextures(stageDesc.textureFiles);
 	for (auto& cb : stageDesc.externalConstantBuffers) {
 		constantBufferManager.importConstantBuffer(cb.first, cb.second);
 	}
 	for (std::pair<std::string, DX12Resource*>& res : stageDesc.externalResources) {
 		resourceManager.importResource(res.first, res.second);
 	}
-	BuildRootSignature(rootSignature, stageDesc.rootSigDesc, rootParameterDescs);
-	BuildResources(stageDesc.resourceJobs);
-	BuildConstantBuffers(stageDesc.constantBufferJobs);
-	BuildShaders(stageDesc.shaderFiles);
-	BuildInputLayout();
+	buildRootSignature(rootSignature, stageDesc.rootSigDesc, rootParameterDescs);
+	buildResources(stageDesc.resourceJobs);
+	buildConstantBuffers(stageDesc.constantBufferJobs);
+	buildShaders(stageDesc.shaderFiles);
+	buildInputLayout();
 	this->stageDesc = stageDesc;
 }
 
-void PipelineStage::BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSig, std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
+HANDLE PipelineStage::deferExecute() {
+	enqueue(new PipelineStageTaskRun(this));
+	return deferSetCpuEvent();
+}
+
+DX12ConstantBuffer* PipelineStage::getConstantBuffer(IndexedName indexName) {
+	return constantBufferManager.getConstantBuffer(indexName);
+}
+
+DX12Resource* PipelineStage::getResource(std::string name) {
+	return resourceManager.getResource(name);
+}
+
+void PipelineStage::deferUpdateConstantBuffer(std::string name, ConstantBufferData& data, int usageIndex) {
+	constantBufferManager.getConstantBuffer(IndexedName(name, usageIndex))->prepareUpdateBuffer(&data);
+	enqueue(new PipelineStageTaskUpdateConstantBuffer(this, IndexedName(name, usageIndex)));
+}
+
+void PipelineStage::updateConstantBuffer(IndexedName indexName) {
+	constantBufferManager.getConstantBuffer(indexName)->updateBuffer(gFrameIndex);
+}
+
+int PipelineStage::triggerFence() {
+	int dest = getFenceValue() + 1;
+	enqueue(new PipelineStageTaskFence(this, dest));
+	return dest;
+}
+
+void PipelineStage::deferWaitOnFence(Microsoft::WRL::ComPtr<ID3D12Fence> fence, int val) {
+	enqueue(new PipelineStageTaskWaitFence(this, val, fence));
+}
+
+void PipelineStage::buildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignature>& rootSig, std::vector<RootParamDesc> rootSigDescs, std::vector<RootParamDesc> targetRootParamDescs[DESCRIPTOR_USAGE_MAX]) {
 	std::vector<CD3DX12_ROOT_PARAMETER> rootParameters(rootSigDescs.size(), CD3DX12_ROOT_PARAMETER());
 	std::vector<std::vector<int>> shaderRegisters;
 	for (auto& rootSigDesc : rootSigDescs) {
@@ -247,24 +228,24 @@ void PipelineStage::BuildRootSignature(Microsoft::WRL::ComPtr<ID3D12RootSignatur
 	}
 }
 
-void PipelineStage::BuildDescriptors(std::vector<DescriptorJob>& descriptorJobs) {
+void PipelineStage::buildDescriptors(std::vector<DescriptorJob>& descriptorJobs) {
 	descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager);
 }
 
-void PipelineStage::BuildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs) {
+void PipelineStage::buildConstantBuffers(std::vector<ConstantBufferJob>& constantBufferJobs) {
 	for (ConstantBufferJob& job : constantBufferJobs) {
 		constantBufferManager.makeConstantBuffer(job);
 		delete job.initialData;
 	}
 }
 
-void PipelineStage::BuildResources(std::vector<ResourceJob>& resourceJobs) {
+void PipelineStage::buildResources(std::vector<ResourceJob>& resourceJobs) {
 	for (ResourceJob& job : resourceJobs) {
 		resourceManager.makeResource(job);
 	}
 }
 
-void PipelineStage::BuildShaders(std::vector<ShaderDesc> shaderDescs) {
+void PipelineStage::buildShaders(std::vector<ShaderDesc> shaderDescs) {
 	for (ShaderDesc& shaderDesc : shaderDescs) {
 		std::string shaderFileString = ("..\\Shaders\\" + shaderDesc.fileName);
 		std::vector<DxcDefine> defines = DXDefine::DXDefineToDxcDefine(shaderDesc.defines);
@@ -275,7 +256,7 @@ void PipelineStage::BuildShaders(std::vector<ShaderDesc> shaderDescs) {
 	}
 }
 
-void PipelineStage::BuildInputLayout() {
+void PipelineStage::buildInputLayout() {
 	inputLayout = {
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 8, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
@@ -285,27 +266,71 @@ void PipelineStage::BuildInputLayout() {
 	};
 }
 
-void PipelineStage::BuildPSO() {
+void PipelineStage::buildPSO() {
 	throw "Can't call BuildPSO on PipelineStage object";
 }
 
-bool PipelineStage::PerformsTransitions() {
+void PipelineStage::loadTextures(std::vector<std::pair<std::string,std::string>> textureFiles) {
+	TextureLoader& tloader = TextureLoader::getInstance();
+	for (const auto& file : textureFiles) {
+		DX12Resource* tex = tloader.deferLoad(file.second, "..\\Models\\");
+		while (!tex->get()) {
+			ResourceDecay::checkDestroy();
+		}
+		resourceManager.importResource(file.first, tex);
+	}
+}
+
+void PipelineStage::importResource(std::string name, DX12Resource* resource) {
+	resourceManager.importResource(name, resource);
+}
+
+void PipelineStage::importResource(std::string name, ID3D12Resource* resource) {
+	resourceManager.makeFromExisting(name, DESCRIPTOR_TYPE_FLAG_RT_ACCEL_STRUCT, resource, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+}
+
+void PipelineStage::resetCommandList() {
+	mDirectCmdListAlloc = frameResourceArray[gFrameIndex].get()->CmdListAlloc;
+	ThrowIfFailed(mDirectCmdListAlloc->Reset());
+	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), PSO.Get()));
+	SetName(mCommandList.Get(), (std::wstring(stageDesc.name.begin(), stageDesc.name.end()) + L" Command List").c_str());
+}
+
+void PipelineStage::bindDescriptorHeaps() {
+	std::vector<ID3D12DescriptorHeap*> descHeaps = descriptorManager.getAllBindableHeaps();
+	mCommandList->SetDescriptorHeaps((UINT)descHeaps.size(), descHeaps.data());
+}
+
+void PipelineStage::setResourceStates() {
+	auto stateResourcePairVector = getRequiredResourceStates();
+	std::vector<CD3DX12_RESOURCE_BARRIER> transitionQueue;
+	for (auto& stateResourcePair : stateResourcePairVector) {
+		if (stateResourcePair.second->local) {
+			stateResourcePair.second->changeStateDeferred(stateResourcePair.first, transitionQueue);
+		}
+	}
+	if (transitionQueue.size() > 0) {
+		mCommandList->ResourceBarrier((UINT)transitionQueue.size(), transitionQueue.data());
+	}
+}
+
+bool PipelineStage::performsTransitions() {
 	return false;
 }
 
-void PipelineStage::PerformTransitionsIn() {
+void PipelineStage::performTransitionsIn() {
 	throw "Not Available";
 }
 
-void PipelineStage::PerformTransitionsOut() {
+void PipelineStage::performTransitionsOut() {
 	throw "Not Available";
 }
 
-void PipelineStage::AddTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+void PipelineStage::addTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
 	throw "Not Available";
 }
 
-void PipelineStage::AddTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+void PipelineStage::addTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
 	throw "Not Available";
 }
 
@@ -397,31 +422,6 @@ DESCRIPTOR_TYPE PipelineStage::getDescriptorTypeFromRootParameterDesc(RootParamD
 	}
 }
 
-void PipelineStage::resetCommandList() {
-	mDirectCmdListAlloc = frameResourceArray[gFrameIndex].get()->CmdListAlloc;
-	ThrowIfFailed(mDirectCmdListAlloc->Reset());
-	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), PSO.Get()));
-	SetName(mCommandList.Get(), (std::wstring(stageDesc.name.begin(), stageDesc.name.end()) + L" Command List").c_str());
-}
-
-void PipelineStage::bindDescriptorHeaps() {
-	std::vector<ID3D12DescriptorHeap*> descHeaps = descriptorManager.getAllBindableHeaps();
-	mCommandList->SetDescriptorHeaps((UINT)descHeaps.size(), descHeaps.data());
-}
-
 std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> PipelineStage::getRequiredResourceStates() {
-	return descriptorManager.requiredResourceStates();
-}
-
-void PipelineStage::setResourceStates() {
-	auto stateResourcePairVector = getRequiredResourceStates();
-	std::vector<CD3DX12_RESOURCE_BARRIER> transitionQueue;
-	for (auto& stateResourcePair : stateResourcePairVector) {
-		if (stateResourcePair.second->local) {
-			stateResourcePair.second->changeStateDeferred(stateResourcePair.first, transitionQueue);
-		}
-	}
-	if (transitionQueue.size() > 0) {
-		mCommandList->ResourceBarrier((UINT)transitionQueue.size(), transitionQueue.data());
-	}
+	return descriptorManager.getRequiredResourceStates();
 }

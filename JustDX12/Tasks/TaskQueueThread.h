@@ -8,6 +8,8 @@
 #include <d3d12.h>
 #include "FrameResource.h"
 
+// Base class that represents a CPU thread that runs through a list of enqueued commands
+// An implementation similar to the Command pattern (though a little different)
 class TaskQueueThread {
 protected:
 	TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);

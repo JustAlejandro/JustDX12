@@ -1,9 +1,11 @@
 #include "ModelLoading\ModelLoader.h"
+
 #include "Tasks\ModelLoadTask.h"
 #include "DX12Helper.h"
+
 #include "ResourceDecay.h"
-#include "DX12App.h"
 #include "RtRenderPipelineStage.h"
+#include "DX12App.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
@@ -35,7 +37,8 @@ bool ModelLoader::allModelsLoaded() {
 	}
 	return true;
 }
-void ModelLoader::DestroyAll() {
+
+void ModelLoader::destroyAll() {
 	auto& instance = ModelLoader::getInstance();
 	instance.BLAS.clear();
 	instance.TLAS.Reset();
@@ -43,6 +46,12 @@ void ModelLoader::DestroyAll() {
 	instance.loadedMeshlets.clear();
 	instance.loadingModels.clear();
 }
+
+bool ModelLoader::isModelCountChanged() {
+	auto& instance = ModelLoader::getInstance();
+	return instance.modelCountChanged;
+}
+
 std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot) {
 	auto& instance = ModelLoader::getInstance();
 	std::vector<Light> pointLights;
@@ -109,6 +118,20 @@ std::vector<std::shared_ptr<Model>> ModelLoader::getAllRTModels() {
 	return allModels;
 }
 
+void ModelLoader::updateTransforms() {
+	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
+	for (auto& model : instance.loadedModels) {
+		model.second->transform.submitUpdates(gFrameIndex);
+	}
+	for (auto& model : instance.loadingModels) {
+		model.second->transform.submitUpdates(gFrameIndex);
+	}
+	for (auto& meshletModel : instance.loadedMeshlets) {
+		meshletModel.second.transform.submitUpdates(gFrameIndex);
+	}
+}
+
 std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
@@ -149,16 +172,6 @@ MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, b
 	return meshletModel;
 }
 
-void ModelLoader::registerRtUser(RtRenderPipelineStage* user) {
-	auto& instance = ModelLoader::getInstance();
-	instance.rtUsers.push_back(user);
-}
-
-bool ModelLoader::isModelCountChanged() {
-	auto& instance = ModelLoader::getInstance();
-	return instance.modelCountChanged;
-}
-
 void ModelLoader::unloadModel(std::string name, std::string dir) {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
@@ -169,18 +182,9 @@ void ModelLoader::unloadModel(std::string name, std::string dir) {
 	instance.modelCountChanged = true;
 }
 
-void ModelLoader::updateTransforms() {
+void ModelLoader::registerRtUser(RtRenderPipelineStage* user) {
 	auto& instance = ModelLoader::getInstance();
-	std::lock_guard<std::mutex> lk(instance.databaseLock);
-	for (auto& model : instance.loadedModels) {
-		model.second->transform.submitUpdates(gFrameIndex);
-	}
-	for (auto& model : instance.loadingModels) {
-		model.second->transform.submitUpdates(gFrameIndex);
-	}
-	for (auto& meshletModel : instance.loadedMeshlets) {
-		meshletModel.second.transform.submitUpdates(gFrameIndex);
-	}
+	instance.rtUsers.push_back(user);
 }
 
 HANDLE ModelLoader::buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) {
@@ -220,12 +224,12 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 
 	for (int i = 0; i < blasVec.size(); i++) {
 		BLAS[models[i].get()] = blasVec[i].pResult;
-		ResourceDecay::DestroyAfterDelay(blasVec[i].pScratch);
+		ResourceDecay::destroyAfterDelay(blasVec[i].pScratch);
 		SetName(BLAS[models[i].get()].Get(), L"BLAS");
 	}
 
 	for (auto& rtUser : rtUsers) {
-		rtUser->DeferRebuildRtData(models);
+		rtUser->deferRebuildRtData(models);
 	}
 
 	createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
@@ -249,16 +253,16 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	std::vector<std::shared_ptr<Model>> models;
 	std::lock_guard<std::mutex> lk(databaseLock);
 	if (modelCountChanged || instanceCountChanged) {
-		ResourceDecay::DestroyAfterDelay(tlasScratch.pResult);
-		ResourceDecay::DestroyAfterDelay(tlasScratch.pScratch);
+		ResourceDecay::destroyAfterDelay(tlasScratch.pResult);
+		ResourceDecay::destroyAfterDelay(tlasScratch.pScratch);
 	}
 	for (auto& model : loadedModels) {
 		if (model.second->usesRT) {
 			models.push_back(model.second);
 			if (BLAS.find(model.second.get()) == BLAS.end()) {
 				AccelerationStructureBuffers blasScratch = createBLAS(model.second.get(), cmdList);
-				ResourceDecay::DestroyAfterDelay(blasScratch.pScratch);
-				ResourceDecay::DestroyAfterDelay(blasScratch.pInstanceDesc);
+				ResourceDecay::destroyAfterDelay(blasScratch.pScratch);
+				ResourceDecay::destroyAfterDelay(blasScratch.pInstanceDesc);
 				BLAS[model.second.get()] = blasScratch.pResult;
 			}
 		}
@@ -274,12 +278,12 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	if (modelCountChanged || instanceCountChanged) {
 		Microsoft::WRL::ComPtr<ID3D12Resource> newTLAS = nullptr;
 		createTLAS(newTLAS, tlasSize, models, meshletModels, cmdList);
-		ResourceDecay::DestroyAfterDelay(TLAS);
+		ResourceDecay::destroyAfterDelay(TLAS);
 		// Problem: Can't get ComPtr to play nice here. So we get stuck with the TLAS going null if this runs .GetAdressOf() gets the actual address of the underlying interface, but it also sucks.
-		ResourceDecay::DestroyOnDelayAndFillPointer(nullptr, 1, newTLAS, std::addressof(TLAS));
+		ResourceDecay::destroyOnDelayAndFillPointer(nullptr, 1, newTLAS, std::addressof(TLAS));
 		if (modelCountChanged) {
 			for (auto& rtUser : rtUsers) {
-				rtUser->DeferRebuildRtData(models);
+				rtUser->deferRebuildRtData(models);
 			}
 		}
 	}
@@ -287,7 +291,6 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 		createTLAS(TLAS, tlasSize, models, meshletModels, cmdList);
 	}
 	modelCountChanged = false;
-	frame++;
 }
 
 AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {

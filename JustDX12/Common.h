@@ -1,4 +1,8 @@
 #pragma once
+#include <DirectXMath.h>
+
+// Common.h: planned to hold classes that are shared between HLSL and C++
+// for now though just a fairly bare C++ header file
 
 struct Light {
 	DirectX::XMFLOAT3 pos = { 0.0f, 200.0f, 0.0f };

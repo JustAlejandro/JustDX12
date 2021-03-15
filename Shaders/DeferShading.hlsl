@@ -27,7 +27,7 @@ StructuredBuffer<VertexIn> vertexBuffers[] : register(t0,space2);
 // Texture order is diffuse,spec(packed),normal,emissive
 Texture2D textures[] : register(t0,space3);
 
-SamplerState gsamPoint : register(s1);
+SamplerState gsamLinear : register(s3);
 
 VertexOutMerge DeferVS(VertexIn vin) {
 	VertexOutMerge vout;
@@ -95,7 +95,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 			result.y = result.y * -1.0 + 1.0;
 			result.z = linDepth(result.z);
 			float compareDepth = linDepth(depthTex[clampEdges((int2) (result.xy * resolution))].x);
-			if (compareDepth < result.z && result.z - compareDepth < 1.0) {
+			if (compareDepth < result.z && result.z - compareDepth < 1000.0) {
 				unoccluded -= (1.0f / SSAOSettings.shadowSteps);
 			}
 		}
@@ -108,7 +108,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 
 		RayDesc ray;
 		float3 viewToWorldVec = LightData.viewPos - worldPos;
-		ray.TMin = clamp(dot(viewToWorldVec, viewToWorldVec) / 1000.0f, 0.01f, 0.2f);
+		ray.TMin = 5.0f;
 		ray.TMax = distance(lightPos, worldPos);
 		ray.Origin = worldPos;
 		ray.Direction = lightDir;
@@ -122,7 +122,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 			float2 texCoord2 = vertexBuffers[instanceID].Load(primitive.z).TexC;
 			float2 uvCoord = query.CandidateTriangleBarycentrics();
 			float2 texCoord = texCoord0 + uvCoord.x * (texCoord1 - texCoord0) + uvCoord.y * (texCoord2 - texCoord0);
-			if (textures[instanceID * 4 + 0].Sample(gsamPoint, texCoord).w > 0.3f) {
+			if (textures[instanceID * 4 + 0].Sample(gsamLinear, texCoord).w > 0.3f) {
 				query.CommitNonOpaqueTriangleHit();
 			}
 		}
@@ -163,7 +163,7 @@ float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, f
 PixelOutMerge DeferPS(VertexOutMerge vout) {
 	PixelOutMerge pout;
 
-	float depth = depthTex.Sample(gsamPoint, vout.TexC).x;
+	float depth = depthTex.Sample(gsamLinear, vout.TexC).x;
 	if (depth == 1.0f) {
 		pout.color = float4(0.4f, 0.4f, 1.0f, 1.0f);
 		return pout;
@@ -171,9 +171,9 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 
 	depthTex.GetDimensions(resolution.x, resolution.y);
 
-	float3 albedo = colorTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 albedo = colorTex.Sample(gsamLinear, vout.TexC).xyz;
 	albedo = pow(albedo, LightData.gamma);
-	float4 specSample = specTex.Sample(gsamPoint, vout.TexC);
+	float4 specSample = specTex.Sample(gsamLinear, vout.TexC);
 	float occlusion = specSample.x;
 	float roughness = specSample.y;
 	float metallic = specSample.z;
@@ -182,7 +182,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	float3 worldPos = positionFromDepthVal(depth, vout.TexC, PerPass);
 
 	float3 viewDir = normalize(LightData.viewPos - worldPos);
-	float3 normal = normalTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 normal = normalTex.Sample(gsamLinear, vout.TexC).xyz;
 	float3 viewReflect = reflect(-viewDir, normal);
 
 	float3 F0 = 0.04f;
@@ -209,7 +209,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 
 	float3 color = ambient +Lo;
 
-	float3 emissive = emissiveTex.Sample(gsamPoint, vout.TexC).xyz;
+	float3 emissive = emissiveTex.Sample(gsamLinear, vout.TexC).xyz;
 
 	color += emissive;
 

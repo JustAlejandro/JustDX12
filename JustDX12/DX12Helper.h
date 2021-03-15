@@ -1,4 +1,5 @@
 #pragma once
+#define NOMINMAX
 #include <windows.h>
 #include <wrl.h>
 #include <dxgi1_4.h>
@@ -11,6 +12,9 @@
 #include <dxcapi.h>
 #include <vector>
 #include <stdexcept>
+
+// DX12Helper.h: a set of commonly used functions/structures,
+// that typically don't clearly belong to anyone and are commonly reused
 
 struct DXDefine {
 	std::wstring name;

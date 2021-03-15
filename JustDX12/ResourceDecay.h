@@ -3,28 +3,38 @@
 
 class DescriptorManager;
 
+// ResourceDecay is a Singleton that helps the program safely remove GPU side resources, meaning the CPU can "delete"
+// a resource, and the ResourceDecay structure will hold onto the resource until a condition is met
+// Typically this would be wanting to wait until the GPU has processed all commands using a resources before fully removing it
+// Also offers functionality of being able to fill pointers when events are completed, making it a good fit for updating the
+// ModelLoader
+// checkDestroy() must be called for this Singleton to make any updates though, otherwise it will just hold onto resources forever
 class ResourceDecay {
-public:
-	static void CheckDestroy();
-	static void DestroyAll();
-	// Destroys resource after CPU_FRAME_COUNT frames have progressed.
-	// Useful for resources that could be in commands in flight, not useful for large temporary resources.
-	static void DestroyAfterDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource);
-	static void DestroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay);
-	static void DestroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12QueryHeap> resource, UINT delay);
-	static void DestroyOnEvent(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev);
-	// Function specifically used to keep two buffers in scope and setting a value on completion.
-	// resource is the parameter flagged to be destroyed, at which point, dest will take on the value of src.
-	static void DestroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
-	static void DestroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
-
-	static void FreeDescriptorsAferDelay(DescriptorManager* manager, D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size);
 private:
 	ResourceDecay() = default;
 	ResourceDecay(ResourceDecay const&) = delete;
 	void operator=(ResourceDecay const&) = delete;
 
 	static ResourceDecay& getInstance();
+public:
+	// Performs any delete or swap operations needed this frame. Must be called at the start of every frame.
+	static void checkDestroy();
+	// Clears all resources that the ResourceDecay is keeping alive. Useful for debugging GPU memory leaks before program exits
+	static void destroyAll();
+	// Destroys resource after CPU_FRAME_COUNT frames have progressed.
+	// Useful for resources that could be in commands in flight, not useful for large temporary resources.
+	static void destroyAfterDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource);
+	static void destroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay);
+	static void destroyAfterSpecificDelay(Microsoft::WRL::ComPtr<ID3D12QueryHeap> resource, UINT delay);
+	static void destroyOnEvent(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev);
+	// Function specifically used to keep two buffers in scope and setting a value on completion.
+	// resource is the parameter flagged to be destroyed, at which point, dest will take on the value of src.
+	static void destroyOnEventAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, HANDLE ev, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
+	static void destroyOnDelayAndFillPointer(Microsoft::WRL::ComPtr<ID3D12Resource> resource, UINT delay, Microsoft::WRL::ComPtr<ID3D12Resource> src, Microsoft::WRL::ComPtr<ID3D12Resource>* dest);
+
+	static void freeDescriptorsAferDelay(DescriptorManager* manager, D3D12_DESCRIPTOR_HEAP_TYPE type, CD3DX12_CPU_DESCRIPTOR_HANDLE startHandle, UINT size);
+
+private:
 
 	struct FreeDescriptor {
 		DescriptorManager* manager;

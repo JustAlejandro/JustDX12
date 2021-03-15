@@ -114,7 +114,7 @@ private:
 
 	std::unordered_map<std::string, ModelData> activeModels;
 
-	DirectX::XMFLOAT4 eyePos = { -10.0f,2.5f,7.0f, 1.0f };
+	DirectX::XMFLOAT4 eyePos = { -10000.0f,2500.0f,7000.0f, 1.0f };
 	DirectX::XMFLOAT4X4 view = Identity();
 	DirectX::XMFLOAT4X4 proj = Identity();
 
@@ -158,11 +158,11 @@ DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
 
 DemoApp::~DemoApp() {
 	if (md3dDevice != nullptr)
-		FlushCommandQueue();
+		flushCommandQueue();
 	// Have to explicitly call ModelLoader clear first since it dumps resources into ResourceDecay.
-	ModelLoader::DestroyAll();
-	ResourceDecay::DestroyAll();
-	TextureLoader::getInstance().clearAll();
+	ModelLoader::destroyAll();
+	ResourceDecay::destroyAll();
+	TextureLoader::getInstance().destroyAll();
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
@@ -460,14 +460,19 @@ bool DemoApp::initialize() {
 		stageDesc.name = "Merge";
 		stageDesc.descriptorJobs.push_back(DescriptorJob("SSAOTexDesc", "SSAOTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("colorTexDesc", "colorTex", DESCRIPTOR_TYPE_SRV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("inputDepth", "renderDepthTex", DESCRIPTOR_TYPE_SRV, false));
+		stageDesc.descriptorJobs.back().view.srvDesc = DEFAULT_SRV_DESC();
+		stageDesc.descriptorJobs.back().view.srvDesc.Format = DEPTH_TEXTURE_SRV_FORMAT;
 		stageDesc.descriptorJobs.push_back(DescriptorJob("mergedTexDesc", "mergedTex", DESCRIPTOR_TYPE_RTV));
 
+		stageDesc.externalResources.push_back(std::make_pair("renderDepthTex", renderStage->getResource("depthTex")));
 		stageDesc.externalResources.push_back(std::make_pair("colorTex", deferStage->getResource("deferTex")));
 		stageDesc.externalResources.push_back(std::make_pair("SSAOTex", vBlurStage->getResource("FullBlurredSSAOTexture")));
 
 		stageDesc.resourceJobs.push_back(ResourceJob("mergedTex", DESCRIPTOR_TYPE_RTV, COLOR_TEXTURE_FORMAT));
 
 		stageDesc.rootSigDesc.push_back(RootParamDesc("SSAOTexDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("inputDepth", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("Merge.hlsl", "Merge Shader VS", "MergeVS", SHADER_TYPE_VS, { DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)) }));
 		stageDesc.shaderFiles.push_back(ShaderDesc("Merge.hlsl", "Merge Shader PS", "MergePS", SHADER_TYPE_PS, { DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)) }));
@@ -518,18 +523,18 @@ bool DemoApp::initialize() {
 		vrsComputeStage->deferSetup(stageDesc);
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
-	//renderStage->LoadModel(modelLoader, "testScene.fbx", baseDir, true);
-	deferStage->LoadModel("screen", "screenTex.obj", baseDir);
-	mergeStage->LoadModel("screen", "screenTex.obj", baseDir);
-	//renderStage->LoadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
+	//renderStage->loadModel(modelLoader, "testScene.fbx", baseDir, true);
+	deferStage->loadModel("screen", "screenTex.obj", baseDir);
+	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
+	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
 
-	//renderStage->LoadModel(modelLoader, sponzaFile, sponzaDir, true);
+	//renderStage->loadModel(modelLoader, sponzaFile, sponzaDir, true);
 
 	loadModel("bistro", bistroFile, bistroDir);
 	auto& model = activeModels.at("bistro");
 	model.instanceCount = 1;
-	model.scale[0] = { 1.0f,1.0f,1.0f };
+	model.scale[0] = { 1000.0f,1000.0f,1000.0f };
 	ApplyModelDataUpdate(&model);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
@@ -537,7 +542,7 @@ bool DemoApp::initialize() {
 
 	// Have to wait for at least one model to be in eacch RenderPipelineStage or some issues arise.
 	while (!modelLoader.allModelsLoaded()) {
-		ResourceDecay::CheckDestroy();
+		ResourceDecay::checkDestroy();
 	}
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
@@ -556,7 +561,7 @@ bool DemoApp::initialize() {
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-	FlushCommandQueue();
+	flushCommandQueue();
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -589,7 +594,7 @@ void DemoApp::update() {
 		CloseHandle(eventHandle);
 	}
 
-	ResourceDecay::CheckDestroy();
+	ResourceDecay::checkDestroy();
 	ModelLoader::getInstance().allModelsLoaded();
 
 	UpdateObjectCBs();
@@ -613,7 +618,7 @@ void DemoApp::draw() {
 
 	SetName(mCommandList.Get(), L"Meta Command List");
 
-	auto transToCopy = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	auto transToCopy = CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
 	mCommandList->ResourceBarrier(1, &transToCopy);
 
@@ -636,22 +641,22 @@ void DemoApp::draw() {
 	DX12Resource* mergeOut = mergeStage->getResource("mergedTex");
 	auto mergeTransitionIn = CD3DX12_RESOURCE_BARRIER::Transition(mergeOut->get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	mCommandList->ResourceBarrier(1, &mergeTransitionIn);
-	mCommandList->CopyResource(CurrentBackBuffer(), mergeOut->get());
+	mCommandList->CopyResource(currentBackBuffer(), mergeOut->get());
 	auto mergeTransitionOut = CD3DX12_RESOURCE_BARRIER::Transition(mergeOut->get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_GENERIC_READ);
 	mCommandList->ResourceBarrier(1, &mergeTransitionOut);
 
-	auto transToRender = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	auto transToRender = CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	mCommandList->ResourceBarrier(1, &transToRender);
 
 	mCommandList->SetDescriptorHeaps(1, mImguiHeap.GetAddressOf());
 
-	auto backBufferView = CurrentBackBufferView();
+	auto backBufferView = currentBackBufferView();
 	mCommandList->OMSetRenderTargets(1, &backBufferView, true, nullptr);
 
 	ImGui::Render();
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
 
-	auto transToPresent = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	auto transToPresent = CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 	mCommandList->ResourceBarrier(1, &transToPresent);
 
 	PIXEndEvent(mCommandList.Get());
@@ -746,9 +751,9 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
-		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 0.1f);
+		ImGui::SliderFloat("SSAO Ray Length", &ssaoConstantCB.data.rayLength, 0.0f, 1000.0f);
 		ImGui::SliderInt("Shadow Steps", &ssaoConstantCB.data.shadowSteps, 1, 100);
-		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 0.1f);
+		ImGui::SliderFloat("Shadow Step Size", &ssaoConstantCB.data.shadowStepSize, 0.0f, 1000.0f);
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("VRS Ranges")) {
@@ -825,7 +830,7 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 		DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z), 
 			DirectX::XMMatrixScaling(scale.x, scale.y, scale.z)), DirectX::XMMatrixTranslation(translate.x, translate.y, translate.z))));
 
-	renderStage->LoadModel(name, fileName, dirName, true);
+	renderStage->loadModel(name, fileName, dirName, true);
 	renderStage->updateInstanceCount(name, 1);
 	renderStage->updateInstanceTransform(name, 0, transform);
 }
@@ -833,7 +838,7 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 void DemoApp::unloadModel(std::string name) {
 	auto modelData = activeModels.find(name);
 	activeModels.erase(modelData);
-	renderStage->UnloadModel(name);
+	renderStage->unloadModel(name);
 }
 
 void DemoApp::BuildFrameResources() {

@@ -1,11 +1,18 @@
 #include "PipelineStage\ComputePipelineStage.h"
+
 #include "IndexedName.h"
 
 ComputePipelineStage::ComputePipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, ComputePipelineDesc computeDesc)
 	: PipelineStage(d3dDevice, D3D12_COMMAND_LIST_TYPE_COMPUTE), computeStageDesc(computeDesc) {
 }
 
-void ComputePipelineStage::Execute() {
+void ComputePipelineStage::setup(PipeLineStageDesc stageDesc) {
+	PipelineStage::setup(stageDesc);
+	buildDescriptors(stageDesc.descriptorJobs);
+	buildPSO();
+}
+
+void ComputePipelineStage::execute() {
 	resetCommandList();
 
 	PIXBeginEvent(mCommandList.Get(), PIX_COLOR(255, 0, 0), stageDesc.name.c_str());
@@ -25,13 +32,7 @@ void ComputePipelineStage::Execute() {
 	ThrowIfFailed(mCommandList->Close());
 }
 
-void ComputePipelineStage::setup(PipeLineStageDesc stageDesc) {
-	PipelineStage::setup(stageDesc);
-	BuildDescriptors(stageDesc.descriptorJobs);
-	BuildPSO();
-}
-
-void ComputePipelineStage::BuildPSO() {
+void ComputePipelineStage::buildPSO() {
 	D3D12_COMPUTE_PIPELINE_STATE_DESC computePSO;
 	ZeroMemory(&computePSO, sizeof(D3D12_COMPUTE_PIPELINE_STATE_DESC));
 

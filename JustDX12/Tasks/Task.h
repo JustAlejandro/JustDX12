@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <string>
 
+// Describes a generic task that a TaskQueueThread can execute
+// Reflective generally of the Command design pattern (mostly)
 class Task {
 public:
 	virtual void execute() = 0;
