@@ -27,7 +27,7 @@ StructuredBuffer<VertexIn> vertexBuffers[] : register(t0,space2);
 // Texture order is diffuse,spec(packed),normal,emissive
 Texture2D textures[] : register(t0,space3);
 
-SamplerState gsamLinear : register(s3);
+SamplerState gsamLinear : register(s2);
 
 VertexOutMerge DeferVS(VertexIn vin) {
 	VertexOutMerge vout;
@@ -83,7 +83,41 @@ float linDepth(float depth) {
 	return -SSAOSettings.rangeXNear / (depth - SSAOSettings.range);
 }
 
-float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 worldPos, float3 normal) {
+float2 texCoordFromBary(float2 uvCoord, float2 texCoord0, float2 texCoord1, float2 texCoord2) {
+	return texCoord0 + uvCoord.x * (texCoord1 - texCoord0) + uvCoord.y * (texCoord2 - texCoord0);
+}
+
+float3 normalFromBary(float2 uvCoord, float3 normal0, float3 normal1, float3 normal2) {
+	return normal0 + uvCoord.x * (normal1 - normal0) + uvCoord.y * (normal2 - normal0);
+}
+
+float2 getUvCoord(uint instanceID, uint3 primitive, float2 uvCoord) {
+	float2 texCoord0 = vertexBuffers[instanceID].Load(primitive.x).TexC;
+	float2 texCoord1 = vertexBuffers[instanceID].Load(primitive.y).TexC;
+	float2 texCoord2 = vertexBuffers[instanceID].Load(primitive.z).TexC;
+	return texCoordFromBary(uvCoord, texCoord0, texCoord1, texCoord2);
+}
+
+float3 getNormal(uint instanceID, uint3 primitive, float2 uvCoord) {
+	float3 normal0 = vertexBuffers[instanceID].Load(primitive.x).NormalL;
+	float3 normal1 = vertexBuffers[instanceID].Load(primitive.y).NormalL;
+	float3 normal2 = vertexBuffers[instanceID].Load(primitive.z).NormalL;
+	return normalFromBary(uvCoord, normal0, normal1, normal2);
+}
+
+void proceedQueryUntilHitCommited(RayQuery<RAY_FLAG_NONE> query) {
+	while (query.Proceed()) {
+		uint instanceID = query.CandidateInstanceID() + query.CandidateGeometryIndex();
+		float2 uvCoord = query.CandidateTriangleBarycentrics();
+		uint3 primitive = uint3(indexBuffers[instanceID].Load(query.CandidatePrimitiveIndex()));
+		float2 texCoord = getUvCoord(instanceID, primitive, uvCoord);
+		if (textures[instanceID * 4 + 0].Sample(gsamLinear, texCoord).w > 0.3f) {
+			query.CommitNonOpaqueTriangleHit();
+		}
+	}
+}
+
+float shadowAmount(float3 lightDir, float3 lightPos, float3 worldPos, float3 normal) {
 	float unoccluded = 1.0;
 	if (SSAOSettings.showSSShadows) {
 		worldPos += normal / 100.0f;
@@ -108,25 +142,14 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		uint ray_instance_mask = 0xffffffff;
 
 		RayDesc ray;
-		float3 viewToWorldVec = LightData.viewPos - worldPos;
 		ray.TMin = 5.0f;
 		ray.TMax = distance(lightPos, worldPos);
 		ray.Origin = worldPos;
 		ray.Direction = lightDir;
 		query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
 
-		while (query.Proceed()) {
-			uint instanceID = query.CandidateInstanceID() + query.CandidateGeometryIndex();
-			uint3 primitive = uint3(indexBuffers[instanceID].Load(query.CandidatePrimitiveIndex()));
-			float2 texCoord0 = vertexBuffers[instanceID].Load(primitive.x).TexC;
-			float2 texCoord1 = vertexBuffers[instanceID].Load(primitive.y).TexC;
-			float2 texCoord2 = vertexBuffers[instanceID].Load(primitive.z).TexC;
-			float2 uvCoord = query.CandidateTriangleBarycentrics();
-			float2 texCoord = texCoord0 + uvCoord.x * (texCoord1 - texCoord0) + uvCoord.y * (texCoord2 - texCoord0);
-			if (textures[instanceID * 4 + 0].Sample(gsamLinear, texCoord).w > 0.3f) {
-				query.CommitNonOpaqueTriangleHit();
-			}
-		}
+		proceedQueryUntilHitCommited(query);
+		
 		if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
 			unoccluded = 0.0f;
 		}
@@ -135,13 +158,77 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 	return (float) unoccluded;
 }
 
-float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, float3 viewDir, float3 normal, float3 lightVec, float3 lightPos, float3 lightColor, float attenuationVal, bool attenuationConst) {
-	float3 lightDir = normalize(lightVec);
+struct LightingData {
+	bool hit;
+	float3 F0;
+	float3 albedo;
+	float roughness;
+	float3 viewDir;
+	float metallic;
+	float3 normal;
+	int lightType;
+	float3 worldPos;
+	Light light;
+};
+
+LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float metallic, float3 viewDir, float3 normal, float3 worldPos, float3 lightVec, float3 lightPos, float3 lightColor, float attenuationVal, bool attenuationConst, uint bounceCount) {
+#if RT_SUPPORT == 1
+	RayQuery<RAY_FLAG_NONE> query;
+
+	uint ray_flags = 0; // Any this ray requires in addition those above.
+	uint ray_instance_mask = 0xffffffff;
+
+	RayDesc ray;
+	ray.TMin = 5.0f;
+	ray.TMax = 1e5f;
+	ray.Origin = worldPos;
+	ray.Direction = reflect(-viewDir, normal);
+	query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
+
+	proceedQueryUntilHitCommited(query);
+
+	LightingData reflection;
+	reflection.hit = false;
+	reflection.albedo = 0.0f;
+
+	if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
+		uint instanceID = query.CommittedInstanceID() + query.CommittedGeometryIndex();
+		uint3 primitive = uint3(indexBuffers[instanceID].Load(query.CommittedPrimitiveIndex()));
+		float2 uvCoord = query.CommittedTriangleBarycentrics();
+		float2 texCoord = getUvCoord(instanceID, primitive, uvCoord);
+		// Now do the lighting from this reflection
+		reflection.hit = true;
+		reflection.albedo = textures[instanceID * 4 + 0].Sample(gsamLinear, texCoord).xyz;
+		reflection.albedo = pow(reflection.albedo, LightData.gamma);
+		float4 specSample = textures[instanceID * 4 + 1].Sample(gsamLinear, texCoord);
+		reflection.roughness = specSample.y;
+		reflection.metallic = specSample.z;
+		reflection.viewDir = reflect(-viewDir, normal);
+		reflection.normal = normalize(mul(getNormal(instanceID, primitive, uvCoord), (float3x3)query.CommittedObjectToWorld3x4()));
+		reflection.worldPos = worldPos + query.CommittedRayT() * reflection.viewDir;
+		float3 hitF0 = 0.04f;
+		reflection.F0 = lerp(hitF0, reflection.albedo, reflection.metallic);
+	}
+#endif
+	return reflection;
+}
+
+struct PbrCalcData {
+	float3 specular;
+	float3 kD;
+	float NdotL;
+	float3 kS;
+	float3 radiance;
+};
+
+PbrCalcData pbrHelper(float3 F0, float metallic, float roughness, float3 lightDir, float3 lightVec, float3 lightColor, float3 viewDir, float3 normal, float attenuationVal, bool attenuationConst) {
+	PbrCalcData data;
+
 	float3 H = normalize(viewDir + lightDir);
 	float3 reflectDir = reflect(-lightDir, normal);
 	float attenuation = attenuationConst ? attenuationVal : clamp(1.0 - dot(lightVec, lightVec) / (attenuationVal * attenuationVal), 0.0, 1.0);
 
-	float3 radiance = lightColor * attenuation;
+	data.radiance = lightColor * attenuation;
 
 	float NDF = DistributionGGX(normal, H, roughness);
 	float G = GeometrySmith(normal, viewDir, lightDir, roughness);
@@ -149,17 +236,38 @@ float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, f
 
 	float3 nominator = NDF * G * F;
 	float denominator = 4 * max(dot(normal, viewDir), 0.0f) * max(dot(normal, lightDir), 0.0f) + 0.001f;
-	float3 specular = nominator / denominator;
+	data.specular = nominator / denominator;
 
-	float3 kS = F;
+	data.kS = F;
 
-	float3 kD = 1.0 - kS;
+	data.kD = 1.0 - data.kS;
 
-	kD *= (1.0 - metallic);
+	data.kD *= (1.0 - metallic);
 
-	float NdotL = max(dot(normal, lightDir), 0.0f);
+	data.NdotL = max(dot(normal, lightDir), 0.0f);
+	
+	return data;
+}
 
-	return (kD * albedo / 3.14159 + specular) * radiance * NdotL;
+float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, float3 viewDir, float3 normal, float3 worldPos, float3 lightVec, float3 lightPos, float3 lightColor, float attenuationVal, bool attenuationConst, uint bounceCount) {
+	float3 lightDir = normalize(lightVec);
+	
+	PbrCalcData pbrData = pbrHelper(F0, metallic, roughness, lightDir, lightVec, lightColor, viewDir, normal, attenuationVal, attenuationConst);
+
+	float3 reflection = 0.0f;
+
+	if (bounceCount < 1 && metallic > 0.1f && roughness < 0.3f) {
+		LightingData reflectionLightingData;
+		reflectionLightingData = reflectionContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, lightPos, lightColor, attenuationVal, attenuationConst, bounceCount);
+		if (reflectionLightingData.hit) {
+			PbrCalcData pbrReflectionData = pbrHelper(reflectionLightingData.F0, reflectionLightingData.metallic, reflectionLightingData.roughness, lightDir, lightVec, lightColor, reflectionLightingData.viewDir, reflectionLightingData.normal, attenuationVal, attenuationConst);
+			reflection += (pbrReflectionData.kD * reflectionLightingData.albedo / 3.14159 + pbrReflectionData.specular) * pbrReflectionData.radiance * pbrReflectionData.NdotL;
+		}
+	}
+
+	float shadowMul = shadowAmount(lightDir, lightPos, worldPos, normal);
+
+	return (pbrData.kD * albedo / 3.14159 + pbrData.specular) * pbrData.radiance * pbrData.NdotL * shadowMul + reflection * albedo * metallic;
 }
 
 PixelOutMerge DeferPS(VertexOutMerge vout) {
@@ -175,11 +283,11 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 
 	float3 albedo = colorTex.Sample(gsamLinear, vout.TexC).xyz;
 	albedo = pow(albedo, LightData.gamma);
+
 	float4 specSample = specTex.Sample(gsamLinear, vout.TexC);
 	float occlusion = specSample.x;
 	float roughness = specSample.y;
 	float metallic = specSample.z;
-	float emmisive = specSample.w;
 
 	float3 worldPos = positionFromDepthVal(depth, vout.TexC, PerPass);
 
@@ -196,15 +304,13 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	for (int i = 0; i < LightData.numPointLights; i++) {
 		float3 lightVec = LightData.lights[i].pos - worldPos;
 
-		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, lightVec, LightData.lights[i].pos, LightData.lights[i].color, LightData.lights[i].strength, false)
-			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.lights[i].pos, worldPos, normal);
+		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, LightData.lights[i].pos, LightData.lights[i].color, LightData.lights[i].strength, false, 0);
 	}
 	
 	for (int j = LightData.numPointLights; j < LightData.numPointLights + LightData.numDirectionalLights; j++) {
 		float3 lightVec = -LightData.lights[j].dir;
 
-		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color * 0.8, 1.0f, true)
-			 *shadowAmount(vout.TexC, normalize(lightVec), LightData.viewPos + lightVec * 10000.0f, worldPos, normal);
+		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color * 0.8, 1.0f, true, 0);
 	}
 
 	float3 ambient = 0.05 * albedo;
@@ -220,6 +326,5 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	color = pow(color, 1.0f / LightData.gamma);
 
 	pout.color = float4(color, 1.0f);
-	//pout.color = (dot(normal, -LightData.lights[j].dir) + 1.0f) / 2.0f;
 	return pout;
 }
