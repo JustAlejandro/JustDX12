@@ -136,9 +136,9 @@ public:
 	struct VrsConstantsStruct {
 		BOOL vrsAvgLum = true;
 		BOOL vrsVarLum = true;
-		float vrsAvgCut = 0.007f;
-		float vrsVarianceCut = 0.007f;
-		int vrsVarianceVotes = 67;
+		float vrsAvgCut = 0.023f;
+		float vrsVarianceCut = 0.003f;
+		int vrsVarianceVotes = 30;
 	};
 
 	VrsConstantsStruct data;
