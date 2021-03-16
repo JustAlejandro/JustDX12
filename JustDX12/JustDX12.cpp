@@ -197,7 +197,7 @@ bool DemoApp::initialize() {
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
 		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
 
-		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize), DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize)));
+		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(gScreenHeight, vrsSupport.ShadingRateImageTileSize), DivRoundUp(gScreenWidth, vrsSupport.ShadingRateImageTileSize)));
 		rasterDesc.resourceJobs.push_back(ResourceJob("albedo", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("specular", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("normal", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
@@ -275,7 +275,8 @@ bool DemoApp::initialize() {
 	// Perform deferred shading.
 	{
 		std::vector<DXDefine> defines = {
-			{L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)}
+			DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)),
+			DXDefine(L"RT_SUPPORT", std::to_wstring((int)supportsRt()))
 		};
 
 		PipeLineStageDesc stageDesc;
@@ -356,7 +357,7 @@ bool DemoApp::initialize() {
 	// Create SSAO/Screen Space Shadow Pass.
 	{
 		std::vector<DXDefine> defines = {
-			{L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS)}
+			DXDefine(L"MAX_LIGHTS", std::to_wstring(MAX_LIGHTS))
 		};
 
 		PipeLineStageDesc stageDesc;
@@ -394,8 +395,8 @@ bool DemoApp::initialize() {
 		stageDesc.textureFiles.push_back(std::make_pair("noise_tex", "default_noise.dds"));
 
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 8.0f);
-		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 8.0f);
+		cDesc.groupCount[0] = (UINT)ceilf(gScreenWidth / 8.0f);
+		cDesc.groupCount[1] = (UINT)ceilf(gScreenHeight / 8.0f);
 		cDesc.groupCount[2] = 1;
 		computeStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		computeStage->deferSetup(stageDesc);
@@ -420,8 +421,8 @@ bool DemoApp::initialize() {
 		desc.shaderFiles.push_back(ShaderDesc("Blur.hlsl", "Horizontal Blur", "HBlur", SHADER_TYPE_CS, { DXDefine(L"HBLUR",L"") }));
 
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH / 32.0f);
-		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT);
+		cDesc.groupCount[0] = (UINT)ceilf(gScreenWidth / 32.0f);
+		cDesc.groupCount[1] = (UINT)ceilf(gScreenHeight);
 		cDesc.groupCount[2] = 1;
 		hBlurStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		hBlurStage->deferSetup(desc);
@@ -446,8 +447,8 @@ bool DemoApp::initialize() {
 		desc.shaderFiles.push_back(ShaderDesc("Blur.hlsl", "Vertical Blur", "VBlur", SHADER_TYPE_CS, {DXDefine(L"VBLUR",L"")}));
 
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = (UINT)ceilf(SCREEN_WIDTH);
-		cDesc.groupCount[1] = (UINT)ceilf(SCREEN_HEIGHT / 32.0f);
+		cDesc.groupCount[0] = (UINT)ceilf(gScreenWidth);
+		cDesc.groupCount[1] = (UINT)ceilf(gScreenHeight / 32.0f);
 		cDesc.groupCount[2] = 1;
 		vBlurStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		vBlurStage->deferSetup(desc);
@@ -515,8 +516,8 @@ bool DemoApp::initialize() {
 		stageDesc.shaderFiles.push_back(ShaderDesc("VRSCompute.hlsl", "VRS Compute", "VRSOut", SHADER_TYPE_CS, defines));
 
 		ComputePipelineDesc cDesc;
-		cDesc.groupCount[0] = DivRoundUp(SCREEN_WIDTH, vrsSupport.ShadingRateImageTileSize);
-		cDesc.groupCount[1] = DivRoundUp(SCREEN_HEIGHT, vrsSupport.ShadingRateImageTileSize);
+		cDesc.groupCount[0] = DivRoundUp(gScreenWidth, vrsSupport.ShadingRateImageTileSize);
+		cDesc.groupCount[1] = DivRoundUp(gScreenHeight, vrsSupport.ShadingRateImageTileSize);
 		cDesc.groupCount[2] = 1;
 		
 		vrsComputeStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
@@ -953,8 +954,8 @@ void DemoApp::UpdateMainPassCB() {
 		mainPassCB.data.EyePosW = DirectX::XMFLOAT3(eyePos.x, eyePos.y, eyePos.z);
 	}
 
-	mainPassCB.data.RenderTargetSize = DirectX::XMFLOAT2((float)mClientWidth, (float)mClientHeight);
-	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
+	mainPassCB.data.RenderTargetSize = DirectX::XMFLOAT2((float)gScreenWidth, (float)gScreenHeight);
+	mainPassCB.data.InvRenderTargetSize = DirectX::XMFLOAT2(1.0f / gScreenWidth, 1.0f / gScreenHeight);
 	mainPassCB.data.NearZ = NEAR_Z;
 	mainPassCB.data.FarZ = FAR_Z;
 	mainPassCB.data.DeltaTime = ImGui::GetIO().DeltaTime;

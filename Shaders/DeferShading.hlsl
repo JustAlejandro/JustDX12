@@ -101,6 +101,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		}
 	}
 	else {
+#if RT_SUPPORT == 1
 		RayQuery<RAY_FLAG_NONE> query;
 
 		uint ray_flags = 0; // Any this ray requires in addition those above.
@@ -129,6 +130,7 @@ float shadowAmount(int2 texIndex, float3 lightDir, float3 lightPos, float3 world
 		if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
 			unoccluded = 0.0f;
 		}
+#endif
 	}
 	return (float) unoccluded;
 }

@@ -29,8 +29,6 @@ Microsoft::WRL::ComPtr<ID3D12Device5> DX12App::getDevice() {
 DX12App::DX12App(HINSTANCE hInstance) : hAppInst(hInstance) {
 	mBackBufferFormat = COLOR_TEXTURE_FORMAT;
 	mDepthStencilFormat = DEPTH_TEXTURE_DSV_FORMAT;
-	mClientWidth = SCREEN_WIDTH;
-	mClientHeight = SCREEN_HEIGHT;
 	assert(app == nullptr);
 	app = this;
 }
@@ -41,7 +39,7 @@ DX12App::~DX12App() {
 }
 
 float DX12App::getAspectRatio() const {
-	return float(mClientWidth) / mClientHeight;
+	return float(gScreenWidth) / gScreenHeight;
 }
 
 int DX12App::run() {
@@ -76,6 +74,11 @@ bool DX12App::initialize() {
 		sizeof(vrsSupport));
 
 	md3dDevice->CheckFeatureSupport(
+		D3D12_FEATURE_D3D12_OPTIONS5,
+		&rtSupport,
+		sizeof(rtSupport));
+
+	md3dDevice->CheckFeatureSupport(
 		D3D12_FEATURE_D3D12_OPTIONS1,
 		&waveSupport,
 		sizeof(waveSupport));
@@ -101,14 +104,22 @@ bool DX12App::initWindow() {
 		return false;
 	}
 
+	if ((gScreenHeight == 0) || (gScreenWidth == 0)) {
+		const HWND hDesktop = GetDesktopWindow();
+		RECT desktop;
+		GetWindowRect(hDesktop, &desktop);
+		gScreenWidth = static_cast<UINT>(desktop.right / 1.5);
+		gScreenHeight = static_cast<UINT>(desktop.bottom / 1.5);
+	}
+
 	// Compute window rectangle dimensions based on requested client area dimensions.
-	RECT R = { 0, 0, mClientWidth, mClientHeight };
-	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
+	RECT R = { 0, 0, gScreenWidth, gScreenHeight };
+	AdjustWindowRect(&R, WS_BORDER | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, false);
 	int width = R.right - R.left;
 	int height = R.bottom - R.top;
 
 	hWindow = CreateWindow(L"MainWnd", L"RenderTests",
-		WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, hAppInst, 0);
+		WS_BORDER | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, hAppInst, 0);
 	if (!hWindow) {
 		MessageBox(0, L"CreateWindow Failed.", 0, 0);
 		return false;
@@ -217,8 +228,8 @@ void DX12App::createSwapChain() {
 	mSwapChain.Reset();
 
 	DXGI_SWAP_CHAIN_DESC sd;
-	sd.BufferDesc.Width = mClientWidth;
-	sd.BufferDesc.Height = mClientHeight;
+	sd.BufferDesc.Width = gScreenWidth;
+	sd.BufferDesc.Height = gScreenHeight;
 	sd.BufferDesc.RefreshRate.Numerator = 60;
 	sd.BufferDesc.RefreshRate.Denominator = 1;
 	sd.BufferDesc.Format = mBackBufferFormat;
@@ -231,12 +242,14 @@ void DX12App::createSwapChain() {
 	sd.OutputWindow = hWindow;
 	sd.Windowed = true;
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
 	ThrowIfFailed(mdxgiFactory->CreateSwapChain(
 		mCommandQueue.Get(),
 		&sd,
 		mSwapChain.GetAddressOf()));
+
+	ThrowIfFailed(mdxgiFactory->MakeWindowAssociation(hWindow, DXGI_MWA_NO_ALT_ENTER));
 }
 
 void DX12App::flushCommandQueue() {
@@ -271,14 +284,15 @@ D3D12_CPU_DESCRIPTOR_HANDLE DX12App::depthStencilView()const {
 
 LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam);
-	if (!lockMouse) {
+
+	if (!lockMouse && lockMouseDirty) {
 		if (lockMouseDirty) {
 			lockMouseDirty = false;
 			ShowCursor(true);
 			ClipCursor(nullptr);
 		}
-		return true;
 	}
+
 	if (lockMouseDirty) {
 		lockMouseDirty = false;
 		ShowCursor(false);
@@ -294,23 +308,32 @@ LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		SetCursorPos(hWindowCenter.x, hWindowCenter.y);
 	}
 	switch (msg) {
+	case WM_SIZE:
+		OutputDebugString(L"E");
+		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0; 
 	case WM_LBUTTONDOWN:
 	case WM_MBUTTONDOWN:
 	case WM_RBUTTONDOWN:
-		mouseButtonDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
+		if (lockMouse) {
+			mouseButtonDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+			return 0;
+		}
 	case WM_LBUTTONUP:
 	case WM_MBUTTONUP:
 	case WM_RBUTTONUP:
-		mouseButtonUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		return 0;
+		if (lockMouse) {
+			mouseButtonUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+			return 0;
+		}
 	case WM_MOUSEMOVE:
-		mouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-		SetCursorPos(hWindowCenter.x, hWindowCenter.y);
-		return 0;
+		if (lockMouse) {
+			mouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+			SetCursorPos(hWindowCenter.x, hWindowCenter.y);
+			return 0;
+		}
 	case WM_KEYUP:
 		if (wParam == VK_ESCAPE) {
 			PostQuitMessage(0);
@@ -320,10 +343,6 @@ LRESULT DX12App::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-const D3D12_FEATURE_DATA_D3D12_OPTIONS6& DX12App::getVrsOptions() {
-	return vrsSupport;
 }
 
 void DX12App::createScreenRtvDsvDescriptorHeaps() {
@@ -371,7 +390,7 @@ void DX12App::onResize() {
 	// Resize the swap chain.
 	mSwapChain->ResizeBuffers(
 		SwapChainBufferCount,
-		mClientWidth, mClientHeight,
+		gScreenWidth, gScreenHeight,
 		mBackBufferFormat,
 		DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
 
@@ -388,8 +407,8 @@ void DX12App::onResize() {
 	D3D12_RESOURCE_DESC depthStencilDesc;
 	depthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	depthStencilDesc.Alignment = 0;
-	depthStencilDesc.Width = mClientWidth;
-	depthStencilDesc.Height = mClientHeight;
+	depthStencilDesc.Width = gScreenWidth;
+	depthStencilDesc.Height = gScreenHeight;
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
 
@@ -442,10 +461,10 @@ void DX12App::onResize() {
 	// Update the viewport transform to cover the client area.
 	mScreenViewport.TopLeftX = 0;
 	mScreenViewport.TopLeftY = 0;
-	mScreenViewport.Width = static_cast<float>(mClientWidth);
-	mScreenViewport.Height = static_cast<float>(mClientHeight);
+	mScreenViewport.Width = static_cast<float>(gScreenWidth);
+	mScreenViewport.Height = static_cast<float>(gScreenHeight);
 	mScreenViewport.MinDepth = 0.0f;
 	mScreenViewport.MaxDepth = 1.0f;
 
-	mScissorRect = { 0, 0, mClientWidth, mClientHeight };
+	mScissorRect = { 0, 0, (long)gScreenWidth, (long)gScreenHeight };
 }

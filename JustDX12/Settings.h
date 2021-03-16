@@ -14,9 +14,6 @@
 
 #define GPU_DEBUG false
 
-#define SCREEN_WIDTH 3200
-#define SCREEN_HEIGHT 1800
-
 #define MAX_LIGHTS 10
 #define MAX_INSTANCES 15
 
@@ -32,6 +29,9 @@
 #define DEPTH_TEXTURE_DSV_FORMAT DXGI_FORMAT_D24_UNORM_S8_UINT
 #define DEPTH_TEXTURE_SRV_FORMAT DXGI_FORMAT_R24_UNORM_X8_TYPELESS
 
+extern UINT gScreenWidth;
+extern UINT gScreenHeight;
+
 extern UINT gFrameIndex;
 extern UINT gFrame;
 
@@ -44,7 +44,12 @@ extern D3D12_HEAP_PROPERTIES gDefaultHeapDesc;
 extern D3D12_HEAP_PROPERTIES gUploadHeapDesc;
 
 extern D3D12_FEATURE_DATA_D3D12_OPTIONS6 vrsSupport;
+extern D3D12_FEATURE_DATA_D3D12_OPTIONS5 rtSupport;
 extern D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveSupport;
+
+inline bool supportsRt() {
+	return rtSupport.RaytracingTier == D3D12_RAYTRACING_TIER_1_1;
+}
 
 const UINT maxDescriptorHeapSize[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = {
 	100000,
@@ -98,8 +103,8 @@ inline D3D12_VIEWPORT DEFAULT_VIEW_PORT() {
 	D3D12_VIEWPORT defaultViewPort;
 	defaultViewPort.TopLeftX = 0;
 	defaultViewPort.TopLeftY = 0;
-	defaultViewPort.Width = static_cast<float>(SCREEN_WIDTH);
-	defaultViewPort.Height = static_cast<float>(SCREEN_HEIGHT);
+	defaultViewPort.Width = static_cast<float>(gScreenWidth);
+	defaultViewPort.Height = static_cast<float>(gScreenHeight);
 	defaultViewPort.MinDepth = 0.0f;
 	defaultViewPort.MaxDepth = 1.0f;
 	return defaultViewPort;

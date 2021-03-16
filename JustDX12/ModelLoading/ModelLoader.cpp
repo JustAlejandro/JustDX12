@@ -202,6 +202,9 @@ HANDLE ModelLoader::buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<
 void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) {
 	// Don't want to start building before all loading is completed.
 	waitOnFence();
+	if (!supportsRt()) {
+		return;
+	}
 
 	std::vector<AccelerationStructureBuffers> blasVec;
 	std::vector<std::shared_ptr<Model>> models;
@@ -250,6 +253,10 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 }
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+	if (!supportsRt()) {
+		return;
+	}
+
 	std::vector<std::shared_ptr<Model>> models;
 	std::lock_guard<std::mutex> lk(databaseLock);
 	if (modelCountChanged || instanceCountChanged) {

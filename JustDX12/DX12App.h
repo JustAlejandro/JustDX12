@@ -33,8 +33,6 @@ public:
 	virtual bool initialize();
 	LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-	const D3D12_FEATURE_DATA_D3D12_OPTIONS6& getVrsOptions();
-
 protected:
 	void createScreenRtvDsvDescriptorHeaps();
 	virtual void update() = 0;
@@ -101,7 +99,5 @@ protected:
 	D3D_DRIVER_TYPE md3dDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	DXGI_FORMAT mBackBufferFormat;
 	DXGI_FORMAT mDepthStencilFormat;
-	int mClientWidth;
-	int mClientHeight;
 };
 
