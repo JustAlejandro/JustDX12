@@ -115,9 +115,12 @@ Microsoft::WRL::ComPtr<IDxcBlob> compileShader(const std::wstring& filename, con
 			hr = result->GetErrorBuffer(&errorsBlob);
 			if (SUCCEEDED(hr) && errorsBlob) {
 				OutputDebugStringA((char*)errorsBlob->GetBufferPointer());
+				MessageBoxA(nullptr, (char*)errorsBlob->GetBufferPointer(), "SHADER COMPILE FAILED", MB_OK);
 			}
 		}
-		MessageBox(nullptr, L"SHADER COMPILE FAILED", L"OOPS", MB_OK);
+		else {
+			MessageBox(nullptr, L"SHADER COMPILE FAILED", L"Unsure Why", MB_OK);
+		}
 		PostQuitMessage(0);
 	}
 

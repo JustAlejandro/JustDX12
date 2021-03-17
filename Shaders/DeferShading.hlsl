@@ -135,7 +135,6 @@ float shadowAmount(float3 lightDir, float3 lightPos, float3 worldPos, float3 nor
 		}
 	}
 	else {
-#if RT_SUPPORT == 1
 		RayQuery<RAY_FLAG_NONE> query;
 
 		uint ray_flags = 0; // Any this ray requires in addition those above.
@@ -153,7 +152,6 @@ float shadowAmount(float3 lightDir, float3 lightPos, float3 worldPos, float3 nor
 		if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
 			unoccluded = 0.0f;
 		}
-#endif
 	}
 	return (float) unoccluded;
 }
@@ -172,7 +170,10 @@ struct LightingData {
 };
 
 LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float metallic, float3 viewDir, float3 normal, float3 worldPos, float3 lightVec, float3 lightPos, float3 lightColor, float attenuationVal, bool attenuationConst, uint bounceCount) {
-#if RT_SUPPORT == 1
+	LightingData reflection;
+	reflection.hit = false;
+	reflection.albedo = 0.0f;
+
 	RayQuery<RAY_FLAG_NONE> query;
 
 	uint ray_flags = 0; // Any this ray requires in addition those above.
@@ -186,10 +187,6 @@ LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float 
 	query.TraceRayInline(TLAS, ray_flags, ray_instance_mask, ray);
 
 	proceedQueryUntilHitCommited(query);
-
-	LightingData reflection;
-	reflection.hit = false;
-	reflection.albedo = 0.0f;
 
 	if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT) {
 		uint instanceID = query.CommittedInstanceID() + query.CommittedGeometryIndex();
@@ -209,7 +206,6 @@ LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float 
 		float3 hitF0 = 0.04f;
 		reflection.F0 = lerp(hitF0, reflection.albedo, reflection.metallic);
 	}
-#endif
 	return reflection;
 }
 
@@ -312,7 +308,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	for (int j = LightData.numPointLights; j < LightData.numPointLights + LightData.numDirectionalLights; j++) {
 		float3 lightVec = -LightData.lights[j].dir;
 
-		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color * 0.8, 1.0f, true, 0);
+		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color, 1.0f, true, 0);
 	}
 
 	float3 ambient = 0.05 * albedo;

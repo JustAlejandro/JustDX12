@@ -43,9 +43,12 @@ extern UINT gSamplerDescriptorSize;
 extern D3D12_HEAP_PROPERTIES gDefaultHeapDesc;
 extern D3D12_HEAP_PROPERTIES gUploadHeapDesc;
 
-extern D3D12_FEATURE_DATA_D3D12_OPTIONS6 vrsSupport;
-extern D3D12_FEATURE_DATA_D3D12_OPTIONS5 rtSupport;
+extern D3D12_FEATURE_DATA_SHADER_MODEL shaderSupport;
+
 extern D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveSupport;
+extern D3D12_FEATURE_DATA_D3D12_OPTIONS5 rtSupport;
+extern D3D12_FEATURE_DATA_D3D12_OPTIONS6 vrsSupport;
+extern D3D12_FEATURE_DATA_D3D12_OPTIONS7 meshletSupport;
 
 inline bool supportsRt() {
 	return rtSupport.RaytracingTier == D3D12_RAYTRACING_TIER_1_1;

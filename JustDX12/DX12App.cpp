@@ -68,20 +68,48 @@ bool DX12App::initialize() {
 
 	onResize();
 
+	// Have to request a high model, to get the "closest" model to what we want.
+	shaderSupport.HighestShaderModel = D3D_SHADER_MODEL_6_5;
 	md3dDevice->CheckFeatureSupport(
-		D3D12_FEATURE_D3D12_OPTIONS6,
-		&vrsSupport,
-		sizeof(vrsSupport));
-
-	md3dDevice->CheckFeatureSupport(
-		D3D12_FEATURE_D3D12_OPTIONS5,
-		&rtSupport,
-		sizeof(rtSupport));
+		D3D12_FEATURE_SHADER_MODEL,
+		&shaderSupport,
+		sizeof(shaderSupport));
+	if (shaderSupport.HighestShaderModel != D3D_SHADER_MODEL_6_5) {
+		MessageBox(nullptr, L"Shader model 6.5 unsupported on this hardware.", L"Shader Model Unsupported", MB_OK);
+		return false;
+	}
 
 	md3dDevice->CheckFeatureSupport(
 		D3D12_FEATURE_D3D12_OPTIONS1,
 		&waveSupport,
 		sizeof(waveSupport));
+
+	md3dDevice->CheckFeatureSupport(
+		D3D12_FEATURE_D3D12_OPTIONS5,
+		&rtSupport,
+		sizeof(rtSupport));
+	if (!supportsRt()) {
+		MessageBox(nullptr, L"DXR 1.1 isn't supported by your PC.", L"No DXR 1.1 Support", MB_OK);
+		return false;
+	}
+
+	md3dDevice->CheckFeatureSupport(
+		D3D12_FEATURE_D3D12_OPTIONS6,
+		&vrsSupport,
+		sizeof(vrsSupport));
+	if (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_NOT_SUPPORTED) {
+		MessageBox(nullptr, L"Hardware config doesn't support VRS.", L"VRS Unsupported", MB_OK);
+		return false;
+	}
+
+	md3dDevice->CheckFeatureSupport(
+		D3D12_FEATURE_D3D12_OPTIONS7,
+		&meshletSupport,
+		sizeof(meshletSupport));
+	if (meshletSupport.MeshShaderTier == D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
+		MessageBox(nullptr, L"Meshlets not supported.", L"Mesh Shaders Unsupported", MB_OK);
+		return false;
+	}
 
 	return true;
 }
