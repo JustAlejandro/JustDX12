@@ -26,6 +26,8 @@ std::string sponzaDir = baseDir + "\\sponza";
 std::string sponzaFile = "sponza.fbx";
 std::string bistroDir = baseDir + "\\bistro";
 std::string bistroFile = "BistroExterior.fbx";
+std::string cubeDir = baseDir + "\\reflectCube";
+std::string cubeFile = "cube.fbx";
 std::string armorDir = baseDir + "\\parade_armor";
 std::string armorFile = "armor.fbx";
 std::string headDir = baseDir + "\\head";
@@ -537,6 +539,14 @@ bool DemoApp::initialize() {
 	model.instanceCount = 1;
 	model.scale[0] = { 1000.0f,1000.0f,1000.0f };
 	ApplyModelDataUpdate(&model);
+
+	loadModel("sphere", "sphere.fbx", cubeDir);
+	auto& sphere = activeModels.at("sphere");
+	sphere.instanceCount = 1;
+	sphere.scale[0] = { 10.0f,10.0f,10.0f };
+	sphere.translate[0] = { -3800.0f, 1754.0f, 0.0f };
+	sphere.rotation[0] = { 0.0f, -0.14f, 0.0f };
+	ApplyModelDataUpdate(&sphere);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);

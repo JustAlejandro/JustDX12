@@ -261,13 +261,15 @@ float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, f
 		reflectionLightingData = reflectionContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, lightPos, lightColor, attenuationVal, attenuationConst, bounceCount);
 		if (reflectionLightingData.hit) {
 			PbrCalcData pbrReflectionData = pbrHelper(reflectionLightingData.F0, reflectionLightingData.metallic, reflectionLightingData.roughness, lightDir, lightVec, lightColor, reflectionLightingData.viewDir, reflectionLightingData.normal, attenuationVal, attenuationConst);
-			reflection += (pbrReflectionData.kD * reflectionLightingData.albedo / 3.14159 + pbrReflectionData.specular) * pbrReflectionData.radiance * pbrReflectionData.NdotL;
+			float3 ambient = 0.05 * reflectionLightingData.albedo;
+			float shadowMulReflect = shadowAmount(lightDir, lightPos, reflectionLightingData.worldPos, reflectionLightingData.normal);
+			reflection += (pbrReflectionData.kD * reflectionLightingData.albedo / 3.14159 + pbrReflectionData.specular) * pbrReflectionData.radiance * pbrReflectionData.NdotL * shadowMulReflect + ambient;
 		}
 	}
 
 	float shadowMul = shadowAmount(lightDir, lightPos, worldPos, normal);
 
-	return (pbrData.kD * albedo / 3.14159 + pbrData.specular) * pbrData.radiance * pbrData.NdotL * shadowMul + reflection * albedo * metallic;
+	return (pbrData.kD * albedo / 3.14159 + pbrData.specular) * pbrData.radiance * pbrData.NdotL * shadowMul + reflection;
 }
 
 PixelOutMerge DeferPS(VertexOutMerge vout) {
@@ -315,7 +317,7 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 
 	float3 ambient = 0.05 * albedo;
 
-	float3 color = ambient +Lo;
+	float3 color = ambient + Lo;
 
 	float3 emissive = emissiveTex.Sample(gsamLinear, vout.TexC).xyz;
 

@@ -14,7 +14,7 @@ public:
 		}
 	}
 	D3D12_GPU_VIRTUAL_ADDRESS getFrameTransformVirtualAddress(UINT instance, UINT frameIndex) const {
-		return constantBuffer->get(frameIndex)->GetGPUVirtualAddress() + offsetof(PerObjectConstants, data.World[instance]);
+		return constantBuffer->get(frameIndex)->GetGPUVirtualAddress() + offsetof(PerObjectConstants::PerObjectConstantsStruct, World[instance]);
 	}
 	UINT getInstanceCount() const {
 		return transform.data.instanceCount;
