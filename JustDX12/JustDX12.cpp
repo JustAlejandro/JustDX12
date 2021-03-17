@@ -142,8 +142,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		// Loop
 		app.run();
 	}
+	catch (const HrException& hrEx) {
+		 MessageBoxA(nullptr, hrEx.what(), "HR Exception", MB_OK);
+	}
+	catch (const std::string& ex) {
+		MessageBoxA(nullptr, ex.c_str(), "String Exception", MB_OK);
+	}
 	catch (...) {
-		MessageBox(nullptr, L"Not Sure What",L"Oof, something broke.", MB_OK);
+		MessageBoxA(nullptr, "Not Sure What", "Oof, something broke.", MB_OK);
 		return 0;
 	}
 #if false
@@ -212,9 +218,11 @@ bool DemoApp::initialize() {
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 3, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
 
-		std::vector<DXDefine> defines = {
-			{L"VRS", L""},
-			{L"VRS_4X4", L""} };
+		std::vector<DXDefine> defines;
+		defines.push_back(DXDefine(L"VRS", L""));
+		if (vrsSupport.AdditionalShadingRatesSupported == true) {
+			defines.push_back(DXDefine(L"VRS_4X4", L""));
+		}
 
 		// Shaders are binding order dependent/bound by unique names. This needs to be fixed. Probably add a usage context for shaders?
 		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {}));
@@ -526,13 +534,10 @@ bool DemoApp::initialize() {
 		vrsComputeStage->deferSetup(stageDesc);
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
-	//renderStage->loadModel(modelLoader, "testScene.fbx", baseDir, true);
+
 	deferStage->loadModel("screen", "screenTex.obj", baseDir);
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
-
-
-	//renderStage->loadModel(modelLoader, sponzaFile, sponzaDir, true);
 
 	loadModel("bistro", bistroFile, bistroDir);
 	auto& model = activeModels.at("bistro");

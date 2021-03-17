@@ -76,20 +76,29 @@ Microsoft::WRL::ComPtr<ID3D12Fence> TaskQueueThread::getFence() {
 }
 
 void TaskQueueThread::threadMain() {
-	//mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
-	while (true) {
-		std::unique_lock<std::mutex> lk(taskQueueMutex);
-		if (taskQueue.empty()) {
-			taskCv.wait(lk, [this]() { return !taskQueue.empty() || !running; });
-		}
-		if (!running) {
-			return;
-		}
-		Task* toExecute = taskQueue.front();
-		taskQueue.pop();
-		lk.unlock();
+	try {
+		while (true) {
+			std::unique_lock<std::mutex> lk(taskQueueMutex);
+			if (taskQueue.empty()) {
+				taskCv.wait(lk, [this]() { return !taskQueue.empty() || !running; });
+			}
+			if (!running) {
+				return;
+			}
+			Task* toExecute = taskQueue.front();
+			taskQueue.pop();
+			lk.unlock();
 
-		toExecute->execute();
-		delete toExecute;
+			toExecute->execute();
+			delete toExecute;
+		}
+	}
+	catch (const HrException& hrEx) {
+		MessageBoxA(nullptr, hrEx.what(), "HR Exception", MB_OK);
+		throw hrEx;
+	}
+	catch (const std::string& ex) {
+		MessageBoxA(nullptr, ex.c_str(), "String Exception", MB_OK);
+		throw ex;
 	}
 }
