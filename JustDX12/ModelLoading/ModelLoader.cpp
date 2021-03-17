@@ -355,8 +355,13 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	// Find the total number of models.
 	UINT totalDescs = 0;
+	std::vector<UINT> descsPerModel;
 	for (const auto& m : models) {
 		totalDescs += m->transform.getInstanceCount();
+		descsPerModel.push_back(0);
+		for (const auto& mesh : m->meshes) {
+			descsPerModel.back() += mesh.meshTransform.getInstanceCount();
+		}
 	}
 	totalDescs += (UINT)meshletModels.size();
 
@@ -409,7 +414,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 
 			instanceIndex++;
 		}
-		startMeshIndex += models[i]->meshes.size();
+		startMeshIndex += descsPerModel[i];
 	}
 	for (UINT i = 0; i < meshletModels.size(); i++) {
 		auto transform = meshletModels[i]->transform.getTransform(0);
