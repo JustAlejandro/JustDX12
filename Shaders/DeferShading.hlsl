@@ -27,6 +27,9 @@ StructuredBuffer<VertexIn> vertexBuffers[] : register(t0,space2);
 // Texture order is diffuse,spec(packed),normal,emissive
 Texture2D textures[] : register(t0,space3);
 
+// BRDF Lut for Specular
+Texture2D brdfLut : register(t0, space4);
+
 SamplerState gsamLinear : register(s2);
 
 VertexOutMerge DeferVS(VertexIn vin) {
@@ -68,6 +71,10 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness) {
 
 float3 fresnelSchlick(float cosTheta, float3 F0) {
 	return F0 + (1.0f - F0) * pow(max(1.0f - cosTheta, 0.0f), 5.0f);
+}
+
+float3 fresnelSchlickRoughness(float cosTheta, float3 F0, float roughness) {
+	return F0 + (max(1.0f - roughness, F0) - F0) * pow(max(1.0f - cosTheta, 0.0f), 5.0f);
 }
 
 
@@ -169,7 +176,7 @@ struct LightingData {
 	Light light;
 };
 
-LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float metallic, float3 viewDir, float3 normal, float3 worldPos, float3 lightVec, float3 lightPos, float3 lightColor, float attenuationVal, bool attenuationConst, uint bounceCount) {
+LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float metallic, float3 viewDir, float3 normal, float3 worldPos) {
 	LightingData reflection;
 	reflection.hit = false;
 	reflection.albedo = 0.0f;
@@ -219,7 +226,7 @@ struct PbrCalcData {
 
 PbrCalcData pbrHelper(float3 F0, float metallic, float roughness, float3 lightDir, float3 lightVec, float3 lightColor, float3 viewDir, float3 normal, float attenuationVal, bool attenuationConst) {
 	PbrCalcData data;
-
+	
 	float3 H = normalize(viewDir + lightDir);
 	float3 reflectDir = reflect(-lightDir, normal);
 	float attenuation = attenuationConst ? attenuationVal : clamp(1.0 - dot(lightVec, lightVec) / (attenuationVal * attenuationVal), 0.0, 1.0);
@@ -249,23 +256,10 @@ float3 lightContrib(float3 F0, float3 albedo, float roughness, float metallic, f
 	float3 lightDir = normalize(lightVec);
 	
 	PbrCalcData pbrData = pbrHelper(F0, metallic, roughness, lightDir, lightVec, lightColor, viewDir, normal, attenuationVal, attenuationConst);
-
-	float3 reflection = 0.0f;
-
-	if (bounceCount < 1 && metallic > 0.1f && roughness < 0.3f) {
-		LightingData reflectionLightingData;
-		reflectionLightingData = reflectionContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, lightPos, lightColor, attenuationVal, attenuationConst, bounceCount);
-		if (reflectionLightingData.hit) {
-			PbrCalcData pbrReflectionData = pbrHelper(reflectionLightingData.F0, reflectionLightingData.metallic, reflectionLightingData.roughness, lightDir, lightVec, lightColor, reflectionLightingData.viewDir, reflectionLightingData.normal, attenuationVal, attenuationConst);
-			float3 ambient = 0.05 * reflectionLightingData.albedo;
-			float shadowMulReflect = shadowAmount(lightDir, lightPos, reflectionLightingData.worldPos, reflectionLightingData.normal);
-			reflection += (pbrReflectionData.kD * reflectionLightingData.albedo / 3.14159 + pbrReflectionData.specular) * pbrReflectionData.radiance * pbrReflectionData.NdotL * shadowMulReflect + ambient;
-		}
-	}
-
+	
 	float shadowMul = shadowAmount(lightDir, lightPos, worldPos, normal);
 
-	return (pbrData.kD * albedo / 3.14159 + pbrData.specular) * pbrData.radiance * pbrData.NdotL * shadowMul + reflection;
+	return (pbrData.kD * albedo / 3.14159 + pbrData.specular) * pbrData.radiance * pbrData.NdotL * shadowMul;
 }
 
 PixelOutMerge DeferPS(VertexOutMerge vout) {
@@ -310,6 +304,41 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 
 		Lo += lightContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color, 1.0f, true, 0);
 	}
+	
+	// IBL (For now, just RT Reflections)
+	float3 reflection = 0.0f;
+	if (metallic > 0.1f && roughness < 0.3f)
+	{
+		LightingData reflectData;
+		reflectData = reflectionContrib(F0, albedo, roughness, metallic, viewDir, normal, worldPos);
+		if (reflectData.hit)
+		{
+			float3 refL0 = 0.0f;
+			for (int i = 0; i < LightData.numPointLights; i++)
+			{
+				float3 lightVec = LightData.lights[i].pos - worldPos;
+
+				refL0 += lightContrib(reflectData.F0, reflectData.albedo, reflectData.roughness, reflectData.metallic, reflectData.viewDir, reflectData.normal, reflectData.worldPos, lightVec, LightData.lights[i].pos, LightData.lights[i].color, LightData.lights[i].strength, false, 0);
+			}
+	
+			for (int j = LightData.numPointLights; j < LightData.numPointLights + LightData.numDirectionalLights; j++)
+			{
+				float3 lightVec = -LightData.lights[j].dir;
+
+				refL0 += lightContrib(reflectData.F0, reflectData.albedo, reflectData.roughness, reflectData.metallic, reflectData.viewDir, reflectData.normal, reflectData.worldPos, lightVec, LightData.viewPos + lightVec * 10000.0f, LightData.lights[j].color, 1.0f, true, 0);
+			}
+			
+			float2 brdf = brdfLut.Sample(gsamLinear, float2(dot(normal, viewDir), roughness)).xy;
+			
+			float3 F = fresnelSchlickRoughness(max(dot(normal, viewDir), 0.0f), F0, roughness);
+			
+			reflection += refL0 * (F * brdf.x + brdf.y);
+			
+			float3 ambient = 0.05 * reflectData.albedo;
+			
+			reflection += refL0 + ambient;
+		}
+	}
 
 	float3 ambient = 0.05 * albedo;
 
@@ -318,6 +347,8 @@ PixelOutMerge DeferPS(VertexOutMerge vout) {
 	float3 emissive = emissiveTex.Sample(gsamLinear, vout.TexC).xyz;
 
 	color += emissive;
+	
+	color += reflection;
 
 	color = 1.0 - exp(-color * LightData.exposure);
 

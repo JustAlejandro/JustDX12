@@ -304,6 +304,7 @@ bool DemoApp::initialize() {
 		stageDesc.descriptorJobs.push_back(DescriptorJob("tangentTexDesc", "tangentTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("emissiveTexDesc", "emissiveTex", DESCRIPTOR_TYPE_SRV));
 		stageDesc.descriptorJobs.push_back(DescriptorJob("deferTexDesc", "deferTex", DESCRIPTOR_TYPE_RTV));
+		stageDesc.descriptorJobs.push_back(DescriptorJob("brdfLutDesc", "brdfLut", DESCRIPTOR_TYPE_SRV));
 
 		stageDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("PerPassConstants", 0), renderStage->getConstantBuffer(IndexedName("PerPassConstants", 0))));
 
@@ -325,10 +326,12 @@ bool DemoApp::initialize() {
 		stageDesc.rootSigDesc.push_back(RootParamDesc("IndexBuffers", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 1));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("VertexBuffers", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 6, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 2));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("Textures", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 3));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("brdfLutDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 8, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_ALL, 4));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
 
+		stageDesc.textureFiles.push_back(std::make_pair("brdfLut", "BrdfLut.dds"));
 		stageDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
 		stageDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec_pbr.dds"));
 		stageDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
