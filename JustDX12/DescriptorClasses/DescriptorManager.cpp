@@ -141,8 +141,8 @@ void DescriptorManager::createDescriptorView(DX12Descriptor& descriptor, Descrip
 		break;
 	case DESCRIPTOR_TYPE_CBV:
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-		cbvDesc.BufferLocation = descriptor.resourceTarget->get()->GetGPUVirtualAddress();
-		cbvDesc.SizeInBytes = job.view.cbvSize;
+		cbvDesc.BufferLocation = descriptor.resourceTarget->get()->GetGPUVirtualAddress() + job.view.cbvDesc.offset;
+		cbvDesc.SizeInBytes = job.view.cbvDesc.cbvSize;
 		device->CreateConstantBufferView(&cbvDesc, descriptor.cpuHandle);
 		break;
 	default:

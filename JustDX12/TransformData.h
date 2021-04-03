@@ -13,6 +13,9 @@ public:
 			cmdList->SetGraphicsRootConstantBufferView(slot, constantBuffer->get(frameIndex)->GetGPUVirtualAddress());
 		}
 	}
+	DX12Resource* getResourceForFrame(UINT frameIndex) const {
+		return constantBuffer->getDX12Resource(frameIndex);
+	}
 	D3D12_GPU_VIRTUAL_ADDRESS getFrameTransformVirtualAddress(UINT instance, UINT frameIndex) const {
 		return constantBuffer->get(frameIndex)->GetGPUVirtualAddress() + offsetof(PerObjectConstants::PerObjectConstantsStruct, World[instance]);
 	}

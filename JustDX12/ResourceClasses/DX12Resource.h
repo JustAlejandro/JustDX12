@@ -23,10 +23,8 @@ DEFINE_ENUM_FLAG_OPERATORS(DESCRIPTOR_TYPE);
 
 // Represents a low level DX12 resource, at the moment only CommitedResources, and typically Textures
 class DX12Resource {
-protected:
-	DX12Resource() = default;
-
 public:
+	DX12Resource() = default;
 	DX12Resource(DESCRIPTOR_TYPES types, ID3D12Resource* res, D3D12_RESOURCE_STATES state);
 	DX12Resource(ComPtr<ID3D12Device5> device, DESCRIPTOR_TYPES types, DXGI_FORMAT format, UINT texHeight, UINT texWidth);
 

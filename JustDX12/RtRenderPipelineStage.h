@@ -10,6 +10,7 @@ struct RtRenderPipelineStageDesc {
 	int rtIndexBufferSlot = -1;
 	int rtVertexBufferSlot = -1;
 	int rtTexturesSlot = -1;
+	int rtTransformCbvSlot = -1;
 };
 
 // RenderPipelineStage that specifically uses RT data in it's shaders
@@ -46,6 +47,7 @@ private:
 		DescriptorRange indexRange;
 		DescriptorRange vertRange;
 		DescriptorRange texRange;
+		DescriptorRange transformRange;
 	};
 
 	RtData rtDescriptors;

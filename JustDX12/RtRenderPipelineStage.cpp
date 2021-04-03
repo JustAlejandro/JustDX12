@@ -63,9 +63,11 @@ void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.indexRange.cpuHandle, rtDescriptors.indexRange.numDescriptors);
 	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.vertRange.cpuHandle, rtDescriptors.vertRange.numDescriptors);
 	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.texRange.cpuHandle, rtDescriptors.texRange.numDescriptors);
+	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.transformRange.cpuHandle, rtDescriptors.transformRange.numDescriptors);
 	std::vector<DescriptorJob> texJobVec;
 	std::vector<DescriptorJob> indexJobVec;
 	std::vector<DescriptorJob> vertexJobVec;
+	std::vector<DescriptorJob> transformJobVec;
 	UINT index = 0;
 	for (auto& model : RtModels) {
 		for (auto& mesh : model->meshes) {
@@ -98,6 +100,18 @@ void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 				bufferJob.view.srvDesc.Buffer.StructureByteStride = model->vertexByteStride;
 				bufferJob.directBindingTarget = model->vertexBuffer.get();
 				vertexJobVec.push_back(bufferJob);
+
+				// Each instance needs a CBV since we have a transform associated with each mesh
+				// For now, this is fine, but should either refactor to not be super wasteful, or refactor to remove submesh instancing.
+				bufferJob.view.srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+				bufferJob.view.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				bufferJob.view.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				bufferJob.view.srvDesc.Buffer.FirstElement = i;
+				bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+				bufferJob.view.srvDesc.Buffer.NumElements = 1;
+				bufferJob.view.srvDesc.Buffer.StructureByteStride = sizeof(DirectX::XMFLOAT4X4);
+				bufferJob.directBindingTarget = mesh.meshTransform.getResourceForFrame(gFrameIndex);
+				transformJobVec.push_back(bufferJob);
 			}
 		}
 		
@@ -117,6 +131,11 @@ void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 	rtDescriptors.texRange.cpuHandle = firstDesc.cpuHandle;
 	rtDescriptors.texRange.gpuHandle = firstDesc.gpuHandle;
 	rtDescriptors.texRange.numDescriptors = texJobVec.size();
+
+	firstDesc = descriptorManager.makeDescriptors(transformJobVec, &resourceManager, &constantBufferManager, false)[0];
+	rtDescriptors.transformRange.cpuHandle = firstDesc.cpuHandle;
+	rtDescriptors.transformRange.gpuHandle = firstDesc.gpuHandle;
+	rtDescriptors.transformRange.numDescriptors = transformJobVec.size();
 }
 
 void RtRenderPipelineStage::drawRenderObjects() {
@@ -124,6 +143,7 @@ void RtRenderPipelineStage::drawRenderObjects() {
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtIndexBufferSlot, rtDescriptors.indexRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtVertexBufferSlot, rtDescriptors.vertRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtTexturesSlot, rtDescriptors.texRange.gpuHandle);
+	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtTransformCbvSlot, rtDescriptors.transformRange.gpuHandle);
 	RenderPipelineStage::drawRenderObjects();
 }
 

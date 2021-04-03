@@ -34,6 +34,7 @@ public:
 	~DX12ConstantBuffer();
 
 	ID3D12Resource* get(int index);
+	DX12Resource* getDX12Resource(int index);
 	UINT getBufferSize();
 
 	void updateBuffer(UINT index);
@@ -41,7 +42,7 @@ public:
 
 private:
 	std::unique_ptr<ConstantBufferData> data;
-	std::array<ComPtr<ID3D12Resource>, CPU_FRAME_COUNT> uploadBuffer;
+	std::array<DX12Resource, CPU_FRAME_COUNT> uploadBuffer;
 	std::array<BYTE*, CPU_FRAME_COUNT> mappedData;
 
 	UINT dirtyFrames = 0;

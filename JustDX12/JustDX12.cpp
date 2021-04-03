@@ -326,7 +326,8 @@ bool DemoApp::initialize() {
 		stageDesc.rootSigDesc.push_back(RootParamDesc("IndexBuffers", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 1));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("VertexBuffers", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 6, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 2));
 		stageDesc.rootSigDesc.push_back(RootParamDesc("Textures", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 3));
-		stageDesc.rootSigDesc.push_back(RootParamDesc("brdfLutDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 8, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_ALL, 4));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("Transforms", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 8, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, -1, DESCRIPTOR_USAGE_ALL, 4));
+		stageDesc.rootSigDesc.push_back(RootParamDesc("brdfLutDesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 9, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_ALL, 5));
 
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader VS", "DeferVS", SHADER_TYPE_VS, defines));
 		stageDesc.shaderFiles.push_back(ShaderDesc("DeferShading.hlsl", "Defer Shader PS", "DeferPS", SHADER_TYPE_PS, defines));
@@ -360,6 +361,7 @@ bool DemoApp::initialize() {
 		rtDesc.rtIndexBufferSlot = 5;
 		rtDesc.rtVertexBufferSlot = 6;
 		rtDesc.rtTexturesSlot = 7;
+		rtDesc.rtTransformCbvSlot = 8;
 
 		deferStage = std::make_unique<RtRenderPipelineStage>(md3dDevice, rtDesc, mergeRDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		deferStage->deferSetup(stageDesc);

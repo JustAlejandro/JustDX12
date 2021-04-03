@@ -9,6 +9,11 @@ struct PixelOutMerge {
 	float4 color : SV_Target0;
 };
 
+struct MatrixStruct
+{
+	float4x4 mat;
+};
+
 ConstantBuffer<LightData> LightData : register(b0);
 ConstantBuffer<SSAOSettings> SSAOSettings : register(b1);
 ConstantBuffer<PerPass> PerPass : register(b2);
@@ -22,13 +27,15 @@ Texture2D emissiveTex : register(t5);
 
 RaytracingAccelerationStructure TLAS : register(t6);
 
+StructuredBuffer<MatrixStruct> transforms[] : register(t0, space4);
+
 Buffer<uint3> indexBuffers[] : register(t0,space1);
 StructuredBuffer<VertexIn> vertexBuffers[] : register(t0,space2);
 // Texture order is diffuse,spec(packed),normal,emissive
 Texture2D textures[] : register(t0,space3);
 
 // BRDF Lut for Specular
-Texture2D brdfLut : register(t0, space4);
+Texture2D brdfLut : register(t0, space5);
 
 SamplerState gsamLinear : register(s2);
 
@@ -208,7 +215,7 @@ LightingData reflectionContrib(float3 F0, float3 albedo, float roughness, float 
 		reflection.roughness = specSample.y;
 		reflection.metallic = specSample.z;
 		reflection.viewDir = reflect(-viewDir, normal);
-		reflection.normal = normalize(mul(getNormal(instanceID, primitive, uvCoord), (float3x3)query.CommittedObjectToWorld3x4()));
+		reflection.normal = normalize(mul(mul(getNormal(instanceID, primitive, uvCoord), (float3x3)transforms[instanceID][0].mat), (float3x3) query.CommittedObjectToWorld3x4()));
 		reflection.worldPos = worldPos + query.CommittedRayT() * reflection.viewDir;
 		float3 hitF0 = 0.04f;
 		reflection.F0 = lerp(hitF0, reflection.albedo, reflection.metallic);

@@ -45,7 +45,11 @@ struct DescriptorJob {
 		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-		UINT cbvSize;
+		struct SIMPLIFIED_CBV_VIEW_DESC {
+			UINT cbvSize;
+			UINT offset;
+		};
+		SIMPLIFIED_CBV_VIEW_DESC cbvDesc;
 	};
 
 	std::string name;
