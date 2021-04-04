@@ -16,6 +16,7 @@
 #include "imgui_impl_dx12.h"
 #include "KeyboardWrapper.h"
 #include "ModelLoading/TextureLoader.h"
+#include "SceneCsv.h"
 
 #include <random>
 #include <ctime>
@@ -67,9 +68,13 @@ private:
 
 	void BuildFrameResources();
 
+	void loadScene(SceneCsv scene);
+	void updateSceneClass(SceneCsv& scene);
+
 	void ApplyModelDataUpdate(ModelData* data);
 	void loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3 scale = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3 rotation = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 	void unloadModel(std::string name);
+
 
 	void onKeyboardInput();
 
@@ -89,6 +94,8 @@ private:
 	FrameResource* mCurrFrameResource = nullptr;
 	FrameResource* mCurrComputeFrameResource = nullptr;
 	int mCurrFrameResourceIndex = 0;
+
+	std::vector<SceneCsv> loadedScenes;
 
 	bool showImgui = true;
 	bool freezeCull = false;
@@ -544,19 +551,9 @@ bool DemoApp::initialize() {
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
-	loadModel("bistro", bistroFile, bistroDir);
-	auto& model = activeModels.at("bistro");
-	model.instanceCount = 1;
-	model.scale[0] = { 1000.0f,1000.0f,1000.0f };
-	ApplyModelDataUpdate(&model);
-
-	loadModel("sphere", "sphere.fbx", cubeDir);
-	auto& sphere = activeModels.at("sphere");
-	sphere.instanceCount = 1;
-	sphere.scale[0] = { 10.0f,10.0f,10.0f };
-	sphere.translate[0] = { -3800.0f, 1754.0f, 0.0f };
-	sphere.rotation[0] = { 0.0f, -0.14f, 0.0f };
-	ApplyModelDataUpdate(&sphere);
+	SceneCsv scene("defaultScene.csv", baseDir);
+	loadScene(scene);
+	loadedScenes.push_back(scene);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
@@ -792,6 +789,12 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("Model Options")) {
+		for (auto& scene : loadedScenes) {
+			if (ImGui::Button(("Save " + scene.getFileName()).c_str())) {
+				updateSceneClass(scene);
+				scene.saveSceneToDisk();
+			}
+		}
 		for (auto& data : activeModels) {
 			ImGui::Text(("Name: " + data.first).c_str());
 			bool requiresUpdate = false;
@@ -826,8 +829,26 @@ void DemoApp::onResize() {
 	XMStoreFloat4x4(&proj, P);
 }
 
+
+void DemoApp::loadScene(SceneCsv scene) {
+	for (const auto& item : scene.getItems()) {
+		loadModel(item.modelName, item.fileName, baseDir + "\\" + item.filePath, item.pos, item.scale, item.rot);
+	}
+}
+
+// Only support saving the first instance, which isn't great, but file format is still early, so unknown.
+void DemoApp::updateSceneClass(SceneCsv& scene) {
+	const auto& items = scene.getItems();
+	for (size_t i = 0; i < items.size(); i++) {
+		auto model = activeModels.find(items[i].modelName);
+		if (model != activeModels.end()) {
+			scene.updateEntry(i, model->second.translate[0], model->second.rotation[0], model->second.scale[0]);
+		}
+	}
+}
+
 void DemoApp::ApplyModelDataUpdate(ModelData* data) {
-	renderStage->updateInstanceCount(data->name, data->instanceCount); 
+	renderStage->updateInstanceCount(data->name, data->instanceCount);
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < data->instanceCount; i++) {
 		DirectX::XMStoreFloat4x4(&transform,
@@ -836,7 +857,6 @@ void DemoApp::ApplyModelDataUpdate(ModelData* data) {
 		renderStage->updateInstanceTransform(data->name, i, transform);
 	}
 }
-
 void DemoApp::loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate, DirectX::XMFLOAT3 scale, DirectX::XMFLOAT3 rotation) {
 	ModelData defaultInitData;
 	defaultInitData.instanceCount = 1;

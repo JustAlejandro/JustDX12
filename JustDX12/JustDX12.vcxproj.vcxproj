@@ -188,6 +188,7 @@
     <ClCompile Include="ResourceClasses\ResourceManager.cpp" />
     <ClCompile Include="ResourceDecay.cpp" />
     <ClCompile Include="RtRenderPipelineStage.cpp" />
+    <ClCompile Include="SceneCsv.cpp" />
     <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Tasks\TaskQueueThread.cpp" />
@@ -203,6 +204,7 @@
     <ClInclude Include="ConstantBufferData.h" />
     <ClInclude Include="ConstantBufferManager.h" />
     <ClInclude Include="ConstantBufferTypes.h" />
+    <ClInclude Include="CsvParser.h" />
     <ClInclude Include="DX12ConstantBuffer.h" />
     <ClInclude Include="IndexedName.h" />
     <ClInclude Include="KeyboardWrapper.h" />
@@ -217,6 +219,7 @@
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="ResourceDecay.h" />
     <ClInclude Include="RtRenderPipelineStage.h" />
+    <ClInclude Include="SceneCsv.h" />
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="Tasks\ModelLoadTask.h" />
     <ClInclude Include="PipelineStage\PipelineStage.h" />

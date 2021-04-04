@@ -43,6 +43,9 @@
     <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="ResourceDecay.cpp" />
     <ClCompile Include="RtRenderPipelineStage.cpp" />
+    <ClCompile Include="SceneCsv.cpp">
+      <Filter>CsvLoader</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -111,6 +114,12 @@
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="ResourceDecay.h" />
     <ClInclude Include="RtRenderPipelineStage.h" />
+    <ClInclude Include="SceneCsv.h">
+      <Filter>CsvLoader</Filter>
+    </ClInclude>
+    <ClInclude Include="CsvParser.h">
+      <Filter>CsvLoader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -127,6 +136,9 @@
     </Filter>
     <Filter Include="ModelLoading">
       <UniqueIdentifier>{3866f14f-67e9-450e-b24f-cc2a888a6f40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CsvLoader">
+      <UniqueIdentifier>{c7ceaf6c-45a4-43ed-8985-3d7245fa5d39}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
