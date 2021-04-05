@@ -48,7 +48,7 @@ struct DX12DescriptorHeap {
 	void freeHeapSpace(CD3DX12_CPU_DESCRIPTOR_HANDLE start, UINT size) {
 		UINT startIdx = ((UINT64)start.ptr - startCPUHandle.ptr) / offset;
 		for (UINT i = 0; i < size; i++) {
-			availabilityBitmap[i + (size_t)startIdx] = false;
+			availabilityBitmap[i + (size_t)startIdx] = true;
 		}
 	}
 

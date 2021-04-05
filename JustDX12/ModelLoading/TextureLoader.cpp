@@ -43,6 +43,7 @@ void TextureLoader::loadTexture(DX12Texture* tex) {
 
 	mDirectCmdListAlloc = frameResourceArray[usageIndex].get()->CmdListAlloc;
 	ThrowIfFailed(mDirectCmdListAlloc->Reset());
+	mDirectCmdListAlloc->SetName(L"TexLoad");
 	ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
 
 	std::string nameDir = tex->dir + "\\" + tex->Filename;

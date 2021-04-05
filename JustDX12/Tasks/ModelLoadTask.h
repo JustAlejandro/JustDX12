@@ -24,8 +24,11 @@ public:
 	virtual ~ModelLoadTask() override = default;
 
 	void execute() override {
+		// TODO: possibly have multiple allocators for model loading.
+		taskQueueThread->waitOnFence();
 		taskQueueThread->mDirectCmdListAlloc->Reset();
 		taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
+		taskQueueThread->mDirectCmdListAlloc->SetName(L"ModelLoad");
 
 		Assimp::Importer importer;
 		OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());

@@ -1,9 +1,14 @@
 #include "ResourceDecay.h"
+#include "DescriptorClasses/DescriptorManager.h"
 
 void ResourceDecay::checkDestroy() {
 	ResourceDecay& instance = getInstance();
 
 	instance.onDelayResources[gFrameIndex].clear();
+
+	for (auto& freeDesc : instance.onDelayFreeDescriptor[gFrameIndex]) {
+		freeDesc.manager->freeDescriptorRangeInHeap(freeDesc.type, freeDesc.startHandle, freeDesc.size);
+	}
 	instance.onDelayFreeDescriptor[gFrameIndex].clear();
 
 	for (auto iter = instance.onSpecificDelayResources.begin(); iter != instance.onSpecificDelayResources.end();) {

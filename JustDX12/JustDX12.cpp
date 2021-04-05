@@ -69,6 +69,7 @@ private:
 	void BuildFrameResources();
 
 	void loadScene(SceneCsv scene);
+	void unloadScene(std::string fileName);
 	void updateSceneClass(SceneCsv& scene);
 
 	void ApplyModelDataUpdate(ModelData* data);
@@ -551,7 +552,8 @@ bool DemoApp::initialize() {
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
-	SceneCsv scene("defaultScene.csv", baseDir);
+	SceneCsv scene("blankScene.csv", baseDir);
+	//SceneCsv scene("bistroSeperated.csv", baseDir);
 	loadScene(scene);
 	loadedScenes.push_back(scene);
 
@@ -789,6 +791,14 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("Model Options")) {
+		if (ImGui::Button("Load Bistro")) {
+			SceneCsv scene("bistroSeperated.csv", baseDir);
+			loadScene(scene);
+			loadedScenes.push_back(scene);
+		}
+		if (ImGui::Button("Unload Bistro")) {
+			unloadScene("bistroSeperated.csv");
+		}
 		for (auto& scene : loadedScenes) {
 			if (ImGui::Button(("Save " + scene.getFileName()).c_str())) {
 				updateSceneClass(scene);
@@ -836,6 +846,26 @@ void DemoApp::loadScene(SceneCsv scene) {
 	}
 }
 
+void DemoApp::unloadScene(std::string fileName)
+{
+	int sceneIdx = -1;
+	for (size_t i = 0; i < loadedScenes.size(); i++) {
+		if (loadedScenes[i].getFileName() == fileName) {
+			sceneIdx = i;
+		}
+	}
+	if (sceneIdx != -1) {
+		SceneCsv& scene = loadedScenes[sceneIdx];
+		for (const auto& item : scene.getItems()) {
+			unloadModel(item.modelName);
+		}
+		loadedScenes.erase(loadedScenes.begin() + sceneIdx);
+	}
+	else {
+		MessageBoxA(nullptr, ("Couldn't unload SceneCsv: " + fileName + "\nNo scene with that file name is loaded.").c_str() , "Couldn't Unload Scene", MB_OK);
+	}
+}
+
 // Only support saving the first instance, which isn't great, but file format is still early, so unknown.
 void DemoApp::updateSceneClass(SceneCsv& scene) {
 	const auto& items = scene.getItems();
@@ -857,6 +887,7 @@ void DemoApp::ApplyModelDataUpdate(ModelData* data) {
 		renderStage->updateInstanceTransform(data->name, i, transform);
 	}
 }
+
 void DemoApp::loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate, DirectX::XMFLOAT3 scale, DirectX::XMFLOAT3 rotation) {
 	ModelData defaultInitData;
 	defaultInitData.instanceCount = 1;

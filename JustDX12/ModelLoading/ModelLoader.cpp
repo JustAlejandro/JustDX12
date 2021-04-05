@@ -21,7 +21,7 @@ bool ModelLoader::allModelsLoaded() {
 	for (int i = 0; i < instance.loadingModels.size(); i++) {
 		Model* m = instance.loadingModels[i].second.get();
 		if (m->isLoaded()) {
-			instance.loadedModels[instance.loadingModels[i].first] = std::move(instance.loadingModels[i].second);
+			instance.loadedModels[instance.loadingModels[i].first] = instance.loadingModels[i].second;
 			instance.loadingModels.erase(instance.loadingModels.begin() + i);
 			i--;
 			instance.modelCountChanged = true;
@@ -253,6 +253,14 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 }
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+	static bool once = false; 
+	if (!once) {
+		once = true;
+	}
+	else {
+		//return;
+	}
+
 	if (!supportsRt()) {
 		return;
 	}
