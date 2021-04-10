@@ -17,23 +17,13 @@
 #include "KeyboardWrapper.h"
 #include "ModelLoading/TextureLoader.h"
 #include "SceneCsv.h"
+#include "FileSelect.h"
 
 #include <random>
 #include <ctime>
 #include <ResourceDecay.h>
 
 std::string baseDir = "..\\Models";
-std::string sponzaDir = baseDir + "\\sponza";
-std::string sponzaFile = "sponza.fbx";
-std::string bistroDir = baseDir + "\\bistro";
-std::string bistroFile = "BistroExterior.fbx";
-std::string cubeDir = baseDir + "\\reflectCube";
-std::string cubeFile = "cube.fbx";
-std::string armorDir = baseDir + "\\parade_armor";
-std::string armorFile = "armor.fbx";
-std::string headDir = baseDir + "\\head";
-std::string headFile = "head.fbx";
-std::string armorMeshlet = "armor.bin";
 
 class DemoApp : public DX12App {
 public:
@@ -544,8 +534,7 @@ bool DemoApp::initialize() {
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
-	SceneCsv scene("blankSceneCopy.csv", baseDir);
-	//SceneCsv scene("bistroSeperated.csv", baseDir);
+	SceneCsv scene("blankScene.csv", baseDir);
 	loadScene(scene);
 	loadedScenes.push_back(scene);
 
@@ -754,15 +743,6 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("Screen Space Shadows", (bool*)&ssaoConstantCB.data.showSSShadows);
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
-	if (ImGui::Button("Load Head")) {
-		InstanceData headInstance;
-		headInstance.pos = { -18000.0f, 1000.0f, 5000.0f };
-		headInstance.scale = { 0.5f, 0.5f, 0.5f };
-		loadModel("head", headFile, headDir, { headInstance });
-	}
-	if (ImGui::Button("UnLoad Head")) {
-		unloadModel("head");
-	}
 	ImGui::BeginTabBar("Adjustable Params");
 	if (ImGui::BeginTabItem("SSAO/CS Shadow Params")) {
 		ImGui::SliderInt("SSAO Samples", &ssaoConstantCB.data.rayCount, 1, 100);
@@ -786,18 +766,22 @@ void DemoApp::ImGuiPrepareUI() {
 		ImGui::EndTabItem();
 	}
 	if (ImGui::BeginTabItem("Model Options")) {
-		if (ImGui::Button("Load Bistro")) {
-			SceneCsv scene("bistroSeperated.csv", baseDir);
-			loadScene(scene);
-			loadedScenes.push_back(scene);
-		}
-		if (ImGui::Button("Unload Bistro")) {
-			unloadScene("bistroSeperated.csv");
+		if (ImGui::Button("Load Scene")) {
+			auto scenePath = fileSelect();
+			if (scenePath.first != "") {
+				SceneCsv scene(scenePath.first, scenePath.second);
+				loadScene(scene);
+				loadedScenes.push_back(scene);
+			}
 		}
 		for (auto& scene : loadedScenes) {
 			if (ImGui::Button(("Save " + scene.getFileName()).c_str())) {
 				updateSceneClass(scene);
 				scene.saveSceneToDisk();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button(("Unload " + scene.getFileName()).c_str())) {
+				unloadScene(scene.getFileName());
 			}
 		}
 		for (auto& data : activeModels) {

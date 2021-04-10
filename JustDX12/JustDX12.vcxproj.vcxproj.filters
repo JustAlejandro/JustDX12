@@ -120,6 +120,7 @@
     <ClInclude Include="CsvParser.h">
       <Filter>CsvLoader</Filter>
     </ClInclude>
+    <ClInclude Include="FileSelect.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

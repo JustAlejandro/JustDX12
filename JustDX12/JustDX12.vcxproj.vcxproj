@@ -206,6 +206,7 @@
     <ClInclude Include="ConstantBufferTypes.h" />
     <ClInclude Include="CsvParser.h" />
     <ClInclude Include="DX12ConstantBuffer.h" />
+    <ClInclude Include="FileSelect.h" />
     <ClInclude Include="IndexedName.h" />
     <ClInclude Include="KeyboardWrapper.h" />
     <ClInclude Include="MeshletModel.h" />
