@@ -55,15 +55,7 @@ public:
 private:
 	struct ModelData {
 		std::string name;
-		int instanceCount = 1;
-		std::array<DirectX::XMFLOAT3, MAX_INSTANCES> scale;
-		std::array<DirectX::XMFLOAT3, MAX_INSTANCES> translate;
-		std::array<DirectX::XMFLOAT3, MAX_INSTANCES> rotation;
-		ModelData() {
-			scale.fill(DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f));
-			translate.fill(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
-			rotation.fill(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
-		}
+		std::vector<InstanceData> instances;
 	};
 
 	void BuildFrameResources();
@@ -73,7 +65,7 @@ private:
 	void updateSceneClass(SceneCsv& scene);
 
 	void ApplyModelDataUpdate(ModelData* data);
-	void loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3 scale = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f), DirectX::XMFLOAT3 rotation = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+	void loadModel(std::string name, std::string fileName, std::string dirName, std::vector<InstanceData> instances);
 	void unloadModel(std::string name);
 
 
@@ -552,7 +544,7 @@ bool DemoApp::initialize() {
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
-	SceneCsv scene("blankScene.csv", baseDir);
+	SceneCsv scene("blankSceneCopy.csv", baseDir);
 	//SceneCsv scene("bistroSeperated.csv", baseDir);
 	loadScene(scene);
 	loadedScenes.push_back(scene);
@@ -763,7 +755,10 @@ void DemoApp::ImGuiPrepareUI() {
 	ImGui::Checkbox("VRS Average Luminance", (bool*)&vrsCB.data.vrsAvgLum);
 	ImGui::Checkbox("VRS Variance Luminance", (bool*)&vrsCB.data.vrsVarLum);
 	if (ImGui::Button("Load Head")) {
-		loadModel("head", headFile, headDir, { -18000.0f, 1000.0f, 5000.0f }, { 0.5f, 0.5f, 0.5f });
+		InstanceData headInstance;
+		headInstance.pos = { -18000.0f, 1000.0f, 5000.0f };
+		headInstance.scale = { 0.5f, 0.5f, 0.5f };
+		loadModel("head", headFile, headDir, { headInstance });
 	}
 	if (ImGui::Button("UnLoad Head")) {
 		unloadModel("head");
@@ -808,16 +803,18 @@ void DemoApp::ImGuiPrepareUI() {
 		for (auto& data : activeModels) {
 			ImGui::Text(("Name: " + data.first).c_str());
 			bool requiresUpdate = false;
-			requiresUpdate |= ImGui::SliderInt((data.first + " Instances: ").c_str(), &data.second.instanceCount, 1, MAX_INSTANCES);
+			int instanceCount = data.second.instances.size();
+			requiresUpdate |= ImGui::SliderInt((data.first + " Instances: ").c_str(), &instanceCount, 1, MAX_INSTANCES);
 			ImGui::BeginTabBar(("Instance Params" + data.first).c_str());
 			if (requiresUpdate) {
+				data.second.instances.resize(instanceCount);
 				ModelLoader::getInstance().instanceCountChanged = true;
 			}
-			for (int i = 0; i < data.second.instanceCount; i++) {
+			for (int i = 0; i < data.second.instances.size(); i++) {
 				if (ImGui::BeginTabItem(("Instance: " + std::to_string(i)).c_str())) {
-					requiresUpdate |= ImGui::DragFloat3("Scale: ", (float*)&data.second.scale[i], 0.01f);
-					requiresUpdate |= ImGui::DragFloat3("Translate: ", (float*)&data.second.translate[i], 1.0f);
-					requiresUpdate |= ImGui::DragFloat3("Rotation: ", (float*)&data.second.rotation[i], 0.01f);
+					requiresUpdate |= ImGui::DragFloat3("Scale: ", (float*)&data.second.instances[i].scale, 0.01f);
+					requiresUpdate |= ImGui::DragFloat3("Translate: ", (float*)&data.second.instances[i].pos, 1.0f);
+					requiresUpdate |= ImGui::DragFloat3("Rotation: ", (float*)&data.second.instances[i].rot, 0.01f);
 					ImGui::EndTabItem();
 				}
 			}
@@ -842,7 +839,7 @@ void DemoApp::onResize() {
 
 void DemoApp::loadScene(SceneCsv scene) {
 	for (const auto& item : scene.getItems()) {
-		loadModel(item.modelName, item.fileName, baseDir + "\\" + item.filePath, item.pos, item.scale, item.rot);
+		loadModel(item.modelName, item.fileName, baseDir + "\\" + item.filePath, item.instances);
 	}
 }
 
@@ -872,39 +869,39 @@ void DemoApp::updateSceneClass(SceneCsv& scene) {
 	for (size_t i = 0; i < items.size(); i++) {
 		auto model = activeModels.find(items[i].modelName);
 		if (model != activeModels.end()) {
-			scene.updateEntry(i, model->second.translate[0], model->second.rotation[0], model->second.scale[0]);
+			scene.updateEntry(i, model->second.instances);
 		}
 	}
 }
 
 void DemoApp::ApplyModelDataUpdate(ModelData* data) {
-	renderStage->updateInstanceCount(data->name, data->instanceCount);
+	renderStage->updateInstanceCount(data->name, data->instances.size());
 	DirectX::XMFLOAT4X4 transform;
-	for (int i = 0; i < data->instanceCount; i++) {
+	for (int i = 0; i < data->instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
-			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->rotation[i])),
-				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->scale[i]))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->translate[i])))));
+			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->instances[i].rot)),
+				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->instances[i].pos)))));
 		renderStage->updateInstanceTransform(data->name, i, transform);
 	}
 }
 
-void DemoApp::loadModel(std::string name, std::string fileName, std::string dirName, DirectX::XMFLOAT3 translate, DirectX::XMFLOAT3 scale, DirectX::XMFLOAT3 rotation) {
+void DemoApp::loadModel(std::string name, std::string fileName, std::string dirName, std::vector<InstanceData> instances) {
 	ModelData defaultInitData;
-	defaultInitData.instanceCount = 1;
+	defaultInitData.instances = instances;
 	defaultInitData.name = name;
-	defaultInitData.rotation[0] = rotation;
-	defaultInitData.translate[0] = translate;
-	defaultInitData.scale[0] = scale;
 	activeModels[name] = defaultInitData;
 
-	DirectX::XMFLOAT4X4 transform;
-	DirectX::XMStoreFloat4x4(&transform, 
-		DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z), 
-			DirectX::XMMatrixScaling(scale.x, scale.y, scale.z)), DirectX::XMMatrixTranslation(translate.x, translate.y, translate.z))));
-
 	renderStage->loadModel(name, fileName, dirName, true);
-	renderStage->updateInstanceCount(name, 1);
-	renderStage->updateInstanceTransform(name, 0, transform);
+	renderStage->updateInstanceCount(name, instances.size());
+
+	DirectX::XMFLOAT4X4 transform;
+	for (int i = 0; i < instances.size(); i++) {
+		DirectX::XMStoreFloat4x4(&transform,
+			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&instances[i].rot)),
+				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&instances[i].pos)))));
+		renderStage->updateInstanceTransform(name, i, transform);
+	}
+
 }
 
 void DemoApp::unloadModel(std::string name) {

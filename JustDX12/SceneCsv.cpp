@@ -19,10 +19,8 @@ const std::vector<SceneCsvEntry>& SceneCsv::getItems() {
 	return items;
 }
 
-void SceneCsv::updateEntry(int index, DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 rot, DirectX::XMFLOAT3 scale) {
-	items[index].pos = pos;
-	items[index].rot = rot;
-	items[index].scale = scale;
+void SceneCsv::updateEntry(int index, std::vector<InstanceData> instances) {
+	items[index].instances = instances;
 }
 
 void SceneCsv::saveSceneToDisk() {
@@ -42,15 +40,19 @@ void SceneCsv::processEntry(const std::vector<std::string>& entry) {
 	newEntry.modelName = entry[0];
 	newEntry.fileName = entry[1];
 	newEntry.filePath = entry[2];
-	newEntry.pos.x = std::atof(entry[3].c_str());
-	newEntry.pos.y = std::atof(entry[4].c_str());
-	newEntry.pos.z = std::atof(entry[5].c_str());
-	newEntry.rot.x = std::atof(entry[6].c_str());
-	newEntry.rot.y = std::atof(entry[7].c_str());
-	newEntry.rot.z = std::atof(entry[8].c_str());
-	newEntry.scale.x = std::atof(entry[9].c_str());
-	newEntry.scale.y = std::atof(entry[10].c_str());
-	newEntry.scale.z = std::atof(entry[11].c_str());
-	
+	newEntry.instances.reserve((entry.size() - 3) / 9);
+	for (size_t i = 3; i < entry.size();) {
+		InstanceData newInstance;
+		newInstance.pos.x = std::atof(entry[i++].c_str());
+		newInstance.pos.y = std::atof(entry[i++].c_str());
+		newInstance.pos.z = std::atof(entry[i++].c_str());
+		newInstance.rot.x = std::atof(entry[i++].c_str());
+		newInstance.rot.y = std::atof(entry[i++].c_str());
+		newInstance.rot.z = std::atof(entry[i++].c_str());
+		newInstance.scale.x = std::atof(entry[i++].c_str());
+		newInstance.scale.y = std::atof(entry[i++].c_str());
+		newInstance.scale.z = std::atof(entry[i++].c_str());
+		newEntry.instances.push_back(newInstance);
+	}	
 	items.push_back(newEntry);
 }

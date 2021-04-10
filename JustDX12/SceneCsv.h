@@ -3,22 +3,29 @@
 #include <vector>
 #include <DirectXMath.h>
 
-struct SceneCsvEntry {
-	std::string modelName;
-	std::string fileName;
-	std::string filePath;
+struct InstanceData {
+	InstanceData() : pos(0.0f,0.0f,0.0f), rot(0.0f,0.0f,0.0f), scale(1.0f,1.0f,1.0f) {}
+
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 rot;
 	DirectX::XMFLOAT3 scale;
+};
 
+struct SceneCsvEntry {
 	std::string toString(bool spaced = false) const {
-		return modelName + "," +
-			fileName + "," +
-			filePath + "," +
-			float3ToString(pos, spaced) + "," +
-			float3ToString(rot, spaced) + "," +
-			float3ToString(scale, spaced);
+		std::string modelString = modelName + "," + fileName + "," + filePath;
+		for (const auto& instance : instances) {
+			modelString += "," + float3ToString(instance.pos, spaced) + "," +
+				float3ToString(instance.rot, spaced) + "," +
+				float3ToString(instance.scale, spaced);
+		}
+		return modelString;
 	}
+
+	std::string modelName;
+	std::string fileName;
+	std::string filePath;
+	std::vector<InstanceData> instances;
 
 private:
 	std::string float3ToString(DirectX::XMFLOAT3 vec, bool spaced) const {
@@ -34,7 +41,7 @@ public:
 	const std::string& getFileName() const;
 	const std::vector<SceneCsvEntry>& getItems();
 
-	void updateEntry(int index, DirectX::XMFLOAT3 pos, DirectX::XMFLOAT3 rot, DirectX::XMFLOAT3 scale);
+	void updateEntry(int index, std::vector<InstanceData> instances);
 
 	void saveSceneToDisk();
 private:
