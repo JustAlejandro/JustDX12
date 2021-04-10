@@ -105,7 +105,7 @@ public:
 
 	DirectX::BoundingBox boundingBox;
 
-	std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
+	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 
 	Model* parent;
 	TransformData meshTransform;

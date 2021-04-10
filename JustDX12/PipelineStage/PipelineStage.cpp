@@ -273,11 +273,13 @@ void PipelineStage::buildPSO() {
 void PipelineStage::loadTextures(std::vector<std::pair<std::string,std::string>> textureFiles) {
 	TextureLoader& tloader = TextureLoader::getInstance();
 	for (const auto& file : textureFiles) {
-		DX12Resource* tex = tloader.deferLoad(file.second, "..\\Models\\");
+		auto tex = tloader.deferLoad(file.second, "..\\Models\\");
+		// Hanging here is suboptimal, but if we didn't hang before texture load then we can't perform this PipelineStage's actions
 		while (!tex->get()) {
 			ResourceDecay::checkDestroy();
 		}
-		resourceManager.importResource(file.first, tex);
+		ownedTextures.push_back(tex);
+		resourceManager.importResource(file.first, tex.get());
 	}
 }
 

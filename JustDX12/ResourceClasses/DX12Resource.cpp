@@ -1,4 +1,5 @@
 #include "ResourceClasses\DX12Resource.h"
+#include "ResourceDecay.h"
 
 #include "Settings.h"
 
@@ -57,6 +58,10 @@ DX12Resource::DX12Resource(ComPtr<ID3D12Device5> device, DESCRIPTOR_TYPES types,
 		curState,
 		clearVal,
 		IID_PPV_ARGS(&resource));
+}
+
+DX12Resource::~DX12Resource() {
+	ResourceDecay::destroyAfterDelay(resource);
 }
 
 ID3D12Resource* DX12Resource::get() {

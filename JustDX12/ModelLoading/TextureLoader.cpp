@@ -20,21 +20,27 @@ TextureLoader& TextureLoader::getInstance() {
 }
 
 void TextureLoader::destroyAll() {
-	textures.clear();
+	textureCache.clear();
 }
 
-DX12Texture* TextureLoader::deferLoad(std::string fileName, std::string dir) {
-	if (textures.find(fileName) != textures.end()) {
-		return &textures.at(fileName);
+std::shared_ptr<DX12Texture> TextureLoader::deferLoad(std::string fileName, std::string dir) {
+	auto cached = textureCache.find(fileName);
+	if (cached != textureCache.end()) {
+		if (auto tex = cached->second.lock()) {
+			return tex;
+		}
+		else {
+			textureCache.erase(cached);
+		}
 	}
 	// Can't cause race condition because we only call from one thread.
-	DX12Texture t;
-	t.Filename = fileName;
-	t.dir = dir;
-	t.status = TEX_STATUS_NOT_LOADED;
-	textures.emplace(fileName, t);
-	enqueue(new TextureLoadTask(this, &textures.at(fileName)));
-	return &textures.at(fileName);
+	auto t = std::make_shared<DX12Texture>();
+	t->Filename = fileName;
+	t->dir = dir;
+	t->status = TEX_STATUS_NOT_LOADED;
+	textureCache.emplace(fileName, t);
+	enqueue(new TextureLoadTask(this, t.get()));
+	return t;
 }
 
 void TextureLoader::loadTexture(DX12Texture* tex) {

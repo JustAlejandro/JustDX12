@@ -195,6 +195,10 @@ protected:
 
 	std::vector<RootParamDesc> rootParameterDescs[DESCRIPTOR_USAGE_MAX];
 
+	// Textures used by the stage directly, not associated with models 
+	// Ex: random noise texture
+	std::vector<std::shared_ptr<DX12Texture>> ownedTextures;
+
 	ResourceManager resourceManager;
 	DescriptorManager descriptorManager;
 	ConstantBufferManager constantBufferManager;

@@ -59,5 +59,9 @@ private:
 	void processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device);
 	void processNodes(const aiScene* scene);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device);
-	DX12Texture* loadMaterialTexture(aiMaterial* mat, aiTextureType type);
+	std::shared_ptr<DX12Texture> loadMaterialTexture(aiMaterial* mat, aiTextureType type);
+	
+	// Have to lock a model when checking it's status due to MultiThreading
+	// TODO: made model loading simpler to not require this.
+	std::mutex isLoadedLock;
 };

@@ -64,6 +64,8 @@ void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 }
 
 bool Model::isLoaded() {
+	std::lock_guard<std::mutex> lk(isLoadedLock);
+
 	if ((indexBufferGPU.Get() == nullptr) || (vertexBufferGPU.Get() == nullptr)) {
 		return false;
 	}
@@ -72,8 +74,10 @@ bool Model::isLoaded() {
 			return false;
 		}
 	}
-	indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	if (!indexBuffer || !vertexBuffer) {
+		indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	}
 	return true;
 }
 
@@ -239,8 +243,8 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 	return meshStorage;
 }
 
-DX12Texture* Model::loadMaterialTexture(aiMaterial* mat, aiTextureType type) {
-	DX12Texture* texture = nullptr;
+std::shared_ptr<DX12Texture> Model::loadMaterialTexture(aiMaterial* mat, aiTextureType type) {
+	std::shared_ptr<DX12Texture> texture = nullptr;
 
 	if (mat->GetTextureCount(type) == 0) {
 		return texture;

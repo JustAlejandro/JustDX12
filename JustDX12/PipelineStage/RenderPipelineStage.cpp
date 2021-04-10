@@ -259,7 +259,7 @@ std::vector<DescriptorJob> RenderPipelineStage::buildMeshTexturesDescriptorJobs(
 		MODEL_FORMAT textureType = texMap.first;
 		DX12Resource* texture = nullptr;
 		if ((m->typeFlags & textureType) != 0) {
-			texture = m->textures.at(textureType);
+			texture = m->textures.at(textureType).get();
 		}
 		else {
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));
@@ -278,7 +278,7 @@ void RenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m, int u
 		DX12Resource* texture = nullptr;
 		auto textureIter = m->textures.find(textureType);
 		if (textureIter != m->textures.end()) {
-			texture = textureIter->second;
+			texture = textureIter->second.get();
 		}
 		else {
 			texture = resourceManager.getResource(renderStageDesc.defaultTextures.at(textureType));

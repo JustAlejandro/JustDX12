@@ -18,7 +18,7 @@ public:
 	void destroyAll();
 
 	// Returns pointer to texture, returnedValue->resource will remain nullptr until texture has completed loading
-	DX12Texture* deferLoad(std::string fileName, std::string dir = "..\\Models\\Sponza\\");
+	std::shared_ptr<DX12Texture> deferLoad(std::string fileName, std::string dir = "..\\Models\\");
 	// Will be made private once TextureLoadTask is integrated into this class
 	void loadTexture(DX12Texture* tex);
 	// Unimplemented
@@ -26,6 +26,6 @@ public:
 private:
 	UINT usageIndex = 0;
 	std::array<UINT, CPU_FRAME_COUNT> fenceValueForWait = { 0 };
-	std::unordered_map<std::string, DX12Texture> textures;
+	std::unordered_map<std::string, std::weak_ptr<DX12Texture>> textureCache;
 };
 

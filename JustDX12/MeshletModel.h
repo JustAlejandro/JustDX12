@@ -136,7 +136,7 @@ public:
 	std::string name;
 	std::string dir;
 
-	std::unordered_map<MODEL_FORMAT, DX12Texture*> textures;
+	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 
 	bool allTexturesLoaded();
 
