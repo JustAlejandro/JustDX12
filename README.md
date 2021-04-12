@@ -3,6 +3,18 @@ JustDX12 is a testing area in C++ for various DirectX12 rendering techniques, wi
 
 At a high level, this project can be thought of as a DirectX wrapper, somewhere between an actual game engine's graphics API wrapper and a Microsoft DX12 code sample.
 
+## Usage
+This project is more meant to emulate a game engine's rendering pipeline than it is to actually be any fun to play, so controls are fairly simple.
+- WASD: Movement
+- Mouse: Look around
+- Shift: Sprint
+- Ctrl: Toggle between Mouse movement controlling camera and mouse movement showing a cursor to interact with the Settings UI
+- Esc: Exit program.
+
+To load and unload scenes just use the model submenu in the UI.
+
+Some scenes and example scene files are supplied in the Required Files, which is the way JustDX12 handles loading and unloading of multiple models at once. Ex: `defaultScene.csv` contains the bistro scene as a single model and `bistroSeperated.csv` contains the bistro with each mesh as it's own model, and was used for testing.
+
 ## Hardware Requirements
 JustDX12 is primarily being used as a testing area at the moment for DirectX12 Ultimate, using DXR 1.1, Variable Rate Shading Tier 2, and Mesh Shaders. Because of this, any hardware not supporting all those features will not work with JustDX12.
 
@@ -60,8 +72,9 @@ This project has been built using Visual Studio 2019 using Nuget and vcpkg as pa
 
 ### Required Files:
 - [Compile Dependencies](https://drive.google.com/file/d/1GxMN1-Gc9TFypeqS1WbTwGxA88JLyOxi/view?usp=sharing)
+- [Models and Assets Large Size](https://drive.google.com/drive/folders/1rjROhcUtOFIjfCgME2v11kso1BDPMogQ?usp=sharing)
 - [Models and Assets](https://drive.google.com/drive/folders/1WVsMfeiAx80l6BVxj-8mMCvyrbrxpe9i?usp=sharing): Includes a simple full screen squad, a simple reflective sphere, the Bistro scene from Amazon's Lumberyard GDC showcase, and the Genesis Scan obtained from The Royal Armoury (Livrustkammaren)
-  - Bistro obtained through [NVIDIA's ORCA](https://developer.nvidia.com/orca/amazon-lumberyard-bistro), without modification
+  - Bistro obtained through [NVIDIA's ORCA](https://developer.nvidia.com/orca/amazon-lumberyard-bistro), with texture sizes reduced to lower download size (optional)
     - Licensed under Creative Commons [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)
   - Genesis Scan (referred to in project as 'Head') obtained from [Sketchfab](https://sketchfab.com/3d-models/the-genesis-scan-94a02238914d4282bb1098950ae2506f), with decimation to reduce poly count, reduction in texture file size of model
     - Licensed under Attribution-ShareAlike 4.0 International [(CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)
@@ -82,11 +95,3 @@ This project has been built using Visual Studio 2019 using Nuget and vcpkg as pa
 8. Take the *dxcompiler.dll* and *dxil.dll* and put them in the same directory as your compiled `.exe` file.
 9. Extract the contents of the folder downloaded called *RequiredModels* and place them into the *Models* folder.
 10. Run the program, it should hang until the Bistro model is loaded (takes several seconds), at which point you should be dropped into the Bistro scene.
-
-## Usage
-This project is more meant to emulate a game engine's rendering pipeline than it is to actually be any fun to play, so controls are fairly simple.
-- WASD: Movement
-- Mouse: Look around
-- Shift: Sprint
-- Ctrl: Toggle between Mouse movement controlling camera and mouse movement showing a cursor to interact with the Settings UI
-- Esc: Exit program.
