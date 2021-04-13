@@ -1,8 +1,8 @@
-#include "Tasks\TaskQueueThread.h"
+#include "Tasks\DX12TaskQueueThread.h"
 #include "DX12Helper.h"
 #include "Settings.h"
 
-TaskQueueThread::TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType) : md3dDevice(d3dDevice) {
+DX12TaskQueueThread::DX12TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType) : md3dDevice(d3dDevice) {
 
 	running = true;
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -27,10 +27,10 @@ TaskQueueThread::TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice
 
 	mCommandList->Close();
 
-	worker = std::thread(&TaskQueueThread::threadMain, this);
+	worker = std::thread(&DX12TaskQueueThread::threadMain, this);
 }
 
-TaskQueueThread::~TaskQueueThread() {
+DX12TaskQueueThread::~DX12TaskQueueThread() {
 	running = false;
 	taskCv.notify_one();
 	worker.join();
@@ -40,13 +40,13 @@ TaskQueueThread::~TaskQueueThread() {
 	}
 }
 
-void TaskQueueThread::enqueue(Task* t) {
+void DX12TaskQueueThread::enqueue(Task* t) {
 	std::lock_guard<std::mutex> lk(taskQueueMutex);
 	taskQueue.push(t);
 	taskCv.notify_one();
 }
 
-HANDLE TaskQueueThread::deferSetCpuEvent() {
+HANDLE DX12TaskQueueThread::deferSetCpuEvent() {
 	HANDLE ev = CreateEvent(
 		NULL,
 		FALSE,
@@ -56,26 +56,26 @@ HANDLE TaskQueueThread::deferSetCpuEvent() {
 	return ev;
 }
 
-void TaskQueueThread::waitOnFence() {
+void DX12TaskQueueThread::waitOnFence() {
 	fenceValue++;
 	setFence(fenceValue);
 	WaitOnFenceForever(mFence, fenceValue);
 }
 
-int TaskQueueThread::getFenceValue() {
+int DX12TaskQueueThread::getFenceValue() {
 	return fenceValue;
 }
 
-void TaskQueueThread::setFence(int destVal) {
+void DX12TaskQueueThread::setFence(int destVal) {
 	fenceValue = destVal;
 	mCommandQueue->Signal(mFence.Get(), fenceValue);
 }
 
-Microsoft::WRL::ComPtr<ID3D12Fence> TaskQueueThread::getFence() {
+Microsoft::WRL::ComPtr<ID3D12Fence> DX12TaskQueueThread::getFence() {
 	return mFence;
 }
 
-void TaskQueueThread::threadMain() {
+void DX12TaskQueueThread::threadMain() {
 	try {
 		while (true) {
 			std::unique_lock<std::mutex> lk(taskQueueMutex);

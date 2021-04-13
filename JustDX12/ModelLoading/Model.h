@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include "ModelLoading\Mesh.h"
-#include "Tasks\TaskQueueThread.h"
+#include "Tasks\DX12TaskQueueThread.h"
 #include <string>
 #include <assimp\scene.h>
 #include <DirectXCollision.h>
@@ -18,7 +18,7 @@ public:
 	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
 	~Model();
 
-	void setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene);
+	void setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 
 	bool isLoaded();
 

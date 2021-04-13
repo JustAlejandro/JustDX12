@@ -11,7 +11,7 @@
 #include "DX12App.h"
 
 TextureLoader::TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device5> dev) :
-	TaskQueueThread(dev, D3D12_COMMAND_LIST_TYPE_COPY) {
+	DX12TaskQueueThread(dev, D3D12_COMMAND_LIST_TYPE_COPY) {
 }
 
 TextureLoader& TextureLoader::getInstance() {

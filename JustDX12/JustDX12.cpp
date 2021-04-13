@@ -534,9 +534,17 @@ bool DemoApp::initialize() {
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
+	
 	SceneCsv scene("blankScene.csv", baseDir);
+	SceneCsv sceneBistro("bistroSeperated.csv", baseDir);
+
+	std::chrono::high_resolution_clock::time_point startFrameTime = std::chrono::high_resolution_clock::now();
+
 	loadScene(scene);
 	loadedScenes.push_back(scene);
+
+	loadScene(sceneBistro);
+	loadedScenes.push_back(sceneBistro);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
@@ -545,6 +553,10 @@ bool DemoApp::initialize() {
 	while (!modelLoader.allModelsLoaded()) {
 		ResourceDecay::checkDestroy();
 	}
+
+	std::chrono::high_resolution_clock::time_point endFrameTime = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> time_span = endFrameTime - startFrameTime;
+	OutputDebugStringA(std::to_string((float)time_span.count()).c_str());
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 

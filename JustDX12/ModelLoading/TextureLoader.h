@@ -4,10 +4,10 @@
 #include "Texture.h"
 #include "ModelLoading\Mesh.h"
 
-#include "Tasks\TaskQueueThread.h"
+#include "Tasks\DX12TaskQueueThread.h"
 
 // Singleton that represents a background thread that loads in textures
-class TextureLoader : public TaskQueueThread {
+class TextureLoader : public DX12TaskQueueThread {
 private:
 	TextureLoader(Microsoft::WRL::ComPtr<ID3D12Device5> dev);
 	TextureLoader(TextureLoader const&) = delete;

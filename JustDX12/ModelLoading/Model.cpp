@@ -24,7 +24,7 @@ Model::~Model() {
 	ResourceDecay::destroyAfterDelay(indexBufferGPU);
 }
 
-void Model::setup(TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
+void Model::setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 	processLights(scene);

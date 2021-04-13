@@ -10,13 +10,13 @@
 
 // Base class that represents a CPU thread that runs through a list of enqueued commands
 // An implementation similar to the Command pattern (though a little different)
-class TaskQueueThread {
+class DX12TaskQueueThread {
 protected:
 	std::vector<std::unique_ptr<FrameResource>> frameResourceArray;
 
 public:
-	TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
-	~TaskQueueThread();
+	DX12TaskQueueThread(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
+	~DX12TaskQueueThread();
 	void enqueue(Task* t);
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> md3dDevice;

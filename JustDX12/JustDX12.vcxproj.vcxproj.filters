@@ -6,7 +6,6 @@
     <ClCompile Include="JustDX12.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="Settings.cpp" />
-    <ClCompile Include="Tasks\TaskQueueThread.cpp" />
     <ClCompile Include="PipelineStage\ComputePipelineStage.cpp">
       <Filter>Pipelines</Filter>
     </ClCompile>
@@ -46,6 +45,7 @@
     <ClCompile Include="SceneCsv.cpp">
       <Filter>CsvLoader</Filter>
     </ClCompile>
+    <ClCompile Include="Tasks\DX12TaskQueueThread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -53,7 +53,6 @@
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="Tasks\PipelineStageTask.h" />
     <ClInclude Include="Settings.h" />
-    <ClInclude Include="Tasks\TaskQueueThread.h" />
     <ClInclude Include="Tasks\Task.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h">
       <Filter>Pipelines</Filter>
@@ -119,6 +118,7 @@
     </ClInclude>
     <ClInclude Include="FileSelect.h" />
     <ClInclude Include="ThreadPool.h" />
+    <ClInclude Include="Tasks\DX12TaskQueueThread.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

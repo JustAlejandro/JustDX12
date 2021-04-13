@@ -9,7 +9,7 @@
 using namespace Microsoft::WRL;
 
 PipelineStage::PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType)
-	: TaskQueueThread(d3dDevice, cmdListType), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
+	: DX12TaskQueueThread(d3dDevice, cmdListType), resourceManager(d3dDevice), descriptorManager(d3dDevice), constantBufferManager(d3dDevice) {
 	for (int i = 0; i < CPU_FRAME_COUNT; i++) {
 		frameResourceArray.push_back(std::make_unique<FrameResource>(md3dDevice.Get(), cmdListType));
 	}

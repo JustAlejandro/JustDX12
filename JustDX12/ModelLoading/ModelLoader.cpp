@@ -7,8 +7,8 @@
 #include "DX12App.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
-	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
-	loaderHelpThread = std::make_unique<TaskQueueThread>(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY);
+	: DX12TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
+	loaderHelpThread = std::make_unique<DX12TaskQueueThread>(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY);
 }
 ModelLoader& ModelLoader::getInstance() {
 	static ModelLoader instance(DX12App::getDevice());
@@ -495,7 +495,7 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 	}
 }
 
-ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(TaskQueueThread* taskQueueThread, MeshletModel* model) {
+ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, MeshletModel* model) {
 	this->model = model;
 	this->taskQueueThread = taskQueueThread;
 }

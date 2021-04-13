@@ -15,7 +15,7 @@
 #include "ModelLoading\Model.h"
 #include "MeshletModel.h"
 
-#include "Tasks\TaskQueueThread.h"
+#include "Tasks\DX12TaskQueueThread.h"
 
 // Buffers required to be held until build process completed.
 // TODO: move structure to ModelLoader's private
@@ -30,7 +30,7 @@ class RtRenderPipelineStage;
 // Handles all Model loading actions and contains all data needed for RT structures
 // load actions are run on a seperate thread, which is why this is a singleton (want only one loading thread ATM)
 // recommended to not use any of the RT 'Deferred' functions since they'll hang until all enqued ModelLoad actions are complete
-class ModelLoader: public TaskQueueThread {
+class ModelLoader: public DX12TaskQueueThread {
 private:
 	ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice);
 	ModelLoader(ModelLoader const&) = delete;
@@ -100,14 +100,14 @@ private:
 
 	class MeshletModelLoadTask : public Task {
 	public:
-		MeshletModelLoadTask(TaskQueueThread* taskQueueThread, MeshletModel* model);
+		MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, MeshletModel* model);
 		virtual ~MeshletModelLoadTask() override = default;
 
 		void execute() override;
 
 	private:
 		MeshletModel* model;
-		TaskQueueThread* taskQueueThread;
+		DX12TaskQueueThread* taskQueueThread;
 	};
 
 	class RTStructureLoadTask : public Task {
@@ -133,7 +133,7 @@ private:
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
 	};
 
-	std::unique_ptr<TaskQueueThread> loaderHelpThread;
+	std::unique_ptr<DX12TaskQueueThread> loaderHelpThread;
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;

@@ -7,7 +7,7 @@
 
 #include "FrameResource.h"
 
-#include "Tasks\TaskQueueThread.h"
+#include "Tasks\DX12TaskQueueThread.h"
 #include "DescriptorClasses\DescriptorManager.h"
 #include "ResourceClasses\ResourceManager.h"
 #include "ConstantBufferManager.h"
@@ -115,9 +115,9 @@ struct PipeLineStageDesc {
 
 // Base class that represents a set of actions to be performed on the GPU (render/compute subclasses atm)
 // Almost all actions performed on this object are in a 'deferred' manner, meaning that the user enqueues
-// commands and a thread that belongs to this object will process all commands (see TaskQueueThread for more)
+// commands and a thread that belongs to this object will process all commands (see DX12TaskQueueThread for more)
 // TODO: possibly use a threadpool for this purpose, so we don't have a thread for each PipelineStage
-class PipelineStage : public TaskQueueThread {
+class PipelineStage : public DX12TaskQueueThread {
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
 
