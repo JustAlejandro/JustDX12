@@ -1,5 +1,6 @@
 #pragma once
 #include <Settings.h>
+#include <mutex>
 
 class DescriptorManager;
 
@@ -63,13 +64,20 @@ private:
 		}
 	};
 
+	// Needs to be thread-safe, so for now doing the old and bad approach of just giving each one a lock (hasn't come up, but it will)
+	std::mutex onDelayFreeDescriptorMutex;
 	std::array<std::vector<FreeDescriptor>, CPU_FRAME_COUNT> onDelayFreeDescriptor;
 
+	std::mutex onEventResourcesMutex;
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, SwapEvent>> onEventResources;
+	std::mutex onSpecificDelayResourcesMutex;
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, int>> onSpecificDelayResources;
+	std::mutex onDelayResourcesMutex;
 	std::array<std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>>, CPU_FRAME_COUNT> onDelayResources;
+	std::mutex onDelaySwapResourcesMutex;
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, SwapEvent>> onDelaySwapResources;
 
+	std::mutex onSpecificDelayQueriesMutex;
 	std::list<std::pair<Microsoft::WRL::ComPtr<ID3D12QueryHeap>, int>> onSpecificDelayQueries;
 };
 
