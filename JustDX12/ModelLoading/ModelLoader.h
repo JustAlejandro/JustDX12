@@ -75,6 +75,66 @@ private:
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	
+	class ModelLoadTask : public Task {
+	public:
+		ModelLoadTask(std::shared_ptr<Model> model);
+		virtual ~ModelLoadTask() override = default;
+
+		void execute() override;
+
+	private:
+		std::shared_ptr<Model> model;
+	};
+
+	class ModelLoadSetupTask : public Task {
+	public:
+		ModelLoadSetupTask(std::shared_ptr<Model> model, std::unique_ptr<Assimp::Importer> importer);
+		virtual ~ModelLoadSetupTask() override = default;
+
+		void execute() override;
+
+	private:
+		std::shared_ptr<Model> model;
+		std::unique_ptr<Assimp::Importer> importer;
+	};
+
+	class MeshletModelLoadTask : public Task {
+	public:
+		MeshletModelLoadTask(TaskQueueThread* taskQueueThread, MeshletModel* model);
+		virtual ~MeshletModelLoadTask() override = default;
+
+		void execute() override;
+
+	private:
+		MeshletModel* model;
+		TaskQueueThread* taskQueueThread;
+	};
+
+	class RTStructureLoadTask : public Task {
+	public:
+		RTStructureLoadTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers);
+		virtual ~RTStructureLoadTask() override = default;
+
+		void execute() override;
+
+	private:
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
+		std::vector<AccelerationStructureBuffers>& scratchBuffers;
+	};
+
+	class RTStructureUpdateTask : public Task {
+	public:
+		RTStructureUpdateTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+		virtual ~RTStructureUpdateTask() override = default;
+
+		void execute() override;
+
+	private:
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
+	};
+
+	std::unique_ptr<TaskQueueThread> loaderHelpThread;
+
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;
 	bool modelCountChanged = false;

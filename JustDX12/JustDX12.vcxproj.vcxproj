@@ -222,7 +222,6 @@
     <ClInclude Include="RtRenderPipelineStage.h" />
     <ClInclude Include="SceneCsv.h" />
     <ClInclude Include="SceneNode.h" />
-    <ClInclude Include="Tasks\ModelLoadTask.h" />
     <ClInclude Include="PipelineStage\PipelineStage.h" />
     <ClInclude Include="Tasks\PipelineStageTask.h" />
     <ClInclude Include="PipelineStage\RenderPipelineStage.h" />
@@ -236,6 +235,7 @@
     <ClInclude Include="ModelLoading\TextureLoader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="TextureLoadTask.h" />
+    <ClInclude Include="ThreadPool.h" />
     <ClInclude Include="TransformData.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,6 +1,5 @@
 #include "ModelLoading\ModelLoader.h"
 
-#include "Tasks\ModelLoadTask.h"
 #include "DX12Helper.h"
 
 #include "ResourceDecay.h"
@@ -9,7 +8,7 @@
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
-
+	loaderHelpThread = std::make_unique<TaskQueueThread>(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY);
 }
 ModelLoader& ModelLoader::getInstance() {
 	static ModelLoader instance(DX12App::getDevice());
@@ -147,7 +146,7 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 		}
 		instance.loadingModels.push_back(std::make_pair(dir + name, std::make_shared<Model>(name, dir, instance.md3dDevice.Get(), usesRT)));
 		model = instance.loadingModels.back().second;
-		instance.enqueue(new ModelLoadTask(&instance, instance.loadingModels.back().second.get()));
+		instance.enqueue(new ModelLoadTask(instance.loadingModels.back().second));
 	}
 	else {
 		model = findModel->second;
@@ -189,7 +188,7 @@ void ModelLoader::registerRtUser(RtRenderPipelineStage* user) {
 
 HANDLE ModelLoader::buildRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) {
 	auto& instance = ModelLoader::getInstance();
-	instance.enqueue(new RTStructureLoadTask(&instance, cmdList, scratchBuffers));
+	instance.enqueue(new RTStructureLoadTask(cmdList, scratchBuffers));
 	HANDLE ev = CreateEvent(
 		NULL,
 		FALSE,
@@ -242,7 +241,7 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 
 HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	auto& instance = ModelLoader::getInstance();
-	instance.enqueue(new RTStructureUpdateTask(&instance, cmdList));
+	instance.enqueue(new RTStructureUpdateTask(cmdList));
 	HANDLE ev = CreateEvent(
 		NULL,
 		FALSE,
@@ -253,14 +252,6 @@ HANDLE ModelLoader::updateRTAccelerationStructureDeferred(Microsoft::WRL::ComPtr
 }
 
 void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
-	static bool once = false; 
-	if (!once) {
-		once = true;
-	}
-	else {
-		//return;
-	}
-
 	if (!supportsRt()) {
 		return;
 	}
@@ -459,4 +450,83 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 
 	tlas = tlasScratch.pResult.Get();
 	SetName(tlas.Get(), L"TLAS Structure");
+}
+
+ModelLoader::ModelLoadTask::ModelLoadTask(std::shared_ptr<Model> model) {
+	this->model = model;
+}
+
+void ModelLoader::ModelLoadTask::execute() {
+	ModelLoader& instance = ModelLoader::getInstance();
+
+	// Have to alloc to pass around, will try allocating a pool of these initially at some point.
+	std::unique_ptr<Assimp::Importer> importer = std::make_unique<Assimp::Importer>();
+
+	OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());
+	// Trying to limit IO to a single thread.
+	importer->ReadFile(model->dir + "\\" + model->name, 0);
+
+	instance.loaderHelpThread->enqueue(new ModelLoadSetupTask(model, std::move(importer)));
+}
+
+ModelLoader::ModelLoadSetupTask::ModelLoadSetupTask(std::shared_ptr<Model> model, std::unique_ptr<Assimp::Importer> importer) {
+	this->model = model;
+	this->importer = std::move(importer);
+}
+
+void ModelLoader::ModelLoadSetupTask::execute() {
+	auto& instance = ModelLoader::getInstance();
+
+	const aiScene* scene = importer->ApplyPostProcessing(aiProcess_GenUVCoords | aiProcess_Triangulate | aiProcess_ConvertToLeftHanded |
+		aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_FindInstances |
+		aiProcess_SplitLargeMeshes);
+	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+		std::string error = importer->GetErrorString();
+		OutputDebugStringA(("ERROR::ASSIMP::" + error).c_str());
+	}
+	else {
+		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
+		// TODO: possibly have multiple allocators for model loading.
+		instance.waitOnFence();
+		instance.mDirectCmdListAlloc->Reset();
+		instance.mCommandList->Reset(instance.mDirectCmdListAlloc.Get(), nullptr);
+		instance.mDirectCmdListAlloc->SetName(L"ModelLoad");
+		model->setup(&instance, scene->mRootNode, scene);
+	}
+}
+
+ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(TaskQueueThread* taskQueueThread, MeshletModel* model) {
+	this->model = model;
+	this->taskQueueThread = taskQueueThread;
+}
+
+void ModelLoader::MeshletModelLoadTask::execute() {
+	taskQueueThread->mDirectCmdListAlloc->Reset();
+	taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
+
+	OutputDebugStringA(("Starting to Load Meshlet Model: " + model->name + "\n").c_str());
+
+	model->LoadFromFile(model->dir + "\\" + model->name);
+
+	OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
+
+	model->UploadGpuResources(taskQueueThread->md3dDevice.Get(), taskQueueThread->mCommandQueue.Get(), taskQueueThread->mDirectCmdListAlloc.Get(), taskQueueThread->mCommandList.Get());
+
+	OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
+}
+
+ModelLoader::RTStructureLoadTask::RTStructureLoadTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) : scratchBuffers(scratchBuffers) {
+	this->cmdList = cmdList;
+}
+
+void ModelLoader::RTStructureLoadTask::execute() {
+	ModelLoader::getInstance().buildRTAccelerationStructure(cmdList, scratchBuffers);
+}
+
+ModelLoader::RTStructureUpdateTask::RTStructureUpdateTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+	this->cmdList = cmdList;
+}
+
+void ModelLoader::RTStructureUpdateTask::execute() {
+	ModelLoader::getInstance().updateRTAccelerationStructure(cmdList);
 }

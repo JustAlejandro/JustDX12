@@ -70,9 +70,6 @@
     <ClInclude Include="ModelLoading\ModelLoader.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
-    <ClInclude Include="Tasks\ModelLoadTask.h">
-      <Filter>ModelLoading</Filter>
-    </ClInclude>
     <ClInclude Include="ModelLoading\TextureLoader.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
@@ -121,6 +118,7 @@
       <Filter>CsvLoader</Filter>
     </ClInclude>
     <ClInclude Include="FileSelect.h" />
+    <ClInclude Include="ThreadPool.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
