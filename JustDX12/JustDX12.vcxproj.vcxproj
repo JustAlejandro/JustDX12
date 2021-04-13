@@ -191,12 +191,14 @@
     <ClCompile Include="SceneCsv.cpp" />
     <ClCompile Include="SceneNode.cpp" />
     <ClCompile Include="Settings.cpp" />
+    <ClCompile Include="TaskQueueThread.cpp" />
     <ClCompile Include="Tasks\DX12TaskQueueThread.cpp" />
     <ClCompile Include="ModelLoading\Model.cpp" />
     <ClCompile Include="ModelLoading\ModelLoader.cpp" />
     <ClCompile Include="ModelLoading\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ClassDiagram.cd" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -223,6 +225,7 @@
     <ClInclude Include="SceneCsv.h" />
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="PipelineStage\PipelineStage.h" />
+    <ClInclude Include="TaskQueueThread.h" />
     <ClInclude Include="Tasks\PipelineStageTask.h" />
     <ClInclude Include="PipelineStage\RenderPipelineStage.h" />
     <ClInclude Include="ResourceClasses\ResourceManager.h" />

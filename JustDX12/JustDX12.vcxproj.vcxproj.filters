@@ -45,7 +45,12 @@
     <ClCompile Include="SceneCsv.cpp">
       <Filter>CsvLoader</Filter>
     </ClCompile>
-    <ClCompile Include="Tasks\DX12TaskQueueThread.cpp" />
+    <ClCompile Include="Tasks\DX12TaskQueueThread.cpp">
+      <Filter>ThreadObjects</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskQueueThread.cpp">
+      <Filter>ThreadObjects</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -117,11 +122,19 @@
       <Filter>CsvLoader</Filter>
     </ClInclude>
     <ClInclude Include="FileSelect.h" />
-    <ClInclude Include="ThreadPool.h" />
-    <ClInclude Include="Tasks\DX12TaskQueueThread.h" />
+    <ClInclude Include="ThreadPool.h">
+      <Filter>ThreadObjects</Filter>
+    </ClInclude>
+    <ClInclude Include="Tasks\DX12TaskQueueThread.h">
+      <Filter>ThreadObjects</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskQueueThread.h">
+      <Filter>ThreadObjects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Pipelines">
@@ -138,6 +151,9 @@
     </Filter>
     <Filter Include="CsvLoader">
       <UniqueIdentifier>{c7ceaf6c-45a4-43ed-8985-3d7245fa5d39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThreadObjects">
+      <UniqueIdentifier>{8dff6d3d-cfc0-425c-b500-b86b26f57794}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
