@@ -196,6 +196,7 @@
     <ClCompile Include="ModelLoading\Model.cpp" />
     <ClCompile Include="ModelLoading\ModelLoader.cpp" />
     <ClCompile Include="ModelLoading\TextureLoader.cpp" />
+    <ClCompile Include="ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ClassDiagram.cd" />

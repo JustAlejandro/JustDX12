@@ -51,6 +51,7 @@
     <ClCompile Include="TaskQueueThread.cpp">
       <Filter>ThreadObjects</Filter>
     </ClCompile>
+    <ClCompile Include="ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />

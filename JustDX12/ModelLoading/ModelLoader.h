@@ -133,7 +133,8 @@ private:
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
 	};
 
-	std::unique_ptr<DX12TaskQueueThread> loaderHelpThread;
+	// Only have a single copy queue, so have to lock access to it by the processing threads.
+	std::mutex commandQueueLock;
 
 	// Since we're storing the models in this class, we need to synchronize access.
 	std::mutex databaseLock;

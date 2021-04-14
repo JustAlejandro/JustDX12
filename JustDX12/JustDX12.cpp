@@ -66,7 +66,7 @@ private:
 	virtual void mouseMove(WPARAM btnState, int x, int y);
 
 	void updateCamera();
-	
+
 	void UpdateObjectCBs();
 	void UpdateMaterialCBs();
 	void UpdateMainPassCB();
@@ -133,7 +133,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		app.run();
 	}
 	catch (const HrException& hrEx) {
-		 MessageBoxA(nullptr, hrEx.what(), "HR Exception", MB_OK);
+		MessageBoxA(nullptr, hrEx.what(), "HR Exception", MB_OK);
 	}
 	catch (const std::string& ex) {
 		MessageBoxA(nullptr, ex.c_str(), "String Exception", MB_OK);
@@ -384,7 +384,7 @@ bool DemoApp::initialize() {
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputColor", renderStage->getResource("albedo")));
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputSpec", renderStage->getResource("specular")));
 		stageDesc.externalResources.push_back(std::make_pair("renderOutputNormals", renderStage->getResource("normal")));
-		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("tangent"))); 
+		stageDesc.externalResources.push_back(std::make_pair("renderOutputTangents", renderStage->getResource("tangent")));
 
 		stageDesc.resourceJobs.push_back(ResourceJob("SSAOOutTexture", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UNORM));
 
@@ -449,7 +449,7 @@ bool DemoApp::initialize() {
 		desc.rootSigDesc.push_back(RootParamDesc("HBlurredSSAODesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
 		desc.rootSigDesc.push_back(RootParamDesc("FullBlurredSSAODesc", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 1, D3D12_DESCRIPTOR_RANGE_TYPE_UAV));
 
-		desc.shaderFiles.push_back(ShaderDesc("Blur.hlsl", "Vertical Blur", "VBlur", SHADER_TYPE_CS, {DXDefine(L"VBLUR",L"")}));
+		desc.shaderFiles.push_back(ShaderDesc("Blur.hlsl", "Vertical Blur", "VBlur", SHADER_TYPE_CS, { DXDefine(L"VBLUR",L"") }));
 
 		ComputePipelineDesc cDesc;
 		cDesc.groupCount[0] = (UINT)ceilf(gScreenWidth);
@@ -524,7 +524,7 @@ bool DemoApp::initialize() {
 		cDesc.groupCount[0] = DivRoundUp(gScreenWidth, vrsSupport.ShadingRateImageTileSize);
 		cDesc.groupCount[1] = DivRoundUp(gScreenHeight, vrsSupport.ShadingRateImageTileSize);
 		cDesc.groupCount[2] = 1;
-		
+
 		vrsComputeStage = std::make_unique<ComputePipelineStage>(md3dDevice, cDesc);
 		vrsComputeStage->deferSetup(stageDesc);
 	}
@@ -534,17 +534,9 @@ bool DemoApp::initialize() {
 	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
-	
 	SceneCsv scene("blankScene.csv", baseDir);
-	SceneCsv sceneBistro("bistroSeperated.csv", baseDir);
-
-	std::chrono::high_resolution_clock::time_point startFrameTime = std::chrono::high_resolution_clock::now();
-
 	loadScene(scene);
 	loadedScenes.push_back(scene);
-
-	loadScene(sceneBistro);
-	loadedScenes.push_back(sceneBistro);
 
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
@@ -553,10 +545,6 @@ bool DemoApp::initialize() {
 	while (!modelLoader.allModelsLoaded()) {
 		ResourceDecay::checkDestroy();
 	}
-
-	std::chrono::high_resolution_clock::time_point endFrameTime = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double, std::milli> time_span = endFrameTime - startFrameTime;
-	OutputDebugStringA(std::to_string((float)time_span.count()).c_str());
 
 	mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr);
 
@@ -673,7 +661,7 @@ void DemoApp::draw() {
 	mCommandList->ResourceBarrier(1, &transToPresent);
 
 	PIXEndEvent(mCommandList.Get());
-	
+
 	mCommandList->Close();
 
 	std::vector<ID3D12CommandList*> cmdList = { renderStage->mCommandList.Get() };
@@ -839,8 +827,7 @@ void DemoApp::loadScene(SceneCsv scene) {
 	}
 }
 
-void DemoApp::unloadScene(std::string fileName)
-{
+void DemoApp::unloadScene(std::string fileName) {
 	int sceneIdx = -1;
 	for (size_t i = 0; i < loadedScenes.size(); i++) {
 		if (loadedScenes[i].getFileName() == fileName) {
@@ -855,7 +842,7 @@ void DemoApp::unloadScene(std::string fileName)
 		loadedScenes.erase(loadedScenes.begin() + sceneIdx);
 	}
 	else {
-		MessageBoxA(nullptr, ("Couldn't unload SceneCsv: " + fileName + "\nNo scene with that file name is loaded.").c_str() , "Couldn't Unload Scene", MB_OK);
+		MessageBoxA(nullptr, ("Couldn't unload SceneCsv: " + fileName + "\nNo scene with that file name is loaded.").c_str(), "Couldn't Unload Scene", MB_OK);
 	}
 }
 
@@ -949,7 +936,7 @@ void DemoApp::onKeyboardInput() {
 	DirectX::XMFLOAT4 moveRes = {};
 	DirectX::XMStoreFloat4(&moveRes, DirectX::XMVector4Transform(
 		DirectX::XMVectorSet(move.x, move.y, move.z, move.w), look));
-	
+
 	float timeElapsed = ImGui::GetIO().DeltaTime;
 	eyePos.x += moveRes.x * timeElapsed;
 	eyePos.y += moveRes.y * 0.0f;
@@ -979,7 +966,7 @@ void DemoApp::updateCamera() {
 	DirectX::XMVECTOR pos = DirectX::XMLoadFloat4(&eyePos);
 	DirectX::XMVECTOR target = DirectX::XMVectorZero();
 	target = DirectX::XMVectorAdd(DirectX::XMVector4Transform(
-		DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), 
+		DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f),
 		DirectX::XMMatrixRotationRollPitchYaw(lookAngle[0], lookAngle[1], lookAngle[2])), pos);
 	DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 

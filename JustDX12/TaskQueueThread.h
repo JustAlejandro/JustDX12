@@ -8,11 +8,10 @@
 // Base class that represents a CPU thread that runs through a list of enqueued commands
 // An implementation similar to the Command pattern (though a little different)
 class TaskQueueThread {
-protected:
+public:
 	TaskQueueThread();
 	~TaskQueueThread();
 
-public:
 	void enqueue(Task* t);
 
 	HANDLE deferSetCpuEvent();

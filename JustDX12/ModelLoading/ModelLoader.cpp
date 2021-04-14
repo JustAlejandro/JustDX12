@@ -2,13 +2,13 @@
 
 #include "DX12Helper.h"
 
+#include "ThreadPool.h"
 #include "ResourceDecay.h"
 #include "RtRenderPipelineStage.h"
 #include "DX12App.h"
 
 ModelLoader::ModelLoader(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice)
 	: DX12TaskQueueThread(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY) {
-	loaderHelpThread = std::make_unique<DX12TaskQueueThread>(d3dDevice, D3D12_COMMAND_LIST_TYPE_COPY);
 }
 ModelLoader& ModelLoader::getInstance() {
 	static ModelLoader instance(DX12App::getDevice());
@@ -466,7 +466,7 @@ void ModelLoader::ModelLoadTask::execute() {
 	// Trying to limit IO to a single thread.
 	importer->ReadFile(model->dir + "\\" + model->name, 0);
 
-	instance.loaderHelpThread->enqueue(new ModelLoadSetupTask(model, std::move(importer)));
+	ThreadPool::enqueue(new ModelLoadSetupTask(model, std::move(importer)));
 }
 
 ModelLoader::ModelLoadSetupTask::ModelLoadSetupTask(std::shared_ptr<Model> model, std::unique_ptr<Assimp::Importer> importer) {
@@ -487,6 +487,7 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 	else {
 		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 		// TODO: possibly have multiple allocators for model loading.
+		std::lock_guard<std::mutex> lk(instance.commandQueueLock);
 		instance.waitOnFence();
 		instance.mDirectCmdListAlloc->Reset();
 		instance.mCommandList->Reset(instance.mDirectCmdListAlloc.Get(), nullptr);
