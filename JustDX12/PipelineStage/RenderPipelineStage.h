@@ -54,7 +54,6 @@ public:
 	void execute() override;
 
 	void loadMeshletModel(std::string fileName, std::string dirName, bool usesRT = false);
-	void unloadModel(std::string referenceName);
 	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);
 
 	// Data associated with culling

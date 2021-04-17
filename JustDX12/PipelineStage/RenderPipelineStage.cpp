@@ -1,7 +1,6 @@
 #include "PipelineStage\RenderPipelineStage.h"
 #include "DescriptorClasses\DescriptorManager.h"
 #include "ModelLoading/ModelLoader.h"
-#include "RenderPipelineStageTask.h"
 #include <string>
 #include "Settings.h"
 #include "MeshletModel.h"
@@ -106,11 +105,6 @@ void RenderPipelineStage::execute() {
 
 void RenderPipelineStage::loadMeshletModel(std::string fileName, std::string dirName, bool usesRT) {
 	meshletRenderObjects.push_back(ModelLoader::loadMeshletModel(fileName, dirName, usesRT));
-}
-
-void RenderPipelineStage::unloadModel(std::string friendlyName) {
-	auto ptr = nameToModel[friendlyName].lock();
-	ModelLoader::unloadModel(ptr->name, ptr->dir);
 }
 
 void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform) {
@@ -319,15 +313,6 @@ bool RenderPipelineStage::setupRenderObjects() {
 		index++;
 	}
 
-	for (int i = 0; i < renderObjects.size(); i++) {
-		std::shared_ptr<Model> obj = renderObjects[i].lock();
-		if (!obj) {
-			renderObjects.erase(renderObjects.begin() + i);
-			i--;
-			newObjectsLoadedOrDeleted = true;
-		}
-	}
-
 	return newObjectsLoadedOrDeleted;
 }
 
@@ -490,6 +475,8 @@ void RenderPipelineStage::drawRenderObjects() {
 	for (int i = 0; i < renderObjects.size(); i++) {
 		std::shared_ptr<Model> model = renderObjects[i].lock();
 		if (!model) {
+			renderObjects.erase(renderObjects.begin() + i);
+			i--;
 			modelIndex++;
 			continue;
 		}

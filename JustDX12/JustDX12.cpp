@@ -895,7 +895,8 @@ void DemoApp::unloadModel(std::string name) {
 	auto modelData = activeModels.find(name);
 	if (modelData != activeModels.end()) {
 		activeModels.erase(modelData);
-		renderStage->unloadModel(name);
+		auto model = modelData->second.model.lock();
+		ModelLoader::unloadModel(model->name, model->dir);
 	}
 }
 
