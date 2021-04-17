@@ -25,6 +25,9 @@ public:
 	D3D12_VERTEX_BUFFER_VIEW getVertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW getIndexBufferView()const;
 
+	void updateInstanceCount(UINT count);
+	void updateInstanceTransform(UINT index, DirectX::XMFLOAT4X4 transform);
+
 	void refreshAllTransforms();
 	void refreshBoundingBox();
 

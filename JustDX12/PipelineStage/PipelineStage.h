@@ -120,6 +120,8 @@ struct PipeLineStageDesc {
 class PipelineStage : public DX12TaskQueueThread {
 protected:
 	PipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, D3D12_COMMAND_LIST_TYPE cmdListType = D3D12_COMMAND_LIST_TYPE_DIRECT);
+	PipelineStage(PipelineStage const&) = delete;
+	void operator=(PipelineStage const&) = delete;
 
 public:
 	// Once all the PipelineStages that will be a part of this application are setup, this method will resolve all the state transitions

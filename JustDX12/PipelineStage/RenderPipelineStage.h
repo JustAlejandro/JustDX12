@@ -1,7 +1,10 @@
 #pragma once
-#include "PipelineStage\PipelineStage.h"
 #include <array>
 #include <DirectXCollision.h>
+
+#include "PipelineStage\PipelineStage.h"
+#include "ModelListener.h"
+
 class Model;
 class Mesh;
 class ModelLoader;
@@ -41,7 +44,7 @@ struct RenderPipelineDesc {
 	std::vector<std::pair<MODEL_FORMAT, std::string>> meshletTextureToDescriptor;
 };
 
-class RenderPipelineStage : public PipelineStage {
+class RenderPipelineStage : public PipelineStage, public ModelListener {
 public:
 	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 	~RenderPipelineStage();
@@ -50,14 +53,8 @@ public:
 
 	void execute() override;
 
-	// Enqueues a load operation on the ModelLoader, 'usesRT' flag dictates if the loaded Model will be in the global RT TLAS structure
-	// the model loaded will not be drawn until the model has finished loading, 
-	// but while loading can still have it's instance count and transforms changed
-	void loadModel(std::string referenceName, std::string fileName, std::string dirName, bool usesRT = false);
 	void loadMeshletModel(std::string fileName, std::string dirName, bool usesRT = false);
 	void unloadModel(std::string referenceName);
-	void updateInstanceCount(std::string referenceName, UINT instanceCount);
-	void updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform);
 	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);
 
 	// Data associated with culling
@@ -73,6 +70,8 @@ protected:
 	std::vector<DescriptorJob> buildMeshTexturesDescriptorJobs(Mesh* m);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
 	void buildInputLayout() override;
+	// Inherited via ModelListener
+	virtual void processModel(std::weak_ptr<Model> model) override;
 	bool setupRenderObjects();
 	void setupOcclusionBoundingBoxes();
 
@@ -95,9 +94,6 @@ protected:
 
 	// Map from user friendly names to Model pointers.
 	std::unordered_map<std::string, std::weak_ptr<Model>> nameToModel;
-	// Vector holding Models that are still loading, which move to 'renderObjects' on load completion
-	// This prevents the need to check every model every frame for if it's been loaded or not.
-	std::vector<std::weak_ptr<Model>> loadingRenderObjects;
 	// ModelLoader still 'owns' models, so as long as we process all the unloads in a thread-safe way
 	// the RenderPipelineStage should be aware of when a renderObject is no longer available
 	std::vector<std::weak_ptr<Model>> renderObjects;

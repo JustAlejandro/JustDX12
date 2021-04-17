@@ -58,25 +58,21 @@ void Model::setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scen
 
 	// the ResourceDecay class will tell the model about the resource only once the copy is completed.
 	int fenceVal = thread->getFenceValue() + 1;
-	ResourceDecay::destroyOnEventAndFillPointer(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), vertexBuffer, &vertexBufferGPU);
-	ResourceDecay::destroyOnEventAndFillPointer(indexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal), indexBuffer, &indexBufferGPU);
+	vertexBufferGPU = vertexBuffer;
+	indexBufferGPU = indexBuffer;
+	this->indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	this->vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	ResourceDecay::destroyOnEvent(vertexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal));
+	ResourceDecay::destroyOnEvent(indexBufferUploader, EventFromFence(thread->getFence().Get(), fenceVal));
 	thread->setFence(fenceVal);
 }
 
 bool Model::isLoaded() {
 	std::lock_guard<std::mutex> lk(isLoadedLock);
-
-	if ((indexBufferGPU.Get() == nullptr) || (vertexBufferGPU.Get() == nullptr)) {
-		return false;
-	}
 	for (auto& m : meshes) {
 		if (!m.allTexturesLoaded()) {
 			return false;
 		}
-	}
-	if (!indexBuffer || !vertexBuffer) {
-		indexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, indexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		vertexBuffer = std::make_unique<DX12Resource>(DESCRIPTOR_TYPE_CBV, vertexBufferGPU.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	}
 	return true;
 }
@@ -95,6 +91,14 @@ D3D12_INDEX_BUFFER_VIEW Model::getIndexBufferView() const {
 	ibv.Format = indexFormat;
 	ibv.SizeInBytes = indexBufferByteSize;
 	return ibv;
+}
+
+void Model::updateInstanceCount(UINT count) {
+	this->transform.setInstanceCount(count);
+}
+
+void Model::updateInstanceTransform(UINT index, DirectX::XMFLOAT4X4 transform) {
+	this->transform.setTransform(index, transform);
 }
 
 void Model::refreshAllTransforms() {

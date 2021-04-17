@@ -17,16 +17,7 @@ ModelLoader& ModelLoader::getInstance() {
 bool ModelLoader::allModelsLoaded() {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
-	for (int i = 0; i < instance.loadingModels.size(); i++) {
-		Model* m = instance.loadingModels[i].second.get();
-		if (m->isLoaded()) {
-			instance.loadedModels[instance.loadingModels[i].first] = instance.loadingModels[i].second;
-			instance.loadingModels.erase(instance.loadingModels.begin() + i);
-			i--;
-			instance.modelCountChanged = true;
-		}
-	}
-	if (!instance.loadingModels.empty()) {
+	if (instance.loadedModels.size() < 3) {
 		return false;
 	}
 	for (auto& meshletModel : instance.loadedMeshlets) {
@@ -43,7 +34,6 @@ void ModelLoader::destroyAll() {
 	instance.TLAS.Reset();
 	instance.loadedModels.clear();
 	instance.loadedMeshlets.clear();
-	instance.loadingModels.clear();
 }
 
 bool ModelLoader::isModelCountChanged() {
@@ -123,9 +113,6 @@ void ModelLoader::updateTransforms() {
 	for (auto& model : instance.loadedModels) {
 		model.second->transform.submitUpdates(gFrameIndex);
 	}
-	for (auto& model : instance.loadingModels) {
-		model.second->transform.submitUpdates(gFrameIndex);
-	}
 	for (auto& meshletModel : instance.loadedMeshlets) {
 		meshletModel.second.transform.submitUpdates(gFrameIndex);
 	}
@@ -138,15 +125,11 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 	auto findModel = instance.loadedModels.find(dir + name);
 	std::weak_ptr<Model> model;
 	if (findModel == instance.loadedModels.end()) {
-		// Search through what's loading for the model
-		for (int i = 0; i < instance.loadingModels.size(); i++) {
-			if (instance.loadingModels[i].first == (dir + name)) {
-				return instance.loadingModels[i].second;
-			}
-		}
-		instance.loadingModels.push_back(std::make_pair(dir + name, std::make_shared<Model>(name, dir, instance.md3dDevice.Get(), usesRT)));
-		model = instance.loadingModels.back().second;
-		instance.enqueue(new ModelLoadTask(instance.loadingModels.back().second));
+		// Don't have tracking of loading models, have to see about making this safer, but it does
+		// keep the model loading code far simpler.
+		std::shared_ptr<Model> mPtr = std::make_shared<Model>(name, dir, instance.md3dDevice.Get(), usesRT);
+		model = mPtr;
+		instance.enqueue(new ModelLoadTask(mPtr));
 	}
 	else {
 		model = findModel->second;
@@ -179,6 +162,22 @@ void ModelLoader::unloadModel(std::string name, std::string dir) {
 		instance.loadedModels.erase(findModel);
 	}
 	instance.modelCountChanged = true;
+}
+
+void ModelLoader::registerModelListener(ModelListener* listener) {
+	auto& instance = ModelLoader::getInstance();
+	{
+		std::lock_guard<std::mutex> lk(instance.modelListenerLock);
+		instance.modelListeners.push_back(listener);
+	}
+	std::vector<std::weak_ptr<Model>> initialBroadcastModels;
+	{
+		std::lock_guard<std::mutex> lk(instance.databaseLock);
+		for (const auto& modelPair : instance.loadedModels) {
+			initialBroadcastModels.push_back(modelPair.second);
+		}
+	}
+	listener->initialEnroll(initialBroadcastModels);
 }
 
 void ModelLoader::registerRtUser(RtRenderPipelineStage* user) {
@@ -452,6 +451,13 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	SetName(tlas.Get(), L"TLAS Structure");
 }
 
+void ModelLoader::notifyModelListeners(std::weak_ptr<Model> model) {
+	std::lock_guard<std::mutex> lk(modelListenerLock);
+	for (auto& listener : modelListeners) {
+		listener->broadcastNewModel(model);
+	}
+}
+
 ModelLoader::ModelLoadTask::ModelLoadTask(std::shared_ptr<Model> model) {
 	this->model = model;
 }
@@ -487,12 +493,33 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 	else {
 		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 		// TODO: possibly have multiple allocators for model loading.
-		std::lock_guard<std::mutex> lk(instance.commandQueueLock);
+		{
+			std::lock_guard<std::mutex> lk(instance.commandQueueLock);
+			instance.waitOnFence();
+			instance.mDirectCmdListAlloc->Reset();
+			instance.mCommandList->Reset(instance.mDirectCmdListAlloc.Get(), nullptr);
+			instance.mDirectCmdListAlloc->SetName(L"ModelLoad");
+			model->setup(&instance, scene->mRootNode, scene);
+		}
+		
+		// Add the model to the map of loaded models
+		// have to add some duplication checking code since the model loading isn't entirely safe.
+		// TODO: investigate how to make this far safer than it is.
+		std::string modelName = model->name;
+		while (!model->isLoaded()) {
+
+		}
+		std::unique_lock<std::mutex> lk(instance.databaseLock);
+		while (instance.loadedModels.contains(model->dir + modelName)) {
+			modelName.insert(0, "Dupe");
+		}
+		lk.unlock();
 		instance.waitOnFence();
-		instance.mDirectCmdListAlloc->Reset();
-		instance.mCommandList->Reset(instance.mDirectCmdListAlloc.Get(), nullptr);
-		instance.mDirectCmdListAlloc->SetName(L"ModelLoad");
-		model->setup(&instance, scene->mRootNode, scene);
+		lk.lock();
+		instance.loadedModels[model->dir + modelName] = model;
+		instance.instanceCountChanged = true;
+		instance.modelCountChanged = true;
+		instance.notifyModelListeners(model);
 	}
 }
 

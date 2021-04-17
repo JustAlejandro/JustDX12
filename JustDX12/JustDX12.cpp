@@ -46,6 +46,7 @@ private:
 	struct ModelData {
 		std::string name;
 		std::vector<InstanceData> instances;
+		std::weak_ptr<Model> model;
 	};
 
 	void BuildFrameResources();
@@ -530,8 +531,9 @@ bool DemoApp::initialize() {
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
 
-	deferStage->loadModel("screen", "screenTex.obj", baseDir);
-	mergeStage->loadModel("screen", "screenTex.obj", baseDir);
+	ModelLoader::loadModel("screenTex.obj", baseDir, false);
+	using namespace std::chrono_literals;
+	std::this_thread::sleep_for(2000ms);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
 	SceneCsv scene("blankScene.csv", baseDir);
@@ -858,13 +860,15 @@ void DemoApp::updateSceneClass(SceneCsv& scene) {
 }
 
 void DemoApp::ApplyModelDataUpdate(ModelData* data) {
-	renderStage->updateInstanceCount(data->name, data->instances.size());
+	auto model = activeModels[data->name].model.lock();
+	model->updateInstanceCount(data->instances.size());
+
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < data->instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
 			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->instances[i].rot)),
 				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->instances[i].pos)))));
-		renderStage->updateInstanceTransform(data->name, i, transform);
+		model->updateInstanceTransform(i, transform);
 	}
 }
 
@@ -872,19 +876,19 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 	ModelData defaultInitData;
 	defaultInitData.instances = instances;
 	defaultInitData.name = name;
+	defaultInitData.model = ModelLoader::loadModel(fileName, dirName, true);
 	activeModels[name] = defaultInitData;
 
-	renderStage->loadModel(name, fileName, dirName, true);
-	renderStage->updateInstanceCount(name, instances.size());
+	auto model = defaultInitData.model.lock();
+	model->updateInstanceCount(instances.size());
 
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
 			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&instances[i].rot)),
 				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&instances[i].pos)))));
-		renderStage->updateInstanceTransform(name, i, transform);
+		model->updateInstanceTransform(i, transform);
 	}
-
 }
 
 void DemoApp::unloadModel(std::string name) {

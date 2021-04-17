@@ -86,7 +86,7 @@ void RenderPipelineStage::execute() {
 		drawMeshletRenderObjects();
 	}
 	
-	bool modelAmountChanged = setupRenderObjects();
+	bool modelAmountChanged = processNewModels();// setupRenderObjects();
 
 	if (modelAmountChanged && renderStageDesc.supportsCulling) {
 		setupOcclusionBoundingBoxes();
@@ -104,12 +104,6 @@ void RenderPipelineStage::execute() {
 	ThrowIfFailed(mCommandList->Close());
 }
 
-void RenderPipelineStage::loadModel(std::string referenceName, std::string fileName, std::string dirName, bool usesRT) {
-	std::weak_ptr<Model> model = ModelLoader::loadModel(fileName, dirName, usesRT);
-	loadingRenderObjects.push_back(model);
-	nameToModel[referenceName] = model;
-}
-
 void RenderPipelineStage::loadMeshletModel(std::string fileName, std::string dirName, bool usesRT) {
 	meshletRenderObjects.push_back(ModelLoader::loadMeshletModel(fileName, dirName, usesRT));
 }
@@ -117,24 +111,6 @@ void RenderPipelineStage::loadMeshletModel(std::string fileName, std::string dir
 void RenderPipelineStage::unloadModel(std::string friendlyName) {
 	auto ptr = nameToModel[friendlyName].lock();
 	ModelLoader::unloadModel(ptr->name, ptr->dir);
-}
-
-void RenderPipelineStage::updateInstanceCount(std::string referenceName, UINT instanceCount) {
-	if (auto ptr = nameToModel[referenceName].lock()) {
-		ptr->transform.setInstanceCount(instanceCount);
-	}
-	else {
-		throw "Referenced name has been unloaded";
-	}
-}
-
-void RenderPipelineStage::updateInstanceTransform(std::string referenceName, UINT instanceIndex, DirectX::XMFLOAT4X4 transform) {
-	if (auto ptr = nameToModel[referenceName].lock()) {
-		ptr->transform.setTransform(instanceIndex, transform);
-	}
-	else {
-		throw "Referenced name has been unloaded";
-	}
 }
 
 void RenderPipelineStage::updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform) {
@@ -300,30 +276,33 @@ void RenderPipelineStage::buildInputLayout() {
 	};
 }
 
+void RenderPipelineStage::processModel(std::weak_ptr<Model> model) {
+	if (auto ptr = model.lock()) {
+		if (stageDesc.name == "Merge" || stageDesc.name == "Deferred Shading") {
+			if (ptr->name == "screenTex.obj") {
+				for (auto& mesh : ptr->meshes) {
+					auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
+						&resourceManager, &constantBufferManager, false);
+					// Register the descriptors to easily fetch them later
+					mesh.registerPipelineStage(this, meshDescriptors);
+				}
+				renderObjects.push_back(ptr);
+			}
+		}
+		else {
+			for (auto& mesh : ptr->meshes) {
+				auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
+					&resourceManager, &constantBufferManager, false);
+				// Register the descriptors to easily fetch them later
+				mesh.registerPipelineStage(this, meshDescriptors);
+			}
+			renderObjects.push_back(ptr);
+		}
+	}
+}
+
 bool RenderPipelineStage::setupRenderObjects() {
 	bool newObjectsLoadedOrDeleted = false;
-
-	for (int i = 0; i < loadingRenderObjects.size(); i++) {
-		std::shared_ptr<Model> obj = loadingRenderObjects[i].lock();
-		// Catches case where loading can fail (not implemented now, but possible)
-		if (!obj) {
-			loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
-			i--;
-		}
-		if (!obj->isLoaded()) {
-			continue;
-		}
-		for (auto& m : obj->meshes) {
-			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&m),
-				&resourceManager, &constantBufferManager, false);
-			// Register the descriptors to easily fetch them later
-			m.registerPipelineStage(this, meshDescriptors);
-		}
-		renderObjects.push_back(obj);
-		loadingRenderObjects.erase(loadingRenderObjects.begin() + i);
-		i--;
-		newObjectsLoadedOrDeleted = true;
-	}
 
 	int index = 0;
 	for (auto& meshletRenderObj : meshletRenderObjects) {

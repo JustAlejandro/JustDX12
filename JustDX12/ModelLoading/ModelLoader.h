@@ -26,6 +26,7 @@ struct AccelerationStructureBuffers {
 };
 
 class RtRenderPipelineStage;
+class ModelListener;
 
 // Handles all Model loading actions and contains all data needed for RT structures
 // load actions are run on a seperate thread, which is why this is a singleton (want only one loading thread ATM)
@@ -58,6 +59,8 @@ public:
 	static MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
 	static void unloadModel(std::string name, std::string dir);
 
+	// Called in ModelListener constructor, should combine with RT user eventually.
+	static void registerModelListener(ModelListener* listener);
 	// Called in RtRenderPipelineStage setup, sets up a listener to changes in the RT data.
 	static void registerRtUser(RtRenderPipelineStage* user);
 	// Initial build of RT data, runs on ModelLoader thread, return HANDLE that can be waited on.
@@ -75,6 +78,8 @@ private:
 	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	
+	void notifyModelListeners(std::weak_ptr<Model> model);
+
 	class ModelLoadTask : public Task {
 	public:
 		ModelLoadTask(std::shared_ptr<Model> model);
@@ -133,6 +138,9 @@ private:
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList;
 	};
 
+	std::mutex modelListenerLock;
+	std::vector<ModelListener*> modelListeners;
+
 	// Only have a single copy queue, so have to lock access to it by the processing threads.
 	std::mutex commandQueueLock;
 
@@ -140,7 +148,6 @@ private:
 	std::mutex databaseLock;
 	bool modelCountChanged = false;
 	// string is dir + name
-	std::vector<std::pair<std::string, std::shared_ptr<Model>>> loadingModels;
 	std::unordered_map<std::string, std::shared_ptr<Model>> loadedModels;
 	std::unordered_map<std::string, MeshletModel> loadedMeshlets;
 

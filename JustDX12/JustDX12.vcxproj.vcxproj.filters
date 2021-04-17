@@ -52,6 +52,7 @@
       <Filter>ThreadObjects</Filter>
     </ClCompile>
     <ClCompile Include="ThreadPool.cpp" />
+    <ClCompile Include="ModelListener.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -132,6 +133,7 @@
     <ClInclude Include="TaskQueueThread.h">
       <Filter>ThreadObjects</Filter>
     </ClInclude>
+    <ClInclude Include="ModelListener.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

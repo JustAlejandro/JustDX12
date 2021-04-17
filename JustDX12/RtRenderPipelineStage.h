@@ -24,6 +24,7 @@ public:
 	void deferRebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
 
 private:
+
 	void rebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
 
 	void drawRenderObjects() override;
