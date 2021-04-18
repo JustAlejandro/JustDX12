@@ -27,7 +27,7 @@ private:
 
 	void rebuildRtData(std::vector<std::shared_ptr<Model>> RtModels);
 
-	void drawRenderObjects() override;
+	void draw() override;
 
 	class RebuildRtDataTask : public Task {
 	public:

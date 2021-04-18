@@ -51,8 +51,13 @@
     <ClCompile Include="TaskQueueThread.cpp">
       <Filter>ThreadObjects</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadPool.cpp" />
     <ClCompile Include="ModelListener.cpp" />
+    <ClCompile Include="ModelRenderPipelineStage.cpp">
+      <Filter>Pipelines</Filter>
+    </ClCompile>
+    <ClCompile Include="ThreadPool.cpp">
+      <Filter>ThreadObjects</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -94,7 +99,6 @@
     <ClInclude Include="ModelLoading\Mesh.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
-    <ClInclude Include="RenderPipelineStageTask.h" />
     <ClInclude Include="ConstantBufferTypes.h" />
     <ClInclude Include="DX12ConstantBuffer.h" />
     <ClInclude Include="ConstantBufferData.h">
@@ -134,10 +138,12 @@
       <Filter>ThreadObjects</Filter>
     </ClInclude>
     <ClInclude Include="ModelListener.h" />
+    <ClInclude Include="ModelRenderPipelineStage.h">
+      <Filter>Pipelines</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Pipelines">

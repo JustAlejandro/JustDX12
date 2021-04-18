@@ -11,6 +11,7 @@
 #include "PipelineStage/ComputePipelineStage.h"
 #include "PipelineStage\RenderPipelineStage.h"
 #include "RtRenderPipelineStage.h"
+#include "ModelRenderPipelineStage.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
@@ -268,7 +269,7 @@ bool DemoApp::initialize() {
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
 		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "mesh_texture_emissive");
 
-		renderStage = std::make_unique<RenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		renderStage = std::make_unique<ModelRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
 	}

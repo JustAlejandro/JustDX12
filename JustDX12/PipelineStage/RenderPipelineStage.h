@@ -83,7 +83,7 @@ protected:
 	void addTransitionIn(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) override;
 	void addTransitionOut(DX12Resource* res, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) override;
 
-	virtual void drawRenderObjects();
+	virtual void draw();
 	void drawMeshletRenderObjects();
 	void drawOcclusionQuery();
 

@@ -79,22 +79,24 @@ void RenderPipelineStage::execute() {
 
 	bindRenderTarget();
 
-	drawRenderObjects();
+	draw();
 
-	if (renderStageDesc.usesMeshlets) {
+	/*if (renderStageDesc.usesMeshlets) {
 		drawMeshletRenderObjects();
-	}
-	
-	bool modelAmountChanged = processNewModels();// setupRenderObjects();
-
-	if (modelAmountChanged && renderStageDesc.supportsCulling) {
-		setupOcclusionBoundingBoxes();
-		buildQueryHeap();
+	}*/
+	//
+	if (this->stageDesc.name != "Forward Pass") {
+		bool modelAmountChanged = processNewModels();// setupRenderObjects();
 	}
 
-	if (renderStageDesc.supportsCulling && occlusionCull) {
-		drawOcclusionQuery();
-	}
+	//if (modelAmountChanged && renderStageDesc.supportsCulling) {
+	//	setupOcclusionBoundingBoxes();
+	//	buildQueryHeap();
+	//}
+
+	//if (renderStageDesc.supportsCulling && occlusionCull) {
+	//	drawOcclusionQuery();
+	//}
 
 	performTransitionsOut();
 
@@ -464,7 +466,7 @@ void RenderPipelineStage::addTransitionOut(DX12Resource* res, D3D12_RESOURCE_STA
 	transitionsOut.push_back(CD3DX12_RESOURCE_BARRIER::Transition(res->get(), stateBefore, stateAfter));
 }
 
-void RenderPipelineStage::drawRenderObjects() {
+void RenderPipelineStage::draw() {
 	PIXScopedEvent(mCommandList.Get(), PIX_COLOR(0, 255, 0), "Draw Calls");
 	int modelIndex = 0;
 	if (renderStageDesc.supportsVRS && VRS && (vrsSupport.VariableShadingRateTier == D3D12_VARIABLE_SHADING_RATE_TIER_2)) {
@@ -501,7 +503,7 @@ void RenderPipelineStage::drawRenderObjects() {
 		mCommandList->IASetIndexBuffer(&indexBufferView);
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		if (renderStageDesc.supportsCulling && occlusionCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(b) != DirectX::ContainmentType::INTERSECTS; })) {
+		/*if (renderStageDesc.supportsCulling && occlusionCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(b) != DirectX::ContainmentType::INTERSECTS; })) {
 			if (std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(DirectX::XMLoadFloat3(&eyePos)) != DirectX::ContainmentType::CONTAINS; })) {
 				mCommandList->SetPredication(occlusionQueryResultBuffer.Get(), (UINT64)modelIndex * 8, D3D12_PREDICATION_OP_EQUAL_ZERO);
 			}
@@ -511,7 +513,7 @@ void RenderPipelineStage::drawRenderObjects() {
 		}
 		else {
 			mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
-		}
+		}*/
 
 		for (Mesh& m : model->meshes) {
 			std::vector<DirectX::BoundingBox> meshBoundingBoxes;

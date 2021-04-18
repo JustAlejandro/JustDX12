@@ -138,13 +138,13 @@ void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 	rtDescriptors.transformRange.numDescriptors = transformJobVec.size();
 }
 
-void RtRenderPipelineStage::drawRenderObjects() {
+void RtRenderPipelineStage::draw() {
 	mCommandList->SetGraphicsRootShaderResourceView(rtStageDesc.rtTlasSlot, (*rtStageDesc.tlasPtr)->GetGPUVirtualAddress());
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtIndexBufferSlot, rtDescriptors.indexRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtVertexBufferSlot, rtDescriptors.vertRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtTexturesSlot, rtDescriptors.texRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtTransformCbvSlot, rtDescriptors.transformRange.gpuHandle);
-	RenderPipelineStage::drawRenderObjects();
+	RenderPipelineStage::draw();
 }
 
 void RtRenderPipelineStage::RebuildRtDataTask::execute() {

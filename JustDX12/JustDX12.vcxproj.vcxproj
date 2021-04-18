@@ -177,6 +177,7 @@
     <ClCompile Include="KeyboardWrapper.cpp" />
     <ClCompile Include="MeshletModel.cpp" />
     <ClCompile Include="ModelListener.cpp" />
+    <ClCompile Include="ModelRenderPipelineStage.cpp" />
     <ClCompile Include="PipelineStage\ComputePipelineStage.cpp" />
     <ClCompile Include="DescriptorClasses\DescriptorManager.cpp" />
     <ClCompile Include="DX12App.cpp" />
@@ -200,7 +201,6 @@
     <ClCompile Include="ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="ClassDiagram.cd" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -215,12 +215,12 @@
     <ClInclude Include="KeyboardWrapper.h" />
     <ClInclude Include="MeshletModel.h" />
     <ClInclude Include="ModelListener.h" />
+    <ClInclude Include="ModelRenderPipelineStage.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />
     <ClInclude Include="DescriptorClasses\DescriptorManager.h" />
     <ClInclude Include="DX12App.h" />
     <ClInclude Include="DescriptorClasses\DX12Descriptor.h" />
     <ClInclude Include="DX12Helper.h" />
-    <ClInclude Include="RenderPipelineStageTask.h" />
     <ClInclude Include="ResourceClasses\DX12Resource.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="ResourceDecay.h" />
