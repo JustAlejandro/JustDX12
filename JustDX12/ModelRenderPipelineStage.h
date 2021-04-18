@@ -6,5 +6,11 @@ public:
 	~ModelRenderPipelineStage();
 
 protected:
+	virtual void buildPSO() override;
+
 	virtual void draw() override;
+	virtual void drawModels();
+	void drawOcclusionQuery();
+
+	void setupOcclusionBoundingBoxes();
 };

@@ -64,7 +64,7 @@ public:
 	bool VRS = false;
 	bool occlusionCull = true;
 protected:
-	void buildPSO() override;
+	virtual void buildPSO() override;
 	void buildQueryHeap();
 	std::vector<DescriptorJob> buildMeshTexturesDescriptorJobs(Mesh* m);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
@@ -72,7 +72,6 @@ protected:
 	// Inherited via ModelListener
 	virtual void processModel(std::weak_ptr<Model> model) override;
 	bool setupRenderObjects();
-	void setupOcclusionBoundingBoxes();
 
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;
 	void bindRenderTarget();
@@ -85,14 +84,11 @@ protected:
 
 	virtual void draw();
 	void drawMeshletRenderObjects();
-	void drawOcclusionQuery();
 
 	std::vector<std::pair<D3D12_RESOURCE_STATES, DX12Resource*>> getRequiredResourceStates() override;
 
 	RenderPipelineDesc renderStageDesc;
 
-	// Map from user friendly names to Model pointers.
-	std::unordered_map<std::string, std::weak_ptr<Model>> nameToModel;
 	// ModelLoader still 'owns' models, so as long as we process all the unloads in a thread-safe way
 	// the RenderPipelineStage should be aware of when a renderObject is no longer available
 	std::vector<std::weak_ptr<Model>> renderObjects;

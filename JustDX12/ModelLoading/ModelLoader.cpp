@@ -500,6 +500,7 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 			instance.mCommandList->Reset(instance.mDirectCmdListAlloc.Get(), nullptr);
 			instance.mDirectCmdListAlloc->SetName(L"ModelLoad");
 			model->setup(&instance, scene->mRootNode, scene);
+			instance.waitOnFence();
 		}
 		
 		// Add the model to the map of loaded models
@@ -514,7 +515,6 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 			modelName.insert(0, "Dupe");
 		}
 		lk.unlock();
-		instance.waitOnFence();
 		lk.lock();
 		instance.loadedModels[model->dir + modelName] = model;
 		instance.instanceCountChanged = true;

@@ -94,7 +94,7 @@ private:
 	std::unique_ptr<ComputePipelineStage> hBlurStage = nullptr;
 	std::unique_ptr<ComputePipelineStage> vBlurStage = nullptr;
 	std::unique_ptr<ComputePipelineStage> vrsComputeStage = nullptr;
-	std::unique_ptr<RenderPipelineStage> renderStage = nullptr;
+	std::unique_ptr<ModelRenderPipelineStage> renderStage = nullptr;
 	std::unique_ptr<RtRenderPipelineStage> deferStage = nullptr;
 	std::unique_ptr<RenderPipelineStage> mergeStage = nullptr;
 	KeyboardWrapper keyboard;
