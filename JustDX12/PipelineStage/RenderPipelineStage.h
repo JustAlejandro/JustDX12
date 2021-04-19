@@ -44,7 +44,7 @@ struct RenderPipelineDesc {
 	std::vector<std::pair<MODEL_FORMAT, std::string>> meshletTextureToDescriptor;
 };
 
-class RenderPipelineStage : public PipelineStage, public ModelListener {
+class RenderPipelineStage : public PipelineStage {
 public:
 	RenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 	~RenderPipelineStage();
@@ -68,9 +68,7 @@ protected:
 	void buildQueryHeap();
 	std::vector<DescriptorJob> buildMeshTexturesDescriptorJobs(Mesh* m);
 	void buildMeshletTexturesDescriptors(MeshletModel* m, int usageIndex);
-	void buildInputLayout() override;
-	// Inherited via ModelListener
-	virtual void processModel(std::weak_ptr<Model> model) override;
+	virtual void buildInputLayout() override;
 	bool setupRenderObjects();
 
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;

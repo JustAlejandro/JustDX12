@@ -3,7 +3,7 @@
 #include "ResourceDecay.h"
 
 RtRenderPipelineStage::RtRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RtRenderPipelineStageDesc rtDesc, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
-	: RenderPipelineStage(d3dDevice, renderDesc, viewport, scissorRect) {
+	: ScreenRenderPipelineStage(d3dDevice, renderDesc, viewport, scissorRect) {
 	rtStageDesc = rtDesc;
 	ModelLoader::registerRtUser(this);
 }
@@ -144,7 +144,7 @@ void RtRenderPipelineStage::draw() {
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtVertexBufferSlot, rtDescriptors.vertRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtTexturesSlot, rtDescriptors.texRange.gpuHandle);
 	mCommandList->SetGraphicsRootDescriptorTable(rtStageDesc.rtTransformCbvSlot, rtDescriptors.transformRange.gpuHandle);
-	RenderPipelineStage::draw();
+	ScreenRenderPipelineStage::draw();
 }
 
 void RtRenderPipelineStage::RebuildRtDataTask::execute() {

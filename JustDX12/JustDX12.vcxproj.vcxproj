@@ -192,6 +192,7 @@
     <ClCompile Include="RtRenderPipelineStage.cpp" />
     <ClCompile Include="SceneCsv.cpp" />
     <ClCompile Include="SceneNode.cpp" />
+    <ClCompile Include="ScreenRenderPipelineStage.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="TaskQueueThread.cpp" />
     <ClCompile Include="Tasks\DX12TaskQueueThread.cpp" />
@@ -228,6 +229,7 @@
     <ClInclude Include="SceneCsv.h" />
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="PipelineStage\PipelineStage.h" />
+    <ClInclude Include="ScreenRenderPipelineStage.h" />
     <ClInclude Include="TaskQueueThread.h" />
     <ClInclude Include="Tasks\PipelineStageTask.h" />
     <ClInclude Include="PipelineStage\RenderPipelineStage.h" />

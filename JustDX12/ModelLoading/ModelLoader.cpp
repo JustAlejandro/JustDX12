@@ -14,18 +14,10 @@ ModelLoader& ModelLoader::getInstance() {
 	static ModelLoader instance(DX12App::getDevice());
 	return instance;
 }
-bool ModelLoader::allModelsLoaded() {
+bool ModelLoader::isEmpty() {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
-	if (instance.loadedModels.size() < 3) {
-		return false;
-	}
-	for (auto& meshletModel : instance.loadedMeshlets) {
-		if (!meshletModel.second.loaded) {
-			return false;
-		}
-	}
-	return true;
+	return instance.loadedModels.empty();
 }
 
 void ModelLoader::destroyAll() {

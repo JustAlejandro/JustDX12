@@ -39,7 +39,7 @@ Texture2D brdfLut : register(t0, space5);
 
 SamplerState gsamLinear : register(s2);
 
-VertexOutMerge DeferVS(VertexIn vin) {
+VertexOutMerge DeferVS(LiteVertexIn vin) {
 	VertexOutMerge vout;
 	vout.PosH = float4(vin.PosL, 1.0);
 	vout.TexC = vin.TexC;

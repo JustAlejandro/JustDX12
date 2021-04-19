@@ -56,11 +56,24 @@ void ModelRenderPipelineStage::buildPSO() {
 	}
 }
 
+void ModelRenderPipelineStage::processModel(std::weak_ptr<Model> model) {
+	if (auto ptr = model.lock()) {
+		for (auto& mesh : ptr->meshes) {
+			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
+				&resourceManager, &constantBufferManager, false);
+			// Register the descriptors to easily fetch them later
+			mesh.registerPipelineStage(this, meshDescriptors);
+		}
+		renderObjects.push_back(ptr);
+	}
+}
+
 void ModelRenderPipelineStage::draw() {
 	drawModels();
 
 	bool modelAmountChanged = processNewModels();
 
+	// TODO: either reintegrate these code sections or pull out into a seperate culling stage (preferable)
 	if (false && modelAmountChanged && renderStageDesc.supportsCulling) {
 		setupOcclusionBoundingBoxes();
 		buildQueryHeap();

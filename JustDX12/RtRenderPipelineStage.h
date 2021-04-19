@@ -1,5 +1,5 @@
 #pragma once
-#include "PipelineStage/RenderPipelineStage.h"
+#include "ScreenRenderPipelineStage.h"
 
 // Describes where the shader/rootsig expect the RT data to be in a DXR 1.1 setup.
 struct RtRenderPipelineStageDesc {
@@ -14,7 +14,7 @@ struct RtRenderPipelineStageDesc {
 };
 
 // RenderPipelineStage that specifically uses RT data in it's shaders
-class RtRenderPipelineStage : public RenderPipelineStage {
+class RtRenderPipelineStage : public ScreenRenderPipelineStage {
 public:
 	RtRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RtRenderPipelineStageDesc rtDesc, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect);
 

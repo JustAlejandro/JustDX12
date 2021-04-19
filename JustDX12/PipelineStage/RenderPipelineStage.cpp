@@ -81,23 +81,6 @@ void RenderPipelineStage::execute() {
 
 	draw();
 
-	/*if (renderStageDesc.usesMeshlets) {
-		drawMeshletRenderObjects();
-	}*/
-	//
-	if (this->stageDesc.name != "Forward Pass") {
-		bool modelAmountChanged = processNewModels();// setupRenderObjects();
-	}
-
-	//if (modelAmountChanged && renderStageDesc.supportsCulling) {
-	//	setupOcclusionBoundingBoxes();
-	//	buildQueryHeap();
-	//}
-
-	//if (renderStageDesc.supportsCulling && occlusionCull) {
-	//	drawOcclusionQuery();
-	//}
-
 	performTransitionsOut();
 
 	PIXEndEvent(mCommandList.Get());
@@ -245,34 +228,6 @@ void RenderPipelineStage::buildInputLayout() {
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
 		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0 , 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA}
 	};
-}
-
-void RenderPipelineStage::processModel(std::weak_ptr<Model> model) {
-	if (auto ptr = model.lock()) {
-		if (stageDesc.name == "Merge" || stageDesc.name == "Deferred Shading") {
-			if (ptr->name == "screenTex.obj") {
-				for (auto& mesh : ptr->meshes) {
-					auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
-						&resourceManager, &constantBufferManager, false);
-					// Register the descriptors to easily fetch them later
-					mesh.registerPipelineStage(this, meshDescriptors);
-				}
-				renderObjects.push_back(ptr);
-			}
-		}
-		else {
-			if (ptr->name == "screenTex.obj") {
-				return;
-			}
-			for (auto& mesh : ptr->meshes) {
-				auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
-					&resourceManager, &constantBufferManager, false);
-				// Register the descriptors to easily fetch them later
-				mesh.registerPipelineStage(this, meshDescriptors);
-			}
-			renderObjects.push_back(ptr);
-		}
-	}
 }
 
 bool RenderPipelineStage::setupRenderObjects() {

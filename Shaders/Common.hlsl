@@ -64,12 +64,19 @@ struct SSAOSettings {
 	float4 lightPos;
 };
 
-struct VertexIn {
+struct VertexIn
+{
 	float2 TexC : TEXCOORD;
 	float3 PosL : POSITION;
 	float3 NormalL : NORMAL;
 	float3 TangentL : TANGENT;
 	float3 BiNormalL : BINORMAL;
+};
+
+struct LiteVertexIn
+{
+	float3 PosL : POSITION;
+	float2 TexC : TEXCOORD;
 };
 
 struct VertexOut

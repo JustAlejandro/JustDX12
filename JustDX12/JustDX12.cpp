@@ -10,6 +10,7 @@
 #include <DirectXColors.h>
 #include "PipelineStage/ComputePipelineStage.h"
 #include "PipelineStage\RenderPipelineStage.h"
+#include "ScreenRenderPipelineStage.h"
 #include "RtRenderPipelineStage.h"
 #include "ModelRenderPipelineStage.h"
 #include "imgui.h"
@@ -96,7 +97,7 @@ private:
 	std::unique_ptr<ComputePipelineStage> vrsComputeStage = nullptr;
 	std::unique_ptr<ModelRenderPipelineStage> renderStage = nullptr;
 	std::unique_ptr<RtRenderPipelineStage> deferStage = nullptr;
-	std::unique_ptr<RenderPipelineStage> mergeStage = nullptr;
+	std::unique_ptr<ScreenRenderPipelineStage> mergeStage = nullptr;
 	KeyboardWrapper keyboard;
 
 	PerPassConstants mainPassCB;
@@ -492,7 +493,7 @@ bool DemoApp::initialize() {
 		rDesc.usesMeshlets = false;
 		rDesc.usesDepthTex = false;
 
-		mergeStage = std::make_unique<RenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		mergeStage = std::make_unique<ScreenRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		mergeStage->deferSetup(stageDesc);
 		WaitOnFenceForever(mergeStage->getFence(), mergeStage->triggerFence());
 	}
@@ -531,10 +532,6 @@ bool DemoApp::initialize() {
 		vrsComputeStage->deferSetup(stageDesc);
 	}
 	cpuWaitHandles.push_back(vrsComputeStage->deferSetCpuEvent());
-
-	ModelLoader::loadModel("screenTex.obj", baseDir, false);
-	using namespace std::chrono_literals;
-	std::this_thread::sleep_for(2000ms);
 	//renderStage->loadMeshletModel(modelLoader, armorMeshlet, armorDir, true);
 
 	SceneCsv scene("blankScene.csv", baseDir);
@@ -544,8 +541,8 @@ bool DemoApp::initialize() {
 	// Have to have a copy of the armor file loaded so the meshlet copy can use it for a BLAS
 	//modelLoader->loadModel(armorFile, armorDir, false);
 
-	// Have to wait for at least one model to be in eacch RenderPipelineStage or some issues arise.
-	while (!modelLoader.allModelsLoaded()) {
+	// Have to wait for at least one model to be in each RenderPipelineStage or some issues arise.
+	while (modelLoader.isEmpty()) {
 		ResourceDecay::checkDestroy();
 	}
 
@@ -599,7 +596,7 @@ void DemoApp::update() {
 	}
 
 	ResourceDecay::checkDestroy();
-	ModelLoader::getInstance().allModelsLoaded();
+	ModelLoader::getInstance().isEmpty();
 
 	UpdateObjectCBs();
 	UpdateMaterialCBs();

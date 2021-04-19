@@ -17,7 +17,7 @@ Texture2D deferTex : register(t1);
 
 SamplerState gsamPoint : register(s1);
 
-VertexOutMerge MergeVS(VertexIn vin)
+VertexOutMerge MergeVS(LiteVertexIn vin)
 {
 	VertexOutMerge vout;
 	vout.PosH = float4(vin.PosL,1.0);

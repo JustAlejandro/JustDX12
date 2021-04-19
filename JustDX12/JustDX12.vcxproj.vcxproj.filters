@@ -58,6 +58,7 @@
     <ClCompile Include="ThreadPool.cpp">
       <Filter>ThreadObjects</Filter>
     </ClCompile>
+    <ClCompile Include="ScreenRenderPipelineStage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -141,6 +142,7 @@
     <ClInclude Include="ModelRenderPipelineStage.h">
       <Filter>Pipelines</Filter>
     </ClInclude>
+    <ClInclude Include="ScreenRenderPipelineStage.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

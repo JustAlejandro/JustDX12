@@ -43,7 +43,7 @@ public:
 	// Process if any new models have been loaded by the loading thread.
 	// This should be called by someone at the start of every frame so we don't have a sudden
 	// update of resources in the middle of a frame, which would necessitate more synchronization
-	static bool allModelsLoaded();
+	static bool isEmpty();
 	// Clears all Models, required that this is called before the ResourceDecay singleton
 	// dies, since Model deletion dumps resources into ResourceDecay
 	static void destroyAll();
