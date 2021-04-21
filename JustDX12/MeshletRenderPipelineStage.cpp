@@ -71,7 +71,7 @@ void MeshletRenderPipelineStage::draw() {
 	int modelIndex = 0;
 	for (auto& model : meshletRenderObjects) {
 		DirectX::BoundingBox modelBB;
-		auto transform = model->transform.getTransform(modelIndex);
+		auto transform = model->getTransform(modelIndex);
 		model->GetBoundingBox().Transform(modelBB, DirectX::XMLoadFloat4x4(&transform));
 		DirectX::ContainmentType containType = frustrum.Contains(modelBB);
 		if (containType == DirectX::ContainmentType::DISJOINT) {

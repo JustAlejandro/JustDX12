@@ -33,10 +33,10 @@ struct Vertex {
 	DirectX::XMFLOAT3 biTan;
 };
 
-class Model;
+class BasicModel;
 class PipelineStage;
 
-// Represents a subset of a Model
+// Represents a subset of a BasicModel
 // Also holds descriptors needed to render the mesh (textures), which PipelineStages can register for retreival later
 // Unique: can be instanced, which does cause some headaches, and isn't typically supported in most engines
 class Mesh : public TransformData {
@@ -107,7 +107,7 @@ public:
 
 	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 
-	Model* parent;
+	BasicModel* parent;
 
 private:
 	// Trying to make repeated checks faster

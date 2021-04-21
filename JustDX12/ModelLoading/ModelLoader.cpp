@@ -88,9 +88,9 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	return outVec;
 }
 
-std::vector<std::shared_ptr<Model>> ModelLoader::getAllRTModels() {
+std::vector<std::shared_ptr<BasicModel>> ModelLoader::getAllRTModels() {
 	auto& instance = ModelLoader::getInstance();
-	std::vector<std::shared_ptr<Model>> allModels;
+	std::vector<std::shared_ptr<BasicModel>> allModels;
 	for (auto& m : instance.loadedModels) {
 		if (m.second->usesRT) {
 			allModels.push_back(m.second);
@@ -106,44 +106,43 @@ void ModelLoader::updateTransforms() {
 		model.second->submitUpdates(gFrameIndex);
 	}
 	for (auto& meshletModel : instance.loadedMeshlets) {
-		meshletModel.second->transform.submitUpdates(gFrameIndex);
+		meshletModel.second->submitUpdates(gFrameIndex);
 	}
 }
 
-std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
+std::weak_ptr<TransformData> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
 
-	auto findModel = instance.loadedModels.find(dir + name);
-	std::weak_ptr<Model> model;
-	if (findModel == instance.loadedModels.end()) {
-		// Don't have tracking of loading models, have to see about making this safer, but it does
-		// keep the model loading code far simpler.
-		std::shared_ptr<Model> mPtr = std::make_shared<Model>(name, dir, instance.md3dDevice.Get(), usesRT);
-		model = mPtr;
-		instance.enqueue(new ModelLoadTask(mPtr));
+	// Meshlet, not normal model.
+	if (name.ends_with(".bin")) {
+		auto findModel = instance.loadedMeshlets.find(dir + name);
+		std::shared_ptr<MeshletModel> meshletModel;
+		if (findModel == instance.loadedMeshlets.end()) {
+			auto inserted = instance.loadedMeshlets.emplace(std::make_pair((dir + name), std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get())));
+			meshletModel = inserted.first->second;
+			instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel.get()));
+		}
+		else {
+			meshletModel = findModel->second;
+		}
+		return meshletModel;
 	}
 	else {
-		model = findModel->second;
+		auto findModel = instance.loadedModels.find(dir + name);
+		std::weak_ptr<BasicModel> model;
+		if (findModel == instance.loadedModels.end()) {
+			// Don't have tracking of loading models, have to see about making this safer, but it does
+			// keep the model loading code far simpler.
+			std::shared_ptr<BasicModel> mPtr = std::make_shared<BasicModel>(name, dir, instance.md3dDevice.Get(), usesRT);
+			model = mPtr;
+			instance.enqueue(new ModelLoadTask(mPtr));
+		}
+		else {
+			model = findModel->second;
+		}
+		return model;
 	}
-	return model;
-}
-
-std::weak_ptr<MeshletModel> ModelLoader::loadMeshletModel(std::string name, std::string dir, bool usesRT) {
-	auto& instance = ModelLoader::getInstance();
-	std::lock_guard<std::mutex> lk(instance.databaseLock);
-
-	auto findModel = instance.loadedMeshlets.find(dir + name);
-	std::shared_ptr<MeshletModel> meshletModel;
-	if (findModel == instance.loadedMeshlets.end()) {
-		auto inserted = instance.loadedMeshlets.emplace(std::make_pair((dir + name), std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get())));
-		meshletModel = inserted.first->second;
-		instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel.get()));
-	}
-	else {
-		meshletModel = findModel->second;
-	}
-	return meshletModel;
 }
 
 void ModelLoader::unloadModel(std::string name, std::string dir) {
@@ -162,7 +161,7 @@ void ModelLoader::registerModelListener(ModelListener* listener) {
 		std::lock_guard<std::mutex> lk(instance.modelListenerLock);
 		instance.modelListeners.push_back(listener);
 	}
-	std::vector<std::weak_ptr<Model>> initialBroadcastModels;
+	std::vector<std::weak_ptr<BasicModel>> initialBroadcastModels;
 	{
 		std::lock_guard<std::mutex> lk(instance.databaseLock);
 		for (const auto& modelPair : instance.loadedModels) {
@@ -197,7 +196,7 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	}
 
 	std::vector<AccelerationStructureBuffers> blasVec;
-	std::vector<std::shared_ptr<Model>> models;
+	std::vector<std::shared_ptr<BasicModel>> models;
 	std::lock_guard<std::mutex> lk(databaseLock);
 	for (auto& model : loadedModels) {
 		if (model.second->usesRT) {
@@ -209,7 +208,7 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	for (auto& meshletModel : loadedMeshlets) {
 		if (meshletModel.second->usesRT) {
 			std::string modelFileName = meshletModel.second->dir + meshletModel.second->name.substr(0, meshletModel.second->name.find_last_of('.')) + ".fbx";
-			Model* modelForMeshlet = loadedModels.find(modelFileName)->second.get();
+			BasicModel* modelForMeshlet = loadedModels.find(modelFileName)->second.get();
 			blasVec.push_back(createBLAS(modelForMeshlet, cmdList));
 			meshletModels.push_back(meshletModel.second.get());
 		}
@@ -247,7 +246,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 		return;
 	}
 
-	std::vector<std::shared_ptr<Model>> models;
+	std::vector<std::shared_ptr<BasicModel>> models;
 	std::lock_guard<std::mutex> lk(databaseLock);
 	if (modelCountChanged || instanceCountChanged) {
 		ResourceDecay::destroyAfterDelay(tlasScratch.pResult);
@@ -290,7 +289,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	modelCountChanged = false;
 }
 
-AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+AccelerationStructureBuffers ModelLoader::createBLAS(BasicModel* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs;
 	for (auto& mesh : model->meshes) {
 		for (UINT i = 0; i < mesh.getInstanceCount(); i++) {
@@ -342,7 +341,7 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 	return buffers;
 }
 
-void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
+void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<BasicModel>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	// Find the total number of models.
 	UINT totalDescs = 0;
 	std::vector<UINT> descsPerModel;
@@ -407,7 +406,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 		startMeshIndex += descsPerModel[i];
 	}
 	for (UINT i = 0; i < meshletModels.size(); i++) {
-		auto transform = meshletModels[i]->transform.getTransform(0);
+		auto transform = meshletModels[i]->getTransform(0);
 		DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&transform)));
 		instanceDescs[instanceIndex].InstanceID = instanceIndex;
 		instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
@@ -443,14 +442,14 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	SetName(tlas.Get(), L"TLAS Structure");
 }
 
-void ModelLoader::notifyModelListeners(std::weak_ptr<Model> model) {
+void ModelLoader::notifyModelListeners(std::weak_ptr<BasicModel> model) {
 	std::lock_guard<std::mutex> lk(modelListenerLock);
 	for (auto& listener : modelListeners) {
 		listener->broadcastNewModel(model);
 	}
 }
 
-ModelLoader::ModelLoadTask::ModelLoadTask(std::shared_ptr<Model> model) {
+ModelLoader::ModelLoadTask::ModelLoadTask(std::shared_ptr<BasicModel> model) {
 	this->model = model;
 }
 
@@ -460,14 +459,14 @@ void ModelLoader::ModelLoadTask::execute() {
 	// Have to alloc to pass around, will try allocating a pool of these initially at some point.
 	std::unique_ptr<Assimp::Importer> importer = std::make_unique<Assimp::Importer>();
 
-	OutputDebugStringA(("Starting to Load Model: " + model->name + "\n").c_str());
+	OutputDebugStringA(("Starting to Load BasicModel: " + model->name + "\n").c_str());
 	// Trying to limit IO to a single thread.
 	importer->ReadFile(model->dir + "\\" + model->name, 0);
 
 	ThreadPool::enqueue(new ModelLoadSetupTask(model, std::move(importer)));
 }
 
-ModelLoader::ModelLoadSetupTask::ModelLoadSetupTask(std::shared_ptr<Model> model, std::unique_ptr<Assimp::Importer> importer) {
+ModelLoader::ModelLoadSetupTask::ModelLoadSetupTask(std::shared_ptr<BasicModel> model, std::unique_ptr<Assimp::Importer> importer) {
 	this->model = model;
 	this->importer = std::move(importer);
 }

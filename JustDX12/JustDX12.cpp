@@ -1,7 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include "ModelLoading\ModelLoader.h"
-#include "ModelLoading\Model.h"
+#include "ModelLoading\SimpleModel.h"
 #include "DX12App.h"
 #include <d3dx12.h>
 #include <unordered_map>
@@ -49,13 +49,7 @@ private:
 	struct ModelData {
 		std::string name;
 		std::vector<InstanceData> instances;
-		std::weak_ptr<Model> model;
-	};
-
-	struct MeshletData {
-		std::string name;
-		InstanceData instance;
-		std::weak_ptr<MeshletModel> meshletModel;
+		std::weak_ptr<TransformData> model;
 	};
 
 	void BuildFrameResources();
@@ -959,7 +953,9 @@ void DemoApp::unloadModel(std::string name) {
 	if (modelData != activeModels.end()) {
 		activeModels.erase(modelData);
 		auto model = modelData->second.model.lock();
-		ModelLoader::unloadModel(model->name, model->dir);
+		if (BasicModel* m = dynamic_cast<BasicModel*>(model.get())) {
+			ModelLoader::unloadModel(m->name, m->dir);
+		}
 	}
 }
 

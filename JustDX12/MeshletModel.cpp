@@ -67,7 +67,7 @@ struct Accessor {
 	UINT32 Count;
 };
 
-MeshletModel::MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device) : transform(device) {
+MeshletModel::MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device) : TransformData(device) {
 	loaded = false;
 	this->name = name;
 	this->dir = dir;
@@ -439,6 +439,15 @@ HRESULT MeshletModel::UploadGpuResources(ID3D12Device5* device, ID3D12CommandQue
 	loaded = true;
 
 	return S_OK;
+}
+
+void MeshletModel::setInstanceCount(UINT count) {
+	if (count == 1) {
+		TransformData::setInstanceCount(1);
+	}
+	else {
+		MessageBoxA(nullptr, "Can't instance meshlets.", "Might come in future", MB_OK);
+	}
 }
 
 bool MeshletModel::allTexturesLoaded() {

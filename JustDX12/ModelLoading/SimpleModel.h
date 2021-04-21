@@ -10,13 +10,13 @@
 
 class DX12Texture;
 
-// Contains all data needed to render a Model to the scene (executed through Mesh list)
+// Contains all data needed to render a BasicModel to the scene (executed through Mesh list)
 // Capable of holding instance/transform/lighting data
 // Safe to delete, since Index/Vertex resources get dumped into ResourceDecay on deletion
-class Model : public TransformData {
+class BasicModel : public TransformData {
 public:
-	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
-	~Model();
+	BasicModel(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
+	~BasicModel();
 
 	void setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 

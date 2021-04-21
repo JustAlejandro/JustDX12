@@ -12,7 +12,7 @@
 
 #include "Common.h"
 
-#include "ModelLoading\Model.h"
+#include "ModelLoading\SimpleModel.h"
 #include "MeshletModel.h"
 
 #include "Tasks\DX12TaskQueueThread.h"
@@ -51,12 +51,11 @@ public:
 	static bool isModelCountChanged();
 
 	static std::vector<Light> getAllLights(UINT& numPoint, UINT& numDir, UINT& numSpot);
-	static std::vector<std::shared_ptr<Model>> getAllRTModels();
+	static std::vector<std::shared_ptr<BasicModel>> getAllRTModels();
 	
 	static void updateTransforms();
 
-	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
-	static std::weak_ptr<MeshletModel> loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	static std::weak_ptr<TransformData> loadModel(std::string name, std::string dir, bool usesRT);
 	static void unloadModel(std::string name, std::string dir);
 
 	// Called in ModelListener constructor, should combine with RT user eventually.
@@ -75,31 +74,31 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12Resource> TLAS = nullptr;
 	bool instanceCountChanged = false;
 private:
-	AccelerationStructureBuffers createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
-	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<Model>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	AccelerationStructureBuffers createBLAS(BasicModel* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
+	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<BasicModel>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	
-	void notifyModelListeners(std::weak_ptr<Model> model);
+	void notifyModelListeners(std::weak_ptr<BasicModel> model);
 
 	class ModelLoadTask : public Task {
 	public:
-		ModelLoadTask(std::shared_ptr<Model> model);
+		ModelLoadTask(std::shared_ptr<BasicModel> model);
 		virtual ~ModelLoadTask() override = default;
 
 		void execute() override;
 
 	private:
-		std::shared_ptr<Model> model;
+		std::shared_ptr<BasicModel> model;
 	};
 
 	class ModelLoadSetupTask : public Task {
 	public:
-		ModelLoadSetupTask(std::shared_ptr<Model> model, std::unique_ptr<Assimp::Importer> importer);
+		ModelLoadSetupTask(std::shared_ptr<BasicModel> model, std::unique_ptr<Assimp::Importer> importer);
 		virtual ~ModelLoadSetupTask() override = default;
 
 		void execute() override;
 
 	private:
-		std::shared_ptr<Model> model;
+		std::shared_ptr<BasicModel> model;
 		std::unique_ptr<Assimp::Importer> importer;
 	};
 
@@ -148,13 +147,13 @@ private:
 	std::mutex databaseLock;
 	bool modelCountChanged = false;
 	// string is dir + name
-	std::unordered_map<std::string, std::shared_ptr<Model>> loadedModels;
+	std::unordered_map<std::string, std::shared_ptr<BasicModel>> loadedModels;
 	std::unordered_map<std::string, std::shared_ptr<MeshletModel>> loadedMeshlets;
 
 	std::vector<RtRenderPipelineStage*> rtUsers;
 
 	UINT64 tlasSize;
-	std::unordered_map<Model*, Microsoft::WRL::ComPtr<ID3D12Resource>> BLAS;
+	std::unordered_map<BasicModel*, Microsoft::WRL::ComPtr<ID3D12Resource>> BLAS;
 	// Since the instanceDesc of each frame is kept seperate, have to store them each frame so they stay in memory.
 	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, CPU_FRAME_COUNT> instanceScratch;
 	AccelerationStructureBuffers tlasScratch;

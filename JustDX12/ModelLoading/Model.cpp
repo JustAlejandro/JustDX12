@@ -1,5 +1,5 @@
 #include "ModelLoading\Mesh.h"
-#include "ModelLoading\Model.h"
+#include "ModelLoading\SimpleModel.h"
 #include "DX12Helper.h"
 #include <d3dcompiler.h>
 #include "DX12App.h"
@@ -11,7 +11,7 @@
 
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
-Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT) : TransformData(device) {
+BasicModel::BasicModel(std::string name, std::string dir, ID3D12Device5* device, bool usesRT) : TransformData(device) {
 	this->name = name;
 	this->dir = dir;
 	this->usesRT = usesRT;
@@ -19,12 +19,12 @@ Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool uses
 	setTransform(0, Identity());
 }
 
-Model::~Model() {
+BasicModel::~BasicModel() {
 	ResourceDecay::destroyAfterDelay(vertexBufferGPU);
 	ResourceDecay::destroyAfterDelay(indexBufferGPU);
 }
 
-void Model::setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
+void BasicModel::setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene) {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 	processLights(scene);
@@ -67,7 +67,7 @@ void Model::setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scen
 	thread->setFence(fenceVal);
 }
 
-bool Model::isLoaded() {
+bool BasicModel::isLoaded() {
 	std::lock_guard<std::mutex> lk(isLoadedLock);
 	for (auto& m : meshes) {
 		if (!m.allTexturesLoaded()) {
@@ -77,7 +77,7 @@ bool Model::isLoaded() {
 	return true;
 }
 
-D3D12_VERTEX_BUFFER_VIEW Model::getVertexBufferView() const {
+D3D12_VERTEX_BUFFER_VIEW BasicModel::getVertexBufferView() const {
 	D3D12_VERTEX_BUFFER_VIEW vbv;
 	vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
 	vbv.StrideInBytes = vertexByteStride;
@@ -85,7 +85,7 @@ D3D12_VERTEX_BUFFER_VIEW Model::getVertexBufferView() const {
 	return vbv;
 }
 
-D3D12_INDEX_BUFFER_VIEW Model::getIndexBufferView() const {
+D3D12_INDEX_BUFFER_VIEW BasicModel::getIndexBufferView() const {
 	D3D12_INDEX_BUFFER_VIEW ibv;
 	ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
 	ibv.Format = indexFormat;
@@ -93,7 +93,7 @@ D3D12_INDEX_BUFFER_VIEW Model::getIndexBufferView() const {
 	return ibv;
 }
 
-void Model::refreshAllTransforms() {
+void BasicModel::refreshAllTransforms() {
 	for (Mesh& mesh : meshes) {
 		mesh.updateTransform();
 		mesh.submitUpdatesAll();
@@ -101,7 +101,7 @@ void Model::refreshAllTransforms() {
 	submitUpdatesAll();
 }
 
-void Model::refreshBoundingBox() {
+void BasicModel::refreshBoundingBox() {
 	if (meshes.size() > 0) {
 		meshes[0].boundingBox.Transform(boundingBox, TransposeLoad(meshes[0].getTransform(0)));
 	}
@@ -116,20 +116,20 @@ void Model::refreshBoundingBox() {
 	}
 }
 
-void Model::processLights(const aiScene* scene) {
+void BasicModel::processLights(const aiScene* scene) {
 	for (UINT i = 0; i < scene->mNumLights; i++) {
 		lights.push_back(scene->mLights[0][i]);
 	}
 }
 
-void Model::processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
+void BasicModel::processMeshes(const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
 	for (UINT i = 0; i < scene->mNumMeshes; i++) {
 		meshes.push_back(processMesh(scene->mMeshes[i], scene, vertices, indices, device));
 		meshes.back().parent = this;
 	}
 }
 
-void Model::processNodes(const aiScene* scene) {
+void BasicModel::processNodes(const aiScene* scene) {
 	SceneNode* currentNode = &this->scene;
 	aiNode* currentAiNode = scene->mRootNode;
 	currentNode->name = currentAiNode->mName.C_Str();
@@ -156,7 +156,7 @@ void Model::processNodes(const aiScene* scene) {
 	this->scene.calculateFullTransform();
 }
 
-Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
+Mesh BasicModel::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device) {
 	Mesh meshStorage(device);
 
 	DirectX::XMFLOAT3 minPoint = { std::numeric_limits<FLOAT>::max(),
@@ -239,7 +239,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>&
 	return meshStorage;
 }
 
-std::shared_ptr<DX12Texture> Model::loadMaterialTexture(aiMaterial* mat, aiTextureType type) {
+std::shared_ptr<DX12Texture> BasicModel::loadMaterialTexture(aiMaterial* mat, aiTextureType type) {
 	std::shared_ptr<DX12Texture> texture = nullptr;
 
 	if (mat->GetTextureCount(type) == 0) {

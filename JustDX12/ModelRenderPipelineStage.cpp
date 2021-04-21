@@ -1,6 +1,6 @@
 #include "ModelRenderPipelineStage.h"
 
-#include "ModelLoading/Model.h"
+#include "ModelLoading\SimpleModel.h"
 #include <ResourceDecay.h>
 
 ModelRenderPipelineStage::ModelRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device5> d3dDevice, RenderPipelineDesc renderDesc, D3D12_VIEWPORT viewport, D3D12_RECT scissorRect)
@@ -90,7 +90,7 @@ void ModelRenderPipelineStage::buildQueryHeap() {
 	}
 }
 
-void ModelRenderPipelineStage::processModel(std::weak_ptr<Model> model) {
+void ModelRenderPipelineStage::processModel(std::weak_ptr<BasicModel> model) {
 	if (auto ptr = model.lock()) {
 		for (auto& mesh : ptr->meshes) {
 			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
@@ -127,7 +127,7 @@ void ModelRenderPipelineStage::drawModels() {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
-		std::shared_ptr<Model> model = renderObjects[i].lock();
+		std::shared_ptr<BasicModel> model = renderObjects[i].lock();
 		if (!model) {
 			renderObjects.erase(renderObjects.begin() + i);
 			i--;

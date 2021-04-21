@@ -22,7 +22,7 @@ public:
 	UINT getInstanceCount() const {
 		return transform.data.instanceCount;
 	}
-	void setInstanceCount(UINT count) {
+	virtual void setInstanceCount(UINT count) {
 		transform.data.instanceCount = count;
 		dirtyFrames = CPU_FRAME_COUNT;
 	}

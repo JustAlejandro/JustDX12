@@ -5,7 +5,7 @@
 #include "PipelineStage\PipelineStage.h"
 #include "ModelListener.h"
 
-class Model;
+class BasicModel;
 class Mesh;
 class ModelLoader;
 class MeshletModel;

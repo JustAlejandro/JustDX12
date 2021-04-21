@@ -1,5 +1,5 @@
 #pragma once
-#include "ModelLoading/Model.h"
+#include "ModelLoading\SimpleModel.h"
 #include <DirectXCollision.h>
 #include <span>
 
@@ -115,13 +115,12 @@ struct MeshletMesh {
 	}
 };
 
-class MeshletModel {
+class MeshletModel : public TransformData {
 public:
 	MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device);
 	HRESULT LoadFromFile(const std::string fileName);
 	HRESULT UploadGpuResources(ID3D12Device5* device, ID3D12CommandQueue* cmdQueue, ID3D12CommandAllocator* cmdAlloc, ID3D12GraphicsCommandList* cmdList);
 	
-
 	UINT32 GetMeshCount() const { return static_cast<UINT32>(m_meshes.size()); }
 	const MeshletMesh& GetMesh(UINT32 i) const { return m_meshes[i]; }
 
@@ -130,6 +129,8 @@ public:
 
 	auto begin() { return m_meshes.begin(); }
 	auto end() { return m_meshes.end(); }
+
+	void setInstanceCount(UINT count) override;
 
 	bool loaded = false;
 	bool usesRT = false;
@@ -141,8 +142,6 @@ public:
 	bool allTexturesLoaded();
 
 	bool texturesBound = false;
-
-	TransformData transform;
 
 private:
 	// Trying to make repeated checks faster
