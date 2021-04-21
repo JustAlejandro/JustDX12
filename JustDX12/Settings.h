@@ -12,7 +12,7 @@
 #define CPU_FRAME_COUNT 3
 #define AUXILLARY_FENCE_COUNT 5
 
-#define GPU_DEBUG false
+#define GPU_DEBUG true
 
 #define MAX_LIGHTS 10
 #define MAX_INSTANCES 15

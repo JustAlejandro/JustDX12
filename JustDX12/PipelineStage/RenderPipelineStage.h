@@ -20,6 +20,8 @@ struct RenderPipelineDesc {
 	// fallback texture (use the same name used to load the texture in 'textureFiles' from PipelineStageDesc
 	std::unordered_map<MODEL_FORMAT, std::string> defaultTextures;
 	bool usesDepthTex = true;
+	bool clearDepthTex = true;
+	bool clearRenderTargets = true;
 	// 'Culling' here means using bounding boxes and occlusion predication culling to accelerate CPU/GPU rendering
 	bool supportsCulling = false;
 	// If set to true, the resource specified by 'VrsTextureName' will be bound (assuming VRS tier 2 support)

@@ -78,7 +78,7 @@ private:
 	AccelerationStructureBuffers createBLAS(SimpleModel* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	void createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT64& tlasSize, std::vector<std::shared_ptr<SimpleModel>>& models, std::vector<MeshletModel*>& meshletModels, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList);
 	
-	void notifyModelListeners(std::weak_ptr<SimpleModel> model);
+	void notifyModelListeners(std::weak_ptr<Model> model);
 
 	class ModelLoadTask : public Task {
 	public:
@@ -105,13 +105,13 @@ private:
 
 	class MeshletModelLoadTask : public Task {
 	public:
-		MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, MeshletModel* model);
+		MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, std::shared_ptr<MeshletModel> model);
 		virtual ~MeshletModelLoadTask() override = default;
 
 		void execute() override;
 
 	private:
-		MeshletModel* model;
+		std::shared_ptr<MeshletModel> model;
 		DX12TaskQueueThread* taskQueueThread;
 	};
 

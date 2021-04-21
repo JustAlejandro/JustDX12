@@ -433,6 +433,10 @@ HRESULT MeshletModel::UploadGpuResources(ID3D12Device5* device, ID3D12CommandQue
 			CloseHandle(event);
 		}
 	}
+
+	while (!allTexturesLoaded()) {
+
+	}
 	
 	loaded = true;
 

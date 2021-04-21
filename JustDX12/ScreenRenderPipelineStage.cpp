@@ -1,5 +1,7 @@
 #include "ScreenRenderPipelineStage.h"
 
+#include "ResourceDecay.h"
+
 class StaticScreenQuad {
 private:
 	StaticScreenQuad(ScreenRenderPipelineStage* thread) {
@@ -21,6 +23,8 @@ private:
 		indexBufferGPU = CreateDefaultBuffer(thread->md3dDevice.Get(), thread->mCommandList.Get(), indices, sizeof(indices), indexUploadBuffer);
 		SetName(vertexUploadBuffer.Get(), L"StaticScreenQuad VertexUploadBuffer");
 		SetName(indexUploadBuffer.Get(), L"StaticScreenQuad IndexUploadBuffer");
+		ResourceDecay::destroyAfterDelay(vertexUploadBuffer);
+		ResourceDecay::destroyAfterDelay(indexUploadBuffer);
 		ThrowIfFailed(thread->mCommandList->Close());
 		ID3D12CommandList* cmdLists[] = { thread->mCommandList.Get() };
 		thread->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);

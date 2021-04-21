@@ -53,12 +53,24 @@ void MeshletRenderPipelineStage::buildMeshletTexturesDescriptors(MeshletModel* m
 		descriptorJobs.push_back(job);
 	}
 	meshletDescriptors = descriptorManager.makeDescriptors(descriptorJobs, &resourceManager, &constantBufferManager, false);
+	meshletTexDescs.push_back(meshletDescriptors[0]);
 	// TODO: make a similar binding as with the regular models
 	m->texturesBound = true;
 }
 
+void MeshletRenderPipelineStage::processModel(std::weak_ptr<Model> model) {
+	if (auto ptr = model.lock()) {
+		// Runtime polymorphism is bad, but it keeps the modelLoader broadcast simple... So for now I'll just deal with it
+		// this only gets run once per object per time loaded anyway.
+		if (auto basicModel = dynamic_pointer_cast<MeshletModel>(ptr)) {
+			buildMeshletTexturesDescriptors(basicModel.get(), meshletIndex++);
+			meshletRenderObjects.push_back(basicModel);
+		}
+	}
+}
+
 void MeshletRenderPipelineStage::draw() {
-	setupRenderObjects();
+	processNewModels();
 
 	mCommandList->SetPredication(nullptr, 0, D3D12_PREDICATION_OP_EQUAL_ZERO);
 	mCommandList->SetPipelineState(PSO.Get());
@@ -69,7 +81,13 @@ void MeshletRenderPipelineStage::draw() {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	int modelIndex = 0;
-	for (auto& model : meshletRenderObjects) {
+	for (auto& pWeakModel : meshletRenderObjects) {
+		auto model = pWeakModel.lock();
+		if (!model.get()) {
+			// binding is index based for just now. So unfortunately this is needed.
+			modelIndex++;
+			continue;
+		}
 		DirectX::BoundingBox modelBB;
 		auto transform = model->getTransform(modelIndex);
 		model->GetBoundingBox().Transform(modelBB, DirectX::XMLoadFloat4x4(&transform));
@@ -79,6 +97,11 @@ void MeshletRenderPipelineStage::draw() {
 			continue;
 		}
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, modelIndex);
+		if (renderStageDesc.perMeshTextureSlot > -1) {
+			mCommandList->SetGraphicsRootDescriptorTable(renderStageDesc.perMeshTextureSlot, meshletTexDescs[modelIndex].gpuHandle);
+		}
+
+		model->bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
 
 		for (auto& mesh : *model) {
 			mCommandList->SetGraphicsRootConstantBufferView(0, mesh.MeshInfoResource->GetGPUVirtualAddress());
@@ -92,26 +115,4 @@ void MeshletRenderPipelineStage::draw() {
 		}
 		modelIndex++;
 	}
-}
-
-
-bool MeshletRenderPipelineStage::setupRenderObjects() {
-	bool newObjectsLoadedOrDeleted = false;
-
-	int index = 0;
-	for (auto& meshletRenderObj : meshletRenderObjects) {
-		if (!meshletRenderObj->loaded) {
-			continue;
-		}
-		if (!meshletRenderObj->allTexturesLoaded()) {
-			continue;
-		}
-		if (!meshletRenderObj->texturesBound) {
-			buildMeshletTexturesDescriptors(meshletRenderObj, index);
-			continue;
-		}
-		index++;
-	}
-
-	return newObjectsLoadedOrDeleted;
 }

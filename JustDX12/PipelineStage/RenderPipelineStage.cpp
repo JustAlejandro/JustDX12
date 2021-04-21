@@ -189,18 +189,23 @@ void RenderPipelineStage::bindRenderTarget() {
 	if (renderStageDesc.usesDepthTex) {
 		depthHandle = &descriptorManager.getAllDescriptorsOfType(DESCRIPTOR_TYPE_DSV)->at(0)->cpuHandle;
 
-		mCommandList->ClearDepthStencilView(
-			*depthHandle,
-			D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-			1.0f, 0, 0, nullptr);
+		if (renderStageDesc.clearDepthTex) {
+			mCommandList->ClearDepthStencilView(
+				*depthHandle,
+				D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+				1.0f, 0, 0, nullptr);
+		}
 	}
 
 	float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	for (auto& target : renderStageDesc.renderTargets) {
-		mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(IndexedName(target.descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
-			clearColor,
-			0,
-			nullptr);
+
+	if (renderStageDesc.clearRenderTargets) {
+		for (auto& target : renderStageDesc.renderTargets) {
+			mCommandList->ClearRenderTargetView(descriptorManager.getDescriptor(IndexedName(target.descriptorName, 0), DESCRIPTOR_TYPE_RTV)->cpuHandle,
+				clearColor,
+				0,
+				nullptr);
+		}
 	}
 
 	mCommandList->OMSetRenderTargets((UINT)renderStageDesc.renderTargets.size(),

@@ -137,9 +137,6 @@ public:
 	void setInstanceCount(UINT count) override;
 
 	bool loaded = false;
-	bool usesRT = false;
-	std::string name;
-	std::string dir;
 
 	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 

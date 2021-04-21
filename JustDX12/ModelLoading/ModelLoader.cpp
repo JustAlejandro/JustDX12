@@ -121,7 +121,7 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 		if (findModel == instance.loadedMeshlets.end()) {
 			auto inserted = instance.loadedMeshlets.emplace(std::make_pair((dir + name), std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get())));
 			meshletModel = inserted.first->second;
-			instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel.get()));
+			instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
 		}
 		else {
 			meshletModel = findModel->second;
@@ -265,7 +265,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	}
 	std::vector<MeshletModel*> meshletModels;
 	for (auto& meshletModel : loadedMeshlets) {
-		if (meshletModel.second->usesRT) {
+		if (false && meshletModel.second->usesRT) {
 			std::string modelFileName = meshletModel.second->dir + meshletModel.second->name.substr(0, meshletModel.second->name.find_last_of('.')) + ".fbx";
 			meshletModels.push_back(meshletModel.second.get());
 		}
@@ -442,7 +442,7 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	SetName(tlas.Get(), L"TLAS Structure");
 }
 
-void ModelLoader::notifyModelListeners(std::weak_ptr<SimpleModel> model) {
+void ModelLoader::notifyModelListeners(std::weak_ptr<Model> model) {
 	std::lock_guard<std::mutex> lk(modelListenerLock);
 	for (auto& listener : modelListeners) {
 		listener->broadcastNewModel(model);
@@ -514,12 +514,14 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 	}
 }
 
-ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, MeshletModel* model) {
+ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, std::shared_ptr<MeshletModel> model) {
 	this->model = model;
 	this->taskQueueThread = taskQueueThread;
 }
 
 void ModelLoader::MeshletModelLoadTask::execute() {
+	auto& instance = ModelLoader::getInstance();
+
 	taskQueueThread->mDirectCmdListAlloc->Reset();
 	taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
 
@@ -529,9 +531,15 @@ void ModelLoader::MeshletModelLoadTask::execute() {
 
 	OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 
-	model->UploadGpuResources(taskQueueThread->md3dDevice.Get(), taskQueueThread->mCommandQueue.Get(), taskQueueThread->mDirectCmdListAlloc.Get(), taskQueueThread->mCommandList.Get());
+	// TODO: possibly have multiple allocators for model loading.
+	{
+		std::lock_guard<std::mutex> lk(instance.commandQueueLock);
+		model->UploadGpuResources(taskQueueThread->md3dDevice.Get(), taskQueueThread->mCommandQueue.Get(), taskQueueThread->mDirectCmdListAlloc.Get(), taskQueueThread->mCommandList.Get());
+	}
 
 	OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
+
+	instance.notifyModelListeners(model);
 }
 
 ModelLoader::RTStructureLoadTask::RTStructureLoadTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) : scratchBuffers(scratchBuffers) {

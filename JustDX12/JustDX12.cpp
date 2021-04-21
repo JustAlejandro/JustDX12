@@ -261,11 +261,19 @@ bool DemoApp::initialize() {
 	// Seperate pass for Meshlet rendering.
 	{
 		PipeLineStageDesc rasterDesc;
-		rasterDesc.name = "Forward Pass";
+		rasterDesc.name = "Meshlet Forward Pass";
 
 		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstantsMeshlet", new PerObjectConstants(), 0));
 
 		rasterDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("PerPassConstants", 0), renderStage->getConstantBuffer(IndexedName("PerPassConstants", 0))));
+
+		rasterDesc.externalResources.push_back(std::make_pair("depthTex", renderStage->getResource("depthTex")));
+		rasterDesc.externalResources.push_back(std::make_pair("albedo", renderStage->getResource("albedo")));
+		rasterDesc.externalResources.push_back(std::make_pair("specular", renderStage->getResource("specular")));
+		rasterDesc.externalResources.push_back(std::make_pair("normal", renderStage->getResource("normal")));
+		rasterDesc.externalResources.push_back(std::make_pair("tangent", renderStage->getResource("tangent")));
+		rasterDesc.externalResources.push_back(std::make_pair("emissive", renderStage->getResource("emissive")));
+		rasterDesc.externalResources.push_back(std::make_pair("VRS", renderStage->getResource("VRS")));
 
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("albedoDesc", "albedo", DESCRIPTOR_TYPE_RTV));
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("specularDesc", "specular", DESCRIPTOR_TYPE_RTV));
@@ -275,14 +283,6 @@ bool DemoApp::initialize() {
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
 		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
 
-		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(gScreenHeight, vrsSupport.ShadingRateImageTileSize), DivRoundUp(gScreenWidth, vrsSupport.ShadingRateImageTileSize)));
-		rasterDesc.resourceJobs.push_back(ResourceJob("albedo", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("specular", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("normal", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("tangent", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("emissive", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
-		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
-
 		// Have to generate meshlet root signature
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("Vertices", ROOT_PARAMETER_TYPE_SRV, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
@@ -291,7 +291,7 @@ bool DemoApp::initialize() {
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV, 4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("MeshletCullData", ROOT_PARAMETER_TYPE_SRV, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstantsMeshlet", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 6, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, DESCRIPTOR_USAGE_PER_OBJECT));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 8, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
 
 		std::vector<DXDefine> defines;
@@ -319,23 +319,24 @@ bool DemoApp::initialize() {
 		rDesc.perObjTransformCBSlot = 6;
 		rDesc.perMeshTransformCBSlot = -1;
 		rDesc.perMeshTextureSlot = 7;
+		rDesc.clearDepthTex = false;
+		rDesc.clearRenderTargets = false;
 		rDesc.supportsCulling = true;
 		rDesc.supportsVRS = true;
 
 		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
 		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
-		rDesc.defaultTextures[MODEL_FORMAT_EMMISIVE_TEX] = "default_emissive";
 
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
-		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "mesh_texture_emissive");
 
 		meshletStage = std::make_unique<MeshletRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		meshletStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(meshletStage->getFence(), meshletStage->triggerFence());
 	}
+	cpuWaitHandles.push_back(meshletStage->deferSetCpuEvent());
 	// Perform deferred shading.
 	{
 		std::vector<DXDefine> defines = {
@@ -614,7 +615,13 @@ bool DemoApp::initialize() {
 
 	// All CPU side setup work must be somewhat complete to resolve the transitions between stages.
 	WaitForMultipleObjects((DWORD)cpuWaitHandles.size(), cpuWaitHandles.data(), TRUE, INFINITE);
-	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage.get()}, {computeStage.get(), deferStage.get()}, {hBlurStage.get()}, {vBlurStage.get()}, {mergeStage.get()}, {vrsComputeStage.get()} });
+	std::vector<CD3DX12_RESOURCE_BARRIER> initialTransitions = PipelineStage::setupResourceTransitions({ {renderStage.get()},
+		{meshletStage.get()},
+		{computeStage.get(), deferStage.get()},
+		{hBlurStage.get()},
+		{vBlurStage.get()}, 
+		{mergeStage.get()}, 
+		{vrsComputeStage.get()} });
 	mCommandList->ResourceBarrier((UINT)initialTransitions.size(), initialTransitions.data());
 
 	ThrowIfFailed(mCommandList->Close());
@@ -684,6 +691,7 @@ void DemoApp::draw() {
 
 	std::vector<HANDLE> eventHandles;
 	eventHandles.push_back(renderStage->deferExecute());
+	eventHandles.push_back(meshletStage->deferExecute());
 	eventHandles.push_back(computeStage->deferExecute());
 	eventHandles.push_back(deferStage->deferExecute());
 	eventHandles.push_back(hBlurStage->deferExecute());
@@ -727,9 +735,13 @@ void DemoApp::draw() {
 	mCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mCommandQueue->Signal(mFence.Get(), ++mCurrentFence);
 
+	cmdList = { meshletStage->mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
+	mCommandQueue->Signal(mAuxFences[3].Get(), ++mCurrentAuxFence[3]);
 
 	cmdList = { computeStage->mCommandList.Get() };
 	mComputeCommandQueue->Wait(mFence.Get(), mCurrentFence);
+	mComputeCommandQueue->Wait(mAuxFences[3].Get(), mCurrentAuxFence[3]);
 	mComputeCommandQueue->ExecuteCommandLists((UINT)cmdList.size(), cmdList.data());
 	mComputeCommandQueue->Signal(mAuxFences[0].Get(), ++mCurrentAuxFence[0]);
 
