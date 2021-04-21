@@ -13,6 +13,7 @@
 #include "ScreenRenderPipelineStage.h"
 #include "RtRenderPipelineStage.h"
 #include "ModelRenderPipelineStage.h"
+#include "MeshletRenderPipelineStage.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
@@ -49,6 +50,12 @@ private:
 		std::string name;
 		std::vector<InstanceData> instances;
 		std::weak_ptr<Model> model;
+	};
+
+	struct MeshletData {
+		std::string name;
+		InstanceData instance;
+		std::weak_ptr<MeshletModel> meshletModel;
 	};
 
 	void BuildFrameResources();
@@ -96,6 +103,7 @@ private:
 	std::unique_ptr<ComputePipelineStage> vBlurStage = nullptr;
 	std::unique_ptr<ComputePipelineStage> vrsComputeStage = nullptr;
 	std::unique_ptr<ModelRenderPipelineStage> renderStage = nullptr;
+	std::unique_ptr<MeshletRenderPipelineStage> meshletStage = nullptr;
 	std::unique_ptr<RtRenderPipelineStage> deferStage = nullptr;
 	std::unique_ptr<ScreenRenderPipelineStage> mergeStage = nullptr;
 	KeyboardWrapper keyboard;
@@ -235,12 +243,9 @@ bool DemoApp::initialize() {
 		rDesc.renderTargets.push_back(RenderTargetDesc("normalDesc", 0));
 		rDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
 		rDesc.renderTargets.push_back(RenderTargetDesc("emissiveDesc", 0));
-		rDesc.usesMeshlets = true;
 		rDesc.perObjTransformCBSlot = 0;
 		rDesc.perMeshTransformCBSlot = 1;
 		rDesc.perMeshTextureSlot = 2;
-		rDesc.perObjTransformCBMeshletSlot = 6;
-		rDesc.perObjTextureMeshletSlot = 7;
 		rDesc.supportsCulling = true;
 		rDesc.supportsVRS = true;
 
@@ -249,32 +254,94 @@ bool DemoApp::initialize() {
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
 		rDesc.defaultTextures[MODEL_FORMAT_EMMISIVE_TEX] = "default_emissive";
 
-		// Have to generate meshlet root signature
-		rDesc.meshletRootSignature.push_back(RootParamDesc("MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("Vertices", ROOT_PARAMETER_TYPE_SRV, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("Meshlets", ROOT_PARAMETER_TYPE_SRV, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV, 4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("MeshletCullData", ROOT_PARAMETER_TYPE_SRV, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("PerObjectConstantsMeshlet", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 6, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
-		rDesc.meshletRootSignature.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 8, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
-
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "texture_diffuse");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "texture_spec");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "texture_normal");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "texture_emissive");
-
-		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
-		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
-		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
-		rDesc.meshletTextureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "mesh_texture_emissive");
 
 		renderStage = std::make_unique<ModelRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		renderStage->deferSetup(rasterDesc);
 		WaitOnFenceForever(renderStage->getFence(), renderStage->triggerFence());
 	}
 	cpuWaitHandles.push_back(renderStage->deferSetCpuEvent());
+	// Seperate pass for Meshlet rendering.
+	{
+		PipeLineStageDesc rasterDesc;
+		rasterDesc.name = "Forward Pass";
+
+		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstantsMeshlet", new PerObjectConstants(), 0));
+
+		rasterDesc.externalConstantBuffers.push_back(std::make_pair(IndexedName("PerPassConstants", 0), renderStage->getConstantBuffer(IndexedName("PerPassConstants", 0))));
+
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("albedoDesc", "albedo", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("specularDesc", "specular", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("normalDesc", "normal", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("tangentDesc", "tangent", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("emissiveDesc", "emissive", DESCRIPTOR_TYPE_RTV));
+		rasterDesc.descriptorJobs.push_back(DescriptorJob("depthStencilView", "depthTex", DESCRIPTOR_TYPE_DSV, false));
+		rasterDesc.descriptorJobs.back().view.dsvDesc = DEFAULT_DSV_DESC();
+
+		rasterDesc.resourceJobs.push_back(ResourceJob("VRS", DESCRIPTOR_TYPE_UAV, DXGI_FORMAT_R8_UINT, DivRoundUp(gScreenHeight, vrsSupport.ShadingRateImageTileSize), DivRoundUp(gScreenWidth, vrsSupport.ShadingRateImageTileSize)));
+		rasterDesc.resourceJobs.push_back(ResourceJob("albedo", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("specular", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("normal", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("tangent", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("emissive", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
+		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
+
+		// Have to generate meshlet root signature
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("MeshInfo", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("Vertices", ROOT_PARAMETER_TYPE_SRV, 1, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("Meshlets", ROOT_PARAMETER_TYPE_SRV, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("UniqueVertexIndices", ROOT_PARAMETER_TYPE_SRV, 3, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV, 4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("MeshletCullData", ROOT_PARAMETER_TYPE_SRV, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstantsMeshlet", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 6, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 8, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
+
+		std::vector<DXDefine> defines;
+		defines.push_back(DXDefine(L"VRS", L""));
+		if (vrsSupport.AdditionalShadingRatesSupported == true) {
+			defines.push_back(DXDefine(L"VRS_4X4", L""));
+		}
+
+		// Shaders are binding order dependent/bound by unique names. This needs to be fixed. Probably add a usage context for shaders?
+		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {}));
+		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {}));
+		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {}));
+
+		rasterDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec_pbr.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
+
+		RenderPipelineDesc rDesc;
+		rDesc.renderTargets.push_back(RenderTargetDesc("albedoDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("specularDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("normalDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("tangentDesc", 0));
+		rDesc.renderTargets.push_back(RenderTargetDesc("emissiveDesc", 0));
+		rDesc.perObjTransformCBSlot = 6;
+		rDesc.perMeshTransformCBSlot = -1;
+		rDesc.perMeshTextureSlot = 7;
+		rDesc.supportsCulling = true;
+		rDesc.supportsVRS = true;
+
+		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
+		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
+		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
+		rDesc.defaultTextures[MODEL_FORMAT_EMMISIVE_TEX] = "default_emissive";
+
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "mesh_texture_emissive");
+
+		meshletStage = std::make_unique<MeshletRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
+		meshletStage->deferSetup(rasterDesc);
+		WaitOnFenceForever(meshletStage->getFence(), meshletStage->triggerFence());
+	}
 	// Perform deferred shading.
 	{
 		std::vector<DXDefine> defines = {
@@ -335,7 +402,6 @@ bool DemoApp::initialize() {
 		mergeRDesc.renderTargets.push_back(RenderTargetDesc("deferTexDesc", 0));
 		mergeRDesc.supportsVRS = true;
 		mergeRDesc.supportsCulling = false;
-		mergeRDesc.usesMeshlets = false;
 		mergeRDesc.usesDepthTex = false;
 
 		mergeRDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
@@ -490,7 +556,6 @@ bool DemoApp::initialize() {
 		rDesc.renderTargets.push_back(RenderTargetDesc("mergedTexDesc", 0));
 		rDesc.supportsCulling = false;
 		rDesc.supportsVRS = false;
-		rDesc.usesMeshlets = false;
 		rDesc.usesDepthTex = false;
 
 		mergeStage = std::make_unique<ScreenRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);

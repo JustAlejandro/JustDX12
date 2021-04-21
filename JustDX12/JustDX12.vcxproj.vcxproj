@@ -176,6 +176,7 @@
     <ClCompile Include="DX12ConstantBuffer.cpp" />
     <ClCompile Include="KeyboardWrapper.cpp" />
     <ClCompile Include="MeshletModel.cpp" />
+    <ClCompile Include="MeshletRenderPipelineStage.cpp" />
     <ClCompile Include="ModelListener.cpp" />
     <ClCompile Include="ModelRenderPipelineStage.cpp" />
     <ClCompile Include="PipelineStage\ComputePipelineStage.cpp" />
@@ -215,6 +216,7 @@
     <ClInclude Include="IndexedName.h" />
     <ClInclude Include="KeyboardWrapper.h" />
     <ClInclude Include="MeshletModel.h" />
+    <ClInclude Include="MeshletRenderPipelineStage.h" />
     <ClInclude Include="ModelListener.h" />
     <ClInclude Include="ModelRenderPipelineStage.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />
@@ -244,6 +246,7 @@
     <ClInclude Include="Texture.h" />
     <ClInclude Include="TextureLoadTask.h" />
     <ClInclude Include="ThreadPool.h" />
+    <ClInclude Include="Transformable.h" />
     <ClInclude Include="TransformData.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

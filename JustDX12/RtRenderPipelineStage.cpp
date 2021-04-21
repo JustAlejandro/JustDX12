@@ -37,26 +37,6 @@ void RtRenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 			}
 		}
 	}
-	for (int i = 0; i < DESCRIPTOR_USAGE_MAX; i++) {
-		auto iter = meshRootParameterDescs[i].begin();
-		while (iter != meshRootParameterDescs[i].end()) {
-			if (iter->slot == rtStageDesc.rtTlasSlot) {
-				iter = meshRootParameterDescs[i].erase(iter);
-			}
-			else if (iter->slot == rtStageDesc.rtIndexBufferSlot) {
-				iter = meshRootParameterDescs[i].erase(iter);
-			}
-			else if (iter->slot == rtStageDesc.rtVertexBufferSlot) {
-				iter = meshRootParameterDescs[i].erase(iter);
-			}
-			else if (iter->slot == rtStageDesc.rtTexturesSlot) {
-				iter = meshRootParameterDescs[i].erase(iter);
-			}
-			else {
-				iter++;
-			}
-		}
-	}
 }
 
 void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> RtModels) {

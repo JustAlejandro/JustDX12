@@ -59,6 +59,7 @@
       <Filter>ThreadObjects</Filter>
     </ClCompile>
     <ClCompile Include="ScreenRenderPipelineStage.cpp" />
+    <ClCompile Include="MeshletRenderPipelineStage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -118,7 +119,6 @@
     </ClInclude>
     <ClInclude Include="IndexedName.h" />
     <ClInclude Include="Common.h" />
-    <ClInclude Include="TransformData.h" />
     <ClInclude Include="SceneNode.h" />
     <ClInclude Include="ResourceDecay.h" />
     <ClInclude Include="RtRenderPipelineStage.h" />
@@ -143,6 +143,13 @@
       <Filter>Pipelines</Filter>
     </ClInclude>
     <ClInclude Include="ScreenRenderPipelineStage.h" />
+    <ClInclude Include="MeshletRenderPipelineStage.h" />
+    <ClInclude Include="Transformable.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="TransformData.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

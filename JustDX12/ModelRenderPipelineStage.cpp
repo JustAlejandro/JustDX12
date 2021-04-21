@@ -56,6 +56,40 @@ void ModelRenderPipelineStage::buildPSO() {
 	}
 }
 
+void ModelRenderPipelineStage::buildInputLayout() {
+	RenderPipelineStage::buildInputLayout();
+	occlusionInputLayout = {
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0 , 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA}
+	};
+}
+
+void ModelRenderPipelineStage::buildQueryHeap() {
+	if (renderStageDesc.supportsCulling) {
+		// Due to the occlusion query being used from the previous frame it has a lifetime of 1 more than other resources.
+		ResourceDecay::destroyAfterSpecificDelay(occlusionQueryResultBuffer, CPU_FRAME_COUNT + 1);
+		ResourceDecay::destroyAfterSpecificDelay(occlusionQueryHeap, CPU_FRAME_COUNT + 1);
+		occlusionQueryResultBuffer.Reset();
+		occlusionQueryHeap.Reset();
+
+		auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer((renderObjects.size()) * 8);
+		md3dDevice->CreateCommittedResource(&gDefaultHeapDesc,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_PREDICATION,
+			nullptr,
+			IID_PPV_ARGS(&occlusionQueryResultBuffer));
+		D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
+		queryHeapDesc.NodeMask = 0;
+		queryHeapDesc.Count = (UINT)renderObjects.size();
+		queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_OCCLUSION;
+		md3dDevice->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&occlusionQueryHeap));
+
+		SetName(occlusionQueryResultBuffer.Get(), L"Occlusion Query Result");
+		SetName(occlusionQueryHeap.Get(), L"Occlusion Query Heap");
+	}
+}
+
 void ModelRenderPipelineStage::processModel(std::weak_ptr<Model> model) {
 	if (auto ptr = model.lock()) {
 		for (auto& mesh : ptr->meshes) {

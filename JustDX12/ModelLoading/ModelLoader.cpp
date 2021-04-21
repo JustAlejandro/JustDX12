@@ -106,7 +106,7 @@ void ModelLoader::updateTransforms() {
 		model.second->transform.submitUpdates(gFrameIndex);
 	}
 	for (auto& meshletModel : instance.loadedMeshlets) {
-		meshletModel.second.transform.submitUpdates(gFrameIndex);
+		meshletModel.second->transform.submitUpdates(gFrameIndex);
 	}
 }
 
@@ -129,19 +129,19 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 	return model;
 }
 
-MeshletModel* ModelLoader::loadMeshletModel(std::string name, std::string dir, bool usesRT) {
+std::weak_ptr<MeshletModel> ModelLoader::loadMeshletModel(std::string name, std::string dir, bool usesRT) {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
 
 	auto findModel = instance.loadedMeshlets.find(dir + name);
-	MeshletModel* meshletModel;
+	std::shared_ptr<MeshletModel> meshletModel;
 	if (findModel == instance.loadedMeshlets.end()) {
-		auto inserted = instance.loadedMeshlets.try_emplace((dir + name), name, dir, usesRT, instance.md3dDevice.Get());
-		meshletModel = &inserted.first->second;
-		instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
+		auto inserted = instance.loadedMeshlets.emplace(std::make_pair((dir + name), std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get())));
+		meshletModel = inserted.first->second;
+		instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel.get()));
 	}
 	else {
-		meshletModel = &findModel->second;
+		meshletModel = findModel->second;
 	}
 	return meshletModel;
 }
@@ -207,11 +207,11 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	}
 	std::vector<MeshletModel*> meshletModels;
 	for (auto& meshletModel : loadedMeshlets) {
-		if (meshletModel.second.usesRT) {
-			std::string modelFileName = meshletModel.second.dir + meshletModel.second.name.substr(0, meshletModel.second.name.find_last_of('.')) + ".fbx";
+		if (meshletModel.second->usesRT) {
+			std::string modelFileName = meshletModel.second->dir + meshletModel.second->name.substr(0, meshletModel.second->name.find_last_of('.')) + ".fbx";
 			Model* modelForMeshlet = loadedModels.find(modelFileName)->second.get();
 			blasVec.push_back(createBLAS(modelForMeshlet, cmdList));
-			meshletModels.push_back(&meshletModel.second);
+			meshletModels.push_back(meshletModel.second.get());
 		}
 	}
 
@@ -266,9 +266,9 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	}
 	std::vector<MeshletModel*> meshletModels;
 	for (auto& meshletModel : loadedMeshlets) {
-		if (meshletModel.second.usesRT) {
-			std::string modelFileName = meshletModel.second.dir + meshletModel.second.name.substr(0, meshletModel.second.name.find_last_of('.')) + ".fbx";
-			meshletModels.push_back(&meshletModel.second);
+		if (meshletModel.second->usesRT) {
+			std::string modelFileName = meshletModel.second->dir + meshletModel.second->name.substr(0, meshletModel.second->name.find_last_of('.')) + ".fbx";
+			meshletModels.push_back(meshletModel.second.get());
 		}
 	}
 

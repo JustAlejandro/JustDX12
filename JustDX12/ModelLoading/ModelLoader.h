@@ -56,7 +56,7 @@ public:
 	static void updateTransforms();
 
 	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
-	static MeshletModel* loadMeshletModel(std::string name, std::string dir, bool usesRT);
+	static std::weak_ptr <MeshletModel> loadMeshletModel(std::string name, std::string dir, bool usesRT);
 	static void unloadModel(std::string name, std::string dir);
 
 	// Called in ModelListener constructor, should combine with RT user eventually.
@@ -149,7 +149,7 @@ private:
 	bool modelCountChanged = false;
 	// string is dir + name
 	std::unordered_map<std::string, std::shared_ptr<Model>> loadedModels;
-	std::unordered_map<std::string, MeshletModel> loadedMeshlets;
+	std::unordered_map<std::string, std::shared_ptr<MeshletModel>> loadedMeshlets;
 
 	std::vector<RtRenderPipelineStage*> rtUsers;
 
