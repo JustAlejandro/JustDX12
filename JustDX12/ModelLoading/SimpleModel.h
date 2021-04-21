@@ -8,15 +8,17 @@
 #include <limits>
 #include "SceneNode.h"
 
+#include "ModelLoading\Model.h"
+
 class DX12Texture;
 
 // Contains all data needed to render a BasicModel to the scene (executed through Mesh list)
 // Capable of holding instance/transform/lighting data
 // Safe to delete, since Index/Vertex resources get dumped into ResourceDecay on deletion
-class BasicModel : public TransformData {
+class SimpleModel : public Model {
 public:
-	BasicModel(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
-	~BasicModel();
+	SimpleModel(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
+	~SimpleModel();
 
 	void setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 
@@ -28,10 +30,7 @@ public:
 	void refreshAllTransforms();
 	void refreshBoundingBox();
 
-	bool usesRT;
 	std::vector<aiLight> lights;
-	std::string name;
-	std::string dir;
 	std::vector<Mesh> meshes;
 	SceneNode scene;
 

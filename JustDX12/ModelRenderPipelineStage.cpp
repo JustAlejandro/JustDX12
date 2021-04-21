@@ -90,15 +90,19 @@ void ModelRenderPipelineStage::buildQueryHeap() {
 	}
 }
 
-void ModelRenderPipelineStage::processModel(std::weak_ptr<BasicModel> model) {
+void ModelRenderPipelineStage::processModel(std::weak_ptr<Model> model) {
 	if (auto ptr = model.lock()) {
-		for (auto& mesh : ptr->meshes) {
-			auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
-				&resourceManager, &constantBufferManager, false);
-			// Register the descriptors to easily fetch them later
-			mesh.registerPipelineStage(this, meshDescriptors);
+		// Runtime polymorphism is bad, but it keeps the modelLoader broadcast simple... So for now I'll just deal with it
+		// this only gets run once per object per time loaded anyway.
+		if (auto basicModel = dynamic_pointer_cast<SimpleModel>(ptr)) {
+			for (auto& mesh : basicModel->meshes) {
+				auto meshDescriptors = descriptorManager.makeDescriptors(buildMeshTexturesDescriptorJobs(&mesh),
+					&resourceManager, &constantBufferManager, false);
+				// Register the descriptors to easily fetch them later
+				mesh.registerPipelineStage(this, meshDescriptors);
+			}
+			renderObjects.push_back(basicModel);
 		}
-		renderObjects.push_back(ptr);
 	}
 }
 
@@ -127,7 +131,7 @@ void ModelRenderPipelineStage::drawModels() {
 		mCommandList->RSSetShadingRateImage(resourceManager.getResource(renderStageDesc.VrsTextureName)->get());
 	}
 	for (int i = 0; i < renderObjects.size(); i++) {
-		std::shared_ptr<BasicModel> model = renderObjects[i].lock();
+		std::shared_ptr<SimpleModel> model = renderObjects[i].lock();
 		if (!model) {
 			renderObjects.erase(renderObjects.begin() + i);
 			i--;

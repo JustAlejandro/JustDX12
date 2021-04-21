@@ -178,6 +178,7 @@
     <ClCompile Include="MeshletModel.cpp" />
     <ClCompile Include="MeshletRenderPipelineStage.cpp" />
     <ClCompile Include="ModelListener.cpp" />
+    <ClCompile Include="ModelLoading\Model.cpp" />
     <ClCompile Include="ModelRenderPipelineStage.cpp" />
     <ClCompile Include="PipelineStage\ComputePipelineStage.cpp" />
     <ClCompile Include="DescriptorClasses\DescriptorManager.cpp" />
@@ -197,7 +198,7 @@
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="TaskQueueThread.cpp" />
     <ClCompile Include="Tasks\DX12TaskQueueThread.cpp" />
-    <ClCompile Include="ModelLoading\Model.cpp" />
+    <ClCompile Include="ModelLoading\SimpleModel.cpp" />
     <ClCompile Include="ModelLoading\ModelLoader.cpp" />
     <ClCompile Include="ModelLoading\TextureLoader.cpp" />
     <ClCompile Include="ThreadPool.cpp" />
@@ -218,6 +219,7 @@
     <ClInclude Include="MeshletModel.h" />
     <ClInclude Include="MeshletRenderPipelineStage.h" />
     <ClInclude Include="ModelListener.h" />
+    <ClInclude Include="ModelLoading\Model.h" />
     <ClInclude Include="ModelRenderPipelineStage.h" />
     <ClInclude Include="PipelineStage\ComputePipelineStage.h" />
     <ClInclude Include="DescriptorClasses\DescriptorManager.h" />

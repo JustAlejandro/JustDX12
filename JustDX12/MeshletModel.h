@@ -1,7 +1,11 @@
 #pragma once
-#include "ModelLoading\SimpleModel.h"
 #include <DirectXCollision.h>
 #include <span>
+#include <unordered_map>
+
+#include "ModelLoading\Model.h"
+
+#include "ModelLoading/TextureLoader.h"
 
 // This is mostly a copy of Meshlet Representation from the DirectXMesh library
 // But with minor simplifications/convention changes
@@ -115,7 +119,7 @@ struct MeshletMesh {
 	}
 };
 
-class MeshletModel : public TransformData {
+class MeshletModel : public Model {
 public:
 	MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device);
 	HRESULT LoadFromFile(const std::string fileName);

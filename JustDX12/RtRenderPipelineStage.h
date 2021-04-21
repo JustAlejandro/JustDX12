@@ -21,22 +21,22 @@ public:
 	void setup(PipeLineStageDesc stageDesc) override;
 
 	// Enqueues an update operation onto the CPU thread, used by the ModelLoader to let this Stage know there's been a change.
-	void deferRebuildRtData(std::vector<std::shared_ptr<BasicModel>> RtModels);
+	void deferRebuildRtData(std::vector<std::shared_ptr<SimpleModel>> RtModels);
 
 private:
 
-	void rebuildRtData(std::vector<std::shared_ptr<BasicModel>> RtModels);
+	void rebuildRtData(std::vector<std::shared_ptr<SimpleModel>> RtModels);
 
 	void draw() override;
 
 	class RebuildRtDataTask : public Task {
 	public:
 		virtual void execute();
-		RebuildRtDataTask(RtRenderPipelineStage* stage, std::vector<std::shared_ptr<BasicModel>> RtModels);
+		RebuildRtDataTask(RtRenderPipelineStage* stage, std::vector<std::shared_ptr<SimpleModel>> RtModels);
 		virtual ~RebuildRtDataTask() override = default;
 	protected:
 		RtRenderPipelineStage* stage;
-		std::vector<std::shared_ptr<BasicModel>> RtModels;
+		std::vector<std::shared_ptr<SimpleModel>> RtModels;
 	};
 
 	struct RtData {

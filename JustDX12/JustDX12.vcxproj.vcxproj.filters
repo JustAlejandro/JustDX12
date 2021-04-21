@@ -30,9 +30,6 @@
     <ClCompile Include="ResourceClasses\ResourceManager.cpp">
       <Filter>Resources</Filter>
     </ClCompile>
-    <ClCompile Include="ModelLoading\Model.cpp">
-      <Filter>ModelLoading</Filter>
-    </ClCompile>
     <ClCompile Include="DX12ConstantBuffer.cpp" />
     <ClCompile Include="ConstantBufferManager.cpp" />
     <ClCompile Include="KeyboardWrapper.cpp" />
@@ -60,6 +57,12 @@
     </ClCompile>
     <ClCompile Include="ScreenRenderPipelineStage.cpp" />
     <ClCompile Include="MeshletRenderPipelineStage.cpp" />
+    <ClCompile Include="ModelLoading\SimpleModel.cpp">
+      <Filter>ModelLoading</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelLoading\Model.cpp">
+      <Filter>ModelLoading</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DX12App.h" />
@@ -145,6 +148,9 @@
       <Filter>ModelLoading</Filter>
     </ClInclude>
     <ClInclude Include="ModelLoading\SimpleModel.h">
+      <Filter>ModelLoading</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelLoading\Model.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
   </ItemGroup>

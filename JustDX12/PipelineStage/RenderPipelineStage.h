@@ -5,7 +5,7 @@
 #include "PipelineStage\PipelineStage.h"
 #include "ModelListener.h"
 
-class BasicModel;
+class SimpleModel;
 class Mesh;
 class ModelLoader;
 class MeshletModel;
@@ -44,9 +44,6 @@ public:
 
 	void execute() override;
 
-	void loadMeshletModel(std::string fileName, std::string dirName, bool usesRT = false);
-	void updateMeshletTransform(UINT modelIndex, DirectX::XMFLOAT4X4 transform);
-
 	// Data associated with culling
 	// TODO: give a better interface to this data
 	DirectX::BoundingFrustum frustrum;
@@ -58,7 +55,6 @@ protected:
 	virtual void buildPSO() override;
 	std::vector<DescriptorJob> buildMeshTexturesDescriptorJobs(Mesh* m);
 	virtual void buildInputLayout() override;
-	bool setupRenderObjects();
 
 	void bindDescriptorsToRoot(DESCRIPTOR_USAGE usage = DESCRIPTOR_USAGE_PER_PASS, int usageIndex = 0, std::vector<RootParamDesc> curRootParamDescs[DESCRIPTOR_USAGE_MAX] = nullptr) override;
 	void bindRenderTarget();

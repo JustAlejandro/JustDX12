@@ -33,7 +33,7 @@ struct Vertex {
 	DirectX::XMFLOAT3 biTan;
 };
 
-class BasicModel;
+class SimpleModel;
 class PipelineStage;
 
 // Represents a subset of a BasicModel
@@ -107,7 +107,7 @@ public:
 
 	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 
-	BasicModel* parent;
+	SimpleModel* parent;
 
 private:
 	// Trying to make repeated checks faster

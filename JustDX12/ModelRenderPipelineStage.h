@@ -13,7 +13,7 @@ protected:
 	virtual void buildInputLayout() override;
 	void buildQueryHeap();
 	// Inherited via ModelListener
-	virtual void processModel(std::weak_ptr<BasicModel> model) override;
+	virtual void processModel(std::weak_ptr<Model> model) override;
 
 	virtual void draw() override;
 	virtual void drawModels();
@@ -23,7 +23,7 @@ protected:
 
 	// ModelLoader still 'owns' models, so as long as we process all the unloads in a thread-safe way
 	// the RenderPipelineStage should be aware of when a renderObject is no longer available
-	std::vector<std::weak_ptr<BasicModel>> renderObjects;
+	std::vector<std::weak_ptr<SimpleModel>> renderObjects;
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> occlusionQueryResultBuffer;
 	Microsoft::WRL::ComPtr<ID3D12QueryHeap> occlusionQueryHeap;

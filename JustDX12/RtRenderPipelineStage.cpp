@@ -8,7 +8,7 @@ RtRenderPipelineStage::RtRenderPipelineStage(Microsoft::WRL::ComPtr<ID3D12Device
 	ModelLoader::registerRtUser(this);
 }
 
-void RtRenderPipelineStage::deferRebuildRtData(std::vector<std::shared_ptr<BasicModel>> RtModels) {
+void RtRenderPipelineStage::deferRebuildRtData(std::vector<std::shared_ptr<SimpleModel>> RtModels) {
 	enqueue(new RebuildRtDataTask(this, RtModels));
 }
 
@@ -39,7 +39,7 @@ void RtRenderPipelineStage::setup(PipeLineStageDesc stageDesc) {
 	}
 }
 
-void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<BasicModel>> RtModels) {
+void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<SimpleModel>> RtModels) {
 	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.indexRange.cpuHandle, rtDescriptors.indexRange.numDescriptors);
 	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.vertRange.cpuHandle, rtDescriptors.vertRange.numDescriptors);
 	ResourceDecay::freeDescriptorsAferDelay(&descriptorManager, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, rtDescriptors.texRange.cpuHandle, rtDescriptors.texRange.numDescriptors);
@@ -131,7 +131,7 @@ void RtRenderPipelineStage::RebuildRtDataTask::execute() {
 	stage->rebuildRtData(RtModels);
 }
 
-RtRenderPipelineStage::RebuildRtDataTask::RebuildRtDataTask(RtRenderPipelineStage* stage, std::vector<std::shared_ptr<BasicModel>> RtModels) {
+RtRenderPipelineStage::RebuildRtDataTask::RebuildRtDataTask(RtRenderPipelineStage* stage, std::vector<std::shared_ptr<SimpleModel>> RtModels) {
 	this->stage = stage;
 	this->RtModels = RtModels;
 }
