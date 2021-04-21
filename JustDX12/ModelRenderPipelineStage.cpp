@@ -136,9 +136,9 @@ void ModelRenderPipelineStage::drawModels() {
 		}
 
 		std::vector<DirectX::BoundingBox> boundingBoxes;
-		for (UINT i = 0; i < model->transform.getInstanceCount(); i++) {
+		for (UINT i = 0; i < model->getInstanceCount(); i++) {
 			DirectX::BoundingBox instanceBB;
-			model->boundingBox.Transform(instanceBB, TransposeLoad(model->transform.getTransform(i)));
+			model->boundingBox.Transform(instanceBB, TransposeLoad(model->getTransform(i)));
 			boundingBoxes.push_back(instanceBB);
 		}
 		if (frustrumCull && std::all_of(boundingBoxes.begin(), boundingBoxes.end(), [this](DirectX::BoundingBox b) { return frustrum.Contains(b) == DirectX::ContainmentType::DISJOINT; })) {
@@ -147,7 +147,7 @@ void ModelRenderPipelineStage::drawModels() {
 		}
 
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
-		model->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
+		model->bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
 
 		auto vertexBufferView = model->getVertexBufferView();
 		auto indexBufferView = model->getIndexBufferView();
@@ -169,12 +169,12 @@ void ModelRenderPipelineStage::drawModels() {
 
 		for (Mesh& m : model->meshes) {
 			std::vector<DirectX::BoundingBox> meshBoundingBoxes;
-			for (UINT i = 0; i < model->transform.getInstanceCount(); i++) {
+			for (UINT i = 0; i < model->getInstanceCount(); i++) {
 				DirectX::BoundingBox instanceMeshBB;
 				DirectX::BoundingBox subInstanceMeshBB;
-				for (UINT j = 0; j < m.meshTransform.getInstanceCount(); j++) {
-					m.boundingBox.Transform(instanceMeshBB, TransposeLoad(m.meshTransform.getTransform(j)));
-					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(model->transform.getTransform(i)));
+				for (UINT j = 0; j < m.getInstanceCount(); j++) {
+					m.boundingBox.Transform(instanceMeshBB, TransposeLoad(m.getTransform(j)));
+					instanceMeshBB.Transform(subInstanceMeshBB, TransposeLoad(model->getTransform(i)));
 					meshBoundingBoxes.push_back(subInstanceMeshBB);
 				}
 			}
@@ -187,12 +187,12 @@ void ModelRenderPipelineStage::drawModels() {
 				mCommandList->RSSetShadingRate(getShadingRateFromDistance(eyePos, m.boundingBox), combiners);
 			}
 
-			m.meshTransform.bindTransformToRoot(renderStageDesc.perMeshTransformCBSlot, gFrameIndex, mCommandList.Get());
+			m.bindTransformToRoot(renderStageDesc.perMeshTransformCBSlot, gFrameIndex, mCommandList.Get());
 			if (renderStageDesc.perMeshTextureSlot > -1) {
 				mCommandList->SetGraphicsRootDescriptorTable(renderStageDesc.perMeshTextureSlot, m.getDescriptorsForStage(this)[0].gpuHandle);
 			}
 			mCommandList->DrawIndexedInstanced(m.indexCount,
-				model->transform.getInstanceCount() * m.meshTransform.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
+				model->getInstanceCount() * m.getInstanceCount(), m.startIndexLocation, m.baseVertexLocation, 0);
 
 		}
 		modelIndex++;
@@ -215,10 +215,10 @@ void ModelRenderPipelineStage::drawOcclusionQuery() {
 			continue;
 		}
 		bindDescriptorsToRoot(DESCRIPTOR_USAGE_PER_OBJECT, i);
-		mPtr->transform.bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
+		mPtr->bindTransformToRoot(renderStageDesc.perObjTransformCBSlot, gFrameIndex, mCommandList.Get());
 		mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 		mCommandList->BeginQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
-		mCommandList->DrawInstanced(1, mPtr->transform.getInstanceCount(), i, 0);
+		mCommandList->DrawInstanced(1, mPtr->getInstanceCount(), i, 0);
 		mCommandList->EndQuery(occlusionQueryHeap.Get(), D3D12_QUERY_TYPE_BINARY_OCCLUSION, i);
 	}
 	auto copyTransition = CD3DX12_RESOURCE_BARRIER::Transition(occlusionQueryResultBuffer.Get(), D3D12_RESOURCE_STATE_PREDICATION, D3D12_RESOURCE_STATE_COPY_DEST);

@@ -51,7 +51,7 @@ void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 	UINT index = 0;
 	for (auto& model : RtModels) {
 		for (auto& mesh : model->meshes) {
-			for (UINT i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+			for (UINT i = 0; i < mesh.getInstanceCount(); i++) {
 				std::vector<DescriptorJob> meshJobs = buildMeshTexturesDescriptorJobs(&mesh);
 				texJobVec.insert(texJobVec.end(), meshJobs.begin(), meshJobs.end());
 
@@ -90,7 +90,7 @@ void RtRenderPipelineStage::rebuildRtData(std::vector<std::shared_ptr<Model>> Rt
 				bufferJob.view.srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 				bufferJob.view.srvDesc.Buffer.NumElements = 1;
 				bufferJob.view.srvDesc.Buffer.StructureByteStride = sizeof(DirectX::XMFLOAT4X4);
-				bufferJob.directBindingTarget = mesh.meshTransform.getResourceForFrame(gFrameIndex);
+				bufferJob.directBindingTarget = mesh.getResourceForFrame(gFrameIndex);
 				transformJobVec.push_back(bufferJob);
 			}
 		}

@@ -13,7 +13,7 @@ class DX12Texture;
 // Contains all data needed to render a Model to the scene (executed through Mesh list)
 // Capable of holding instance/transform/lighting data
 // Safe to delete, since Index/Vertex resources get dumped into ResourceDecay on deletion
-class Model {
+class Model : public TransformData {
 public:
 	Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT = false);
 	~Model();
@@ -25,14 +25,10 @@ public:
 	D3D12_VERTEX_BUFFER_VIEW getVertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW getIndexBufferView()const;
 
-	void updateInstanceCount(UINT count);
-	void updateInstanceTransform(UINT index, DirectX::XMFLOAT4X4 transform);
-
 	void refreshAllTransforms();
 	void refreshBoundingBox();
 
 	bool usesRT;
-	TransformData transform;
 	std::vector<aiLight> lights;
 	std::string name;
 	std::string dir;

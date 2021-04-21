@@ -11,12 +11,12 @@
 
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "D3D12.lib")
-Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT) : transform(device) {
+Model::Model(std::string name, std::string dir, ID3D12Device5* device, bool usesRT) : TransformData(device) {
 	this->name = name;
 	this->dir = dir;
 	this->usesRT = usesRT;
-	transform.setInstanceCount(1);
-	transform.setTransform(0, Identity());
+	setInstanceCount(1);
+	setTransform(0, Identity());
 }
 
 Model::~Model() {
@@ -93,31 +93,23 @@ D3D12_INDEX_BUFFER_VIEW Model::getIndexBufferView() const {
 	return ibv;
 }
 
-void Model::updateInstanceCount(UINT count) {
-	this->transform.setInstanceCount(count);
-}
-
-void Model::updateInstanceTransform(UINT index, DirectX::XMFLOAT4X4 transform) {
-	this->transform.setTransform(index, transform);
-}
-
 void Model::refreshAllTransforms() {
 	for (Mesh& mesh : meshes) {
 		mesh.updateTransform();
-		mesh.meshTransform.submitUpdatesAll();
+		mesh.submitUpdatesAll();
 	}
-	transform.submitUpdatesAll();
+	submitUpdatesAll();
 }
 
 void Model::refreshBoundingBox() {
 	if (meshes.size() > 0) {
-		meshes[0].boundingBox.Transform(boundingBox, TransposeLoad(meshes[0].meshTransform.getTransform(0)));
+		meshes[0].boundingBox.Transform(boundingBox, TransposeLoad(meshes[0].getTransform(0)));
 	}
 	DirectX::BoundingBox scratchBB;
 	DirectX::BoundingBox meshBB;
 	for (const auto& mesh : meshes) {
-		for (UINT i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
-			mesh.boundingBox.Transform(meshBB, TransposeLoad(mesh.meshTransform.getTransform(i)));
+		for (UINT i = 0; i < mesh.getInstanceCount(); i++) {
+			mesh.boundingBox.Transform(meshBB, TransposeLoad(mesh.getTransform(i)));
 			scratchBB = boundingBox;
 			DirectX::BoundingBox::CreateMerged(boundingBox, meshBB, scratchBB);
 		}

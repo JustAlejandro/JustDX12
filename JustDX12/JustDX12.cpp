@@ -924,14 +924,14 @@ void DemoApp::updateSceneClass(SceneCsv& scene) {
 
 void DemoApp::ApplyModelDataUpdate(ModelData* data) {
 	auto model = activeModels[data->name].model.lock();
-	model->updateInstanceCount(data->instances.size());
+	model->setInstanceCount(data->instances.size());
 
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < data->instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
 			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->instances[i].rot)),
 				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->instances[i].pos)))));
-		model->updateInstanceTransform(i, transform);
+		model->setTransform(i, transform);
 	}
 }
 
@@ -943,14 +943,14 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 	activeModels[name] = defaultInitData;
 
 	auto model = defaultInitData.model.lock();
-	model->updateInstanceCount(instances.size());
+	model->setInstanceCount(instances.size());
 
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
 			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&instances[i].rot)),
 				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&instances[i].pos)))));
-		model->updateInstanceTransform(i, transform);
+		model->setTransform(i, transform);
 	}
 }
 

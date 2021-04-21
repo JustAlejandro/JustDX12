@@ -246,7 +246,6 @@
     <ClInclude Include="Texture.h" />
     <ClInclude Include="TextureLoadTask.h" />
     <ClInclude Include="ThreadPool.h" />
-    <ClInclude Include="Transformable.h" />
     <ClInclude Include="TransformData.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

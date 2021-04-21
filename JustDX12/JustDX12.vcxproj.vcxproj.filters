@@ -144,9 +144,6 @@
     </ClInclude>
     <ClInclude Include="ScreenRenderPipelineStage.h" />
     <ClInclude Include="MeshletRenderPipelineStage.h" />
-    <ClInclude Include="Transformable.h">
-      <Filter>ModelLoading</Filter>
-    </ClInclude>
     <ClInclude Include="TransformData.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>

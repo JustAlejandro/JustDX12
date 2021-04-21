@@ -39,9 +39,9 @@ class PipelineStage;
 // Represents a subset of a Model
 // Also holds descriptors needed to render the mesh (textures), which PipelineStages can register for retreival later
 // Unique: can be instanced, which does cause some headaches, and isn't typically supported in most engines
-class Mesh {
+class Mesh : public TransformData {
 public:
-	Mesh(ID3D12Device5* device) : meshTransform(device) {
+	Mesh(ID3D12Device5* device) : TransformData(device) {
 		parent = nullptr;
 		instanceNodes.fill(nullptr);
 	}
@@ -68,15 +68,15 @@ public:
 	}
 
 	void updateTransform() {
-		for (UINT i = 0; i < meshTransform.getInstanceCount(); i++) {
-			meshTransform.setTransform(i, instanceNodes[i]->getFullTransform());
+		for (UINT i = 0; i < getInstanceCount(); i++) {
+			setTransform(i, instanceNodes[i]->getFullTransform());
 		}
 	}
 
 	void registerInstance(SceneNode* node) {
-		UINT instanceCount = meshTransform.getInstanceCount();
+		UINT instanceCount = getInstanceCount();
 		instanceNodes[instanceCount] = node;
-		meshTransform.setInstanceCount(instanceCount + 1);
+		setInstanceCount(instanceCount + 1);
 	}
 
 	void registerPipelineStage(PipelineStage* stage, std::vector<DX12Descriptor> descriptors) {
@@ -108,7 +108,6 @@ public:
 	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 
 	Model* parent;
-	TransformData meshTransform;
 
 private:
 	// Trying to make repeated checks faster

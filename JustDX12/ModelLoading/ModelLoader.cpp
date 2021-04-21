@@ -40,7 +40,7 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 	std::vector<Light> spotLights;
 	for (const auto& model : instance.loadedModels) {
 		for (const auto& light : model.second->lights) {
-			for (UINT i = 0; i < model.second->transform.getInstanceCount(); i++) {
+			for (UINT i = 0; i < model.second->getInstanceCount(); i++) {
 				Light l;
 
 				l.color = DirectX::XMFLOAT3(light.mColorDiffuse.r, light.mColorDiffuse.g, light.mColorDiffuse.b);
@@ -52,7 +52,7 @@ std::vector<Light> ModelLoader::getAllLights(UINT& numPoint, UINT& numDir, UINT&
 				DirectX::XMVECTOR lightDir = DirectX::XMVectorSet(light.mDirection.x, light.mDirection.y, light.mDirection.z, 0.0f);
 				lightDir = DirectX::XMVector4Transform(lightDir, lightTransformMatrix);
 
-				auto transform = model.second->transform.getTransform(i);
+				auto transform = model.second->getTransform(i);
 				DirectX::XMStoreFloat3(&l.pos, DirectX::XMVector4Transform(lightPos, TransposeLoad(&transform)));
 				DirectX::XMStoreFloat3(&l.dir, DirectX::XMVector4Transform(lightDir, TransposeLoad(&transform)));
 
@@ -103,7 +103,7 @@ void ModelLoader::updateTransforms() {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
 	for (auto& model : instance.loadedModels) {
-		model.second->transform.submitUpdates(gFrameIndex);
+		model.second->submitUpdates(gFrameIndex);
 	}
 	for (auto& meshletModel : instance.loadedMeshlets) {
 		meshletModel.second->transform.submitUpdates(gFrameIndex);
@@ -293,7 +293,7 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList) {
 	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geomDescs;
 	for (auto& mesh : model->meshes) {
-		for (UINT i = 0; i < mesh.meshTransform.getInstanceCount(); i++) {
+		for (UINT i = 0; i < mesh.getInstanceCount(); i++) {
 			D3D12_RAYTRACING_GEOMETRY_DESC geomDesc = {};
 			geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 
@@ -306,7 +306,7 @@ AccelerationStructureBuffers ModelLoader::createBLAS(Model* model, Microsoft::WR
 			geomDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
 			geomDesc.Triangles.VertexCount = mesh.vertexCount;
 
-			geomDesc.Triangles.Transform3x4 = mesh.meshTransform.getFrameTransformVirtualAddress(i, gFrameIndex);
+			geomDesc.Triangles.Transform3x4 = mesh.getFrameTransformVirtualAddress(i, gFrameIndex);
 
 			// Optimization here would be to attach an opaque or not flag here.
 			geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
@@ -347,10 +347,10 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	UINT totalDescs = 0;
 	std::vector<UINT> descsPerModel;
 	for (const auto& m : models) {
-		totalDescs += m->transform.getInstanceCount();
+		totalDescs += m->getInstanceCount();
 		descsPerModel.push_back(0);
 		for (const auto& mesh : m->meshes) {
-			descsPerModel.back() += mesh.meshTransform.getInstanceCount();
+			descsPerModel.back() += mesh.getInstanceCount();
 		}
 	}
 	totalDescs += (UINT)meshletModels.size();
@@ -390,8 +390,8 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 	UINT instanceIndex = 0;
 	UINT startMeshIndex = 0;
 	for (UINT i = 0; i < models.size(); i++) {
-		for (UINT j = 0; j < models[i]->transform.getInstanceCount(); j++) {
-			auto transform = models[i]->transform.getTransform(j);
+		for (UINT j = 0; j < models[i]->getInstanceCount(); j++) {
+			auto transform = models[i]->getTransform(j);
 			DirectX::XMStoreFloat4x4(&identity, (DirectX::XMLoadFloat4x4(&transform)));
 			// We can use this later to index when we perform deferred shading. (Technically not what this is intended for,
 			//	but what it's intended for can be obtained through CandidateInstanceIndex, so we'll hijack).
