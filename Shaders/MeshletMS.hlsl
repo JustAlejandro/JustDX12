@@ -47,9 +47,9 @@ VertexOut GetVertexAttributes(uint meshletIndex, uint vertexIndex) {
 	VertexOut vout;
 	vout.PosW = pos.xyz;
 	vout.PosH = mul(pos, PerPass.ViewProj);
-	vout.NormalW = mul(-v.Normal, (float3x3) PerObject.world[0]);
-	vout.BiNormalW = mul(v.Bitangent, (float3x3) PerObject.world[0]);
-	vout.TangentW = mul(v.Tangent, (float3x3) PerObject.world[0]);
+	vout.NormalW = normalize(mul(-v.Normal, (float3x3) PerObject.world[0]));
+	vout.BiNormalW = normalize(mul(v.Bitangent, (float3x3) PerObject.world[0]));
+	vout.TangentW = normalize(mul(v.Tangent, (float3x3) PerObject.world[0]));
 	vout.TexC = v.Texcoord;
 	
 	return vout;
@@ -92,10 +92,12 @@ PixelOut PS(VertexOut pin)
 	
 	p.specular = gSpecularMap.Sample(anisoWrap, flipYofUV(pin.TexC));
 	
-	float3 inNormal = normalize(gNormalMap.Sample(anisoWrap, flipYofUV(pin.TexC)).xyz);
+	float2 texNormal = gNormalMap.Sample(anisoWrap, flipYofUV(pin.TexC)).xy;
+	texNormal = texNormal * 2.0f - 1.0f;
+	float3 inNormal = (float3(texNormal.xy, 1.0f - dot(texNormal, texNormal)));
 	float3x3 TBN = float3x3(pin.TangentW, pin.BiNormalW, pin.NormalW);
 	
-	p.normal = float4(normalize(mul(inNormal,TBN)), 1.0f);
+	p.normal = float4(-normalize(mul(inNormal, TBN)), 0.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
 	return p;
 }
