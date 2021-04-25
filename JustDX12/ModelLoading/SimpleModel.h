@@ -22,7 +22,7 @@ public:
 
 	void setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene* scene);
 
-	bool isLoaded();
+	bool allTexturesLoaded();
 
 	D3D12_VERTEX_BUFFER_VIEW getVertexBufferView()const;
 	D3D12_INDEX_BUFFER_VIEW getIndexBufferView()const;
@@ -58,8 +58,4 @@ private:
 	void processNodes(const aiScene* scene);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, ID3D12Device5* device);
 	std::shared_ptr<DX12Texture> loadMaterialTexture(aiMaterial* mat, aiTextureType type);
-	
-	// Have to lock a model when checking it's status due to MultiThreading
-	// TODO: made model loading simpler to not require this.
-	std::mutex isLoadedLock;
 };

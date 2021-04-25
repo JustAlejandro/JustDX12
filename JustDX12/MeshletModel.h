@@ -3,7 +3,7 @@
 #include <span>
 #include <unordered_map>
 
-#include "ModelLoading\Model.h"
+#include "ModelLoading/SimpleModel.h"
 
 #include "ModelLoading/TextureLoader.h"
 
@@ -135,14 +135,17 @@ public:
 	auto end() { return m_meshes.end(); }
 
 	void setInstanceCount(UINT count) override;
-
-	bool loaded = false;
+	void setTransform(UINT index, DirectX::XMFLOAT4X4 newTransform) override;
 
 	std::unordered_map<MODEL_FORMAT, std::shared_ptr<DX12Texture>> textures;
 
 	bool allTexturesLoaded();
 
 	bool texturesBound = false;
+
+	// To get a meshlet into the RT structure we just store the fallback model...
+	// TODO: Find a way to not have such a heavy method.
+	std::shared_ptr<SimpleModel> rtModel;
 
 private:
 	// Trying to make repeated checks faster

@@ -29,7 +29,7 @@ public:
 	DirectX::XMFLOAT4X4 getTransform(UINT instance) const {
 		return transform.data.World[instance];
 	}
-	void setTransform(UINT index, DirectX::XMFLOAT4X4 newTransform) {
+	virtual void setTransform(UINT index, DirectX::XMFLOAT4X4 newTransform) {
 		transform.data.World[index] = newTransform;
 		dirtyFrames = CPU_FRAME_COUNT;
 	}

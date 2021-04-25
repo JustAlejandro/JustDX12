@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <atomic>
 
 #include "TransformData.h"
 
@@ -9,4 +10,5 @@ public:
 	std::string name;
 	std::string dir;
 	bool usesRT;
+	std::atomic_bool loaded;
 };

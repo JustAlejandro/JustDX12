@@ -65,8 +65,7 @@ void SimpleModel::setup(DX12TaskQueueThread* thread, aiNode* node, const aiScene
 	thread->setFence(fenceVal);
 }
 
-bool SimpleModel::isLoaded() {
-	std::lock_guard<std::mutex> lk(isLoadedLock);
+bool SimpleModel::allTexturesLoaded() {
 	for (auto& m : meshes) {
 		if (!m.allTexturesLoaded()) {
 			return false;

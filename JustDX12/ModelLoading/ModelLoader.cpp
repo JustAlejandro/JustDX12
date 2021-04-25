@@ -110,7 +110,7 @@ void ModelLoader::updateTransforms() {
 	}
 }
 
-std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT = false) {
+std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, bool usesRT) {
 	auto& instance = ModelLoader::getInstance();
 	std::lock_guard<std::mutex> lk(instance.databaseLock);
 
@@ -141,6 +141,26 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 		else {
 			model = findModel->second;
 		}
+		return model;
+	}
+}
+
+std::shared_ptr<Model> ModelLoader::loadModelTakeOwnership(std::string name, std::string dir, bool usesRT) {
+	auto& instance = ModelLoader::getInstance();
+	// Not checking the loaded models since the caller takes ownership and can't take ownership of cached data.
+	// Meshlet, not normal model.
+	if (name.ends_with(".bin")) {
+		std::shared_ptr<MeshletModel> meshletModel = std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get());
+
+		instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
+
+		return meshletModel;
+	}
+	else {
+		std::shared_ptr<SimpleModel> model = std::make_shared<SimpleModel>(name, dir, instance.md3dDevice.Get(), usesRT);
+
+		instance.enqueue(new ModelLoadTask(model, false));
+
 		return model;
 	}
 }
@@ -449,8 +469,9 @@ void ModelLoader::notifyModelListeners(std::weak_ptr<Model> model) {
 	}
 }
 
-ModelLoader::ModelLoadTask::ModelLoadTask(std::shared_ptr<SimpleModel> model) {
+ModelLoader::ModelLoadTask::ModelLoadTask(std::shared_ptr<SimpleModel> model, bool registerToModelLoader) {
 	this->model = model;
+	this->registerToModelLoader = registerToModelLoader;
 }
 
 void ModelLoader::ModelLoadTask::execute() {
@@ -463,12 +484,13 @@ void ModelLoader::ModelLoadTask::execute() {
 	// Trying to limit IO to a single thread.
 	importer->ReadFile(model->dir + "\\" + model->name, 0);
 
-	ThreadPool::enqueue(new ModelLoadSetupTask(model, std::move(importer)));
+	ThreadPool::enqueue(new ModelLoadSetupTask(model, std::move(importer), registerToModelLoader));
 }
 
-ModelLoader::ModelLoadSetupTask::ModelLoadSetupTask(std::shared_ptr<SimpleModel> model, std::unique_ptr<Assimp::Importer> importer) {
+ModelLoader::ModelLoadSetupTask::ModelLoadSetupTask(std::shared_ptr<SimpleModel> model, std::unique_ptr<Assimp::Importer> importer, bool registerToModelLoader) {
 	this->model = model;
 	this->importer = std::move(importer);
+	this->registerToModelLoader = registerToModelLoader;
 }
 
 void ModelLoader::ModelLoadSetupTask::execute() {
@@ -493,24 +515,29 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 			model->setup(&instance, scene->mRootNode, scene);
 			instance.waitOnFence();
 		}
+		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 		
 		// Add the model to the map of loaded models
 		// have to add some duplication checking code since the model loading isn't entirely safe.
 		// TODO: investigate how to make this far safer than it is.
 		std::string modelName = model->name;
-		while (!model->isLoaded()) {
+		while (!model->allTexturesLoaded()) {
 
 		}
+		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
+		model->loaded = true;
 		std::unique_lock<std::mutex> lk(instance.databaseLock);
 		while (instance.loadedModels.contains(model->dir + modelName)) {
 			modelName.insert(0, "Dupe");
 		}
 		lk.unlock();
-		lk.lock();
-		instance.loadedModels[model->dir + modelName] = model;
-		instance.instanceCountChanged = true;
-		instance.modelCountChanged = true;
-		instance.notifyModelListeners(model);
+		if (registerToModelLoader) {
+			lk.lock();
+			instance.loadedModels[model->dir + modelName] = model;
+			instance.instanceCountChanged = true;
+			instance.modelCountChanged = true;
+			instance.notifyModelListeners(model);
+		}
 	}
 }
 
@@ -537,9 +564,7 @@ void ModelLoader::MeshletModelLoadTask::execute() {
 		model->UploadGpuResources(taskQueueThread->md3dDevice.Get(), taskQueueThread->mCommandQueue.Get(), taskQueueThread->mDirectCmdListAlloc.Get(), taskQueueThread->mCommandList.Get());
 	}
 
-	OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
-
-	instance.notifyModelListeners(model);
+	ThreadPool::enqueue(new MeshletModelSetupTask(model));
 }
 
 ModelLoader::RTStructureLoadTask::RTStructureLoadTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) : scratchBuffers(scratchBuffers) {
@@ -556,4 +581,18 @@ ModelLoader::RTStructureUpdateTask::RTStructureUpdateTask(Microsoft::WRL::ComPtr
 
 void ModelLoader::RTStructureUpdateTask::execute() {
 	ModelLoader::getInstance().updateRTAccelerationStructure(cmdList);
+}
+
+ModelLoader::MeshletModelSetupTask::MeshletModelSetupTask(std::shared_ptr<MeshletModel> model) {
+	this->model = model;
+}
+
+void ModelLoader::MeshletModelSetupTask::execute() {
+	while (!model->allTexturesLoaded() || !model->rtModel->loaded) {
+	}
+
+	OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
+
+	model->loaded = true;
+	ModelLoader::getInstance().notifyModelListeners(model);
 }

@@ -56,7 +56,8 @@ public:
 	
 	static void updateTransforms();
 
-	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT);
+	static std::weak_ptr<Model> loadModel(std::string name, std::string dir, bool usesRT = false);
+	static std::shared_ptr<Model> loadModelTakeOwnership(std::string name, std::string dir, bool usesRT = false);
 	static void unloadModel(std::string name, std::string dir);
 
 	// Called in ModelListener constructor, should combine with RT user eventually.
@@ -82,23 +83,25 @@ private:
 
 	class ModelLoadTask : public Task {
 	public:
-		ModelLoadTask(std::shared_ptr<SimpleModel> model);
+		ModelLoadTask(std::shared_ptr<SimpleModel> model, bool registerToModelLoader = true);
 		virtual ~ModelLoadTask() override = default;
 
 		void execute() override;
 
 	private:
+		bool registerToModelLoader;
 		std::shared_ptr<SimpleModel> model;
 	};
 
 	class ModelLoadSetupTask : public Task {
 	public:
-		ModelLoadSetupTask(std::shared_ptr<SimpleModel> model, std::unique_ptr<Assimp::Importer> importer);
+		ModelLoadSetupTask(std::shared_ptr<SimpleModel> model, std::unique_ptr<Assimp::Importer> importer, bool registerToModelLoader);
 		virtual ~ModelLoadSetupTask() override = default;
 
 		void execute() override;
 
 	private:
+		bool registerToModelLoader;
 		std::shared_ptr<SimpleModel> model;
 		std::unique_ptr<Assimp::Importer> importer;
 	};
@@ -113,6 +116,17 @@ private:
 	private:
 		std::shared_ptr<MeshletModel> model;
 		DX12TaskQueueThread* taskQueueThread;
+	};
+
+	class MeshletModelSetupTask : public Task {
+	public:
+		MeshletModelSetupTask(std::shared_ptr<MeshletModel> model);
+		virtual ~MeshletModelSetupTask() override = default;
+
+		void execute() override;
+
+	private:
+		std::shared_ptr<MeshletModel> model;
 	};
 
 	class RTStructureLoadTask : public Task {

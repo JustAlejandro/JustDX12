@@ -9,6 +9,8 @@
 #include <fstream>
 #include <ModelLoading\TextureLoader.h>
 
+#include "ModelLoading/ModelLoader.h"
+
 const D3D12_INPUT_ELEMENT_DESC elementDescs[Attribute::Count] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 1 },
 	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 1 },
@@ -70,6 +72,8 @@ struct Accessor {
 MeshletModel::MeshletModel(std::string name, std::string dir, bool usesRT, ID3D12Device5* device) 
 	: Model(device, name, dir, usesRT) {
 	loaded = false;
+	name.replace(name.size() - 3, 3, "obj");
+	rtModel = dynamic_pointer_cast<SimpleModel>(ModelLoader::loadModelTakeOwnership(name, dir, usesRT));
 }
 
 HRESULT MeshletModel::LoadFromFile(const std::string fileName) {
@@ -434,21 +438,30 @@ HRESULT MeshletModel::UploadGpuResources(ID3D12Device5* device, ID3D12CommandQue
 		}
 	}
 
-	while (!allTexturesLoaded()) {
-
-	}
-	
-	loaded = true;
-
 	return S_OK;
 }
 
 void MeshletModel::setInstanceCount(UINT count) {
 	if (count == 1) {
 		TransformData::setInstanceCount(1);
+		if (rtModel) {
+			rtModel->setInstanceCount(1);
+		}
 	}
 	else {
 		MessageBoxA(nullptr, "Can't instance meshlets.", "Might come in future", MB_OK);
+	}
+}
+
+void MeshletModel::setTransform(UINT index, DirectX::XMFLOAT4X4 newTransform) {
+	if (index == 0) {
+		TransformData::setTransform(index, newTransform);
+		if (rtModel) {
+			rtModel->setTransform(index, newTransform);
+		}
+	}
+	else {
+		MessageBoxA(nullptr, "Can't instance meshlets. So can't move index > 0.", "Might come in future", MB_OK);
 	}
 }
 
