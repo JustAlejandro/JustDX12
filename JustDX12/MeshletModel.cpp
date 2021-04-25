@@ -457,7 +457,12 @@ void MeshletModel::setTransform(UINT index, DirectX::XMFLOAT4X4 newTransform) {
 	if (index == 0) {
 		TransformData::setTransform(index, newTransform);
 		if (rtModel) {
-			rtModel->setTransform(index, newTransform);
+			// At import time the obj has a different +x direction, so we just scale in the -1.0 to X (looks like it's on the Z axis, but that's because the matrix is transposed
+			// before being fed to GPU, and that operation has already occured.
+			// Reason for this is that the Model Loader does this conversion to make the coordinate space left handed, while the meshlet loader has no such compensation.
+			DirectX::XMFLOAT4X4 twistedTransform;
+			DirectX::XMStoreFloat4x4(&twistedTransform, DirectX::XMMatrixMultiply(DirectX::XMLoadFloat4x4(&newTransform), DirectX::XMMatrixScaling(1.0f, 1.0f, -1.0f)));
+			rtModel->setTransform(index, twistedTransform);
 		}
 	}
 	else {
