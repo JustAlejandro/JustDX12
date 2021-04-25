@@ -226,10 +226,8 @@ void ModelLoader::buildRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Grap
 	std::vector<MeshletModel*> meshletModels;
 	for (auto& meshletModel : loadedMeshlets) {
 		if (meshletModel.second->usesRT) {
-			std::string modelFileName = meshletModel.second->dir + meshletModel.second->name.substr(0, meshletModel.second->name.find_last_of('.')) + ".fbx";
-			SimpleModel* modelForMeshlet = loadedModels.find(modelFileName)->second.get();
-			blasVec.push_back(createBLAS(modelForMeshlet, cmdList));
-			meshletModels.push_back(meshletModel.second.get());
+			blasVec.push_back(createBLAS(meshletModel.second->rtModel.get(), cmdList));
+			models.push_back(meshletModel.second->rtModel);
 		}
 	}
 
@@ -284,9 +282,14 @@ void ModelLoader::updateRTAccelerationStructure(Microsoft::WRL::ComPtr<ID3D12Gra
 	}
 	std::vector<MeshletModel*> meshletModels;
 	for (auto& meshletModel : loadedMeshlets) {
-		if (false && meshletModel.second->usesRT) {
-			std::string modelFileName = meshletModel.second->dir + meshletModel.second->name.substr(0, meshletModel.second->name.find_last_of('.')) + ".fbx";
-			meshletModels.push_back(meshletModel.second.get());
+		if (meshletModel.second->usesRT) {
+			models.push_back(meshletModel.second->rtModel);
+			if (BLAS.find(meshletModel.second->rtModel.get()) == BLAS.end()) {
+				AccelerationStructureBuffers blasScratch = createBLAS(meshletModel.second->rtModel.get(), cmdList);
+				ResourceDecay::destroyAfterDelay(blasScratch.pScratch);
+				ResourceDecay::destroyAfterDelay(blasScratch.pInstanceDesc);
+				BLAS[meshletModel.second->rtModel.get()] = blasScratch.pResult;
+			}
 		}
 	}
 
@@ -423,20 +426,6 @@ void ModelLoader::createTLAS(Microsoft::WRL::ComPtr<ID3D12Resource>& tlas, UINT6
 			instanceIndex++;
 		}
 		startMeshIndex += descsPerModel[i];
-	}
-	for (UINT i = 0; i < meshletModels.size(); i++) {
-		auto transform = meshletModels[i]->getTransform(0);
-		DirectX::XMStoreFloat4x4(&identity, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&transform)));
-		instanceDescs[instanceIndex].InstanceID = instanceIndex;
-		instanceDescs[instanceIndex].InstanceContributionToHitGroupIndex = instanceIndex;
-		instanceDescs[instanceIndex].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
-		memcpy(instanceDescs[instanceIndex].Transform, &identity, sizeof(instanceDescs[instanceIndex].Transform));
-		// This will cause a crash if the meshlet loads before the model
-		// TODO : MAKE THAT NOT HAPPEN
-		instanceDescs[instanceIndex].AccelerationStructure = BLAS[loadedModels.find(meshletModels[i]->name)->second.get()]->GetGPUVirtualAddress();
-		instanceDescs[instanceIndex].InstanceMask = 0xFF;
-
-		instanceIndex++;
 	}
 
 	tlasScratch.pInstanceDesc->Unmap(0, nullptr);
