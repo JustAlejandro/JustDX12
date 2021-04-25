@@ -119,8 +119,7 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 		auto findModel = instance.loadedMeshlets.find(dir + name);
 		std::shared_ptr<MeshletModel> meshletModel;
 		if (findModel == instance.loadedMeshlets.end()) {
-			auto inserted = instance.loadedMeshlets.emplace(std::make_pair((dir + name), std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get())));
-			meshletModel = inserted.first->second;
+			meshletModel = std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get());
 			instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
 		}
 		else {
@@ -515,7 +514,6 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 			model->setup(&instance, scene->mRootNode, scene);
 			instance.waitOnFence();
 		}
-		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 		
 		// Add the model to the map of loaded models
 		// have to add some duplication checking code since the model loading isn't entirely safe.
@@ -524,7 +522,6 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 		while (!model->allTexturesLoaded()) {
 
 		}
-		OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
 		model->loaded = true;
 		std::unique_lock<std::mutex> lk(instance.databaseLock);
 		while (instance.loadedModels.contains(model->dir + modelName)) {
@@ -594,5 +591,15 @@ void ModelLoader::MeshletModelSetupTask::execute() {
 	OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
 
 	model->loaded = true;
-	ModelLoader::getInstance().notifyModelListeners(model);
+
+	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
+	std::string modelName = model->name;
+	while (instance.loadedModels.contains(model->dir + modelName)) {
+		modelName.insert(0, "Dupe");
+	}
+	instance.loadedMeshlets[model->dir + modelName] = model;
+	instance.instanceCountChanged = true;
+	instance.modelCountChanged = true;
+	instance.notifyModelListeners(model);
 }
