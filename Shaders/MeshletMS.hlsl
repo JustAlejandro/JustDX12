@@ -8,6 +8,7 @@ ConstantBuffer<PerPass> PerPass : register(b2);
 Texture2D gDiffuseMap : register(t5);
 Texture2D gSpecularMap : register(t6);
 Texture2D gNormalMap : register(t7);
+Texture2D gEmissiveMap : register(t8);
 SamplerState anisoWrap : register(s4);
 
 // Flipping tris because the loader defaults to OpenGL winding order.
@@ -99,5 +100,6 @@ PixelOut PS(VertexOut pin)
 	
 	p.normal = float4(-normalize(mul(inNormal, TBN)), 0.0f);
 	p.tangent = float4(pin.TangentW, 0.0);
+	p.emissive = gEmissiveMap.Sample(anisoWrap, pin.TexC);
 	return p;
 }

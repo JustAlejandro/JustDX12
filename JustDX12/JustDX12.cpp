@@ -291,7 +291,7 @@ bool DemoApp::initialize() {
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PrimitiveIndices", ROOT_PARAMETER_TYPE_SRV, 4, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("MeshletCullData", ROOT_PARAMETER_TYPE_SRV, 5, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, DESCRIPTOR_USAGE_PER_MESHLET));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstantsMeshlet", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 6, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, DESCRIPTOR_USAGE_PER_OBJECT));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("mesh_texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 7, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_PER_OBJECT));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 8, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
 
 		std::vector<DXDefine> defines;
@@ -308,6 +308,7 @@ bool DemoApp::initialize() {
 		rasterDesc.textureFiles.push_back(std::make_pair("default_normal", "default_bump.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_spec", "default_spec_pbr.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_diff", "test_tex.dds"));
+		rasterDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
 		rasterDesc.textureFiles.push_back(std::make_pair("default_emissive", "default_emissive.dds"));
 
 		RenderPipelineDesc rDesc;
@@ -327,10 +328,12 @@ bool DemoApp::initialize() {
 		rDesc.defaultTextures[MODEL_FORMAT_DIFFUSE_TEX] = "default_diff";
 		rDesc.defaultTextures[MODEL_FORMAT_SPECULAR_TEX] = "default_spec";
 		rDesc.defaultTextures[MODEL_FORMAT_NORMAL_TEX] = "default_normal";
+		rDesc.defaultTextures[MODEL_FORMAT_EMMISIVE_TEX] = "default_emissive";
 
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_DIFFUSE_TEX, "mesh_texture_diffuse");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_SPECULAR_TEX, "mesh_texture_specular");
 		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_NORMAL_TEX, "mesh_texture_normal");
+		rDesc.textureToDescriptor.emplace_back(MODEL_FORMAT_EMMISIVE_TEX, "texture_emissive");
 
 		meshletStage = std::make_unique<MeshletRenderPipelineStage>(md3dDevice, rDesc, DEFAULT_VIEW_PORT(), mScissorRect);
 		meshletStage->deferSetup(rasterDesc);
