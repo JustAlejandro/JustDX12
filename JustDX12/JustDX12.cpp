@@ -183,13 +183,6 @@ bool DemoApp::initialize() {
 		PipeLineStageDesc rasterDesc;
 		rasterDesc.name = "Forward Pass";
 
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 0));
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 1));
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 2));
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 3));
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 4));
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstants", new PerObjectConstants(), 5));
-		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerObjectConstantsMeshlet", new PerObjectConstants(), 0));
 		rasterDesc.constantBufferJobs.push_back(ConstantBufferJob("PerPassConstants", new PerPassConstants(), 0));
 
 		rasterDesc.descriptorJobs.push_back(DescriptorJob("albedoDesc", "albedo", DESCRIPTOR_TYPE_RTV));
@@ -208,7 +201,7 @@ bool DemoApp::initialize() {
 		rasterDesc.resourceJobs.push_back(ResourceJob("emissive", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_RTV | DESCRIPTOR_TYPE_FLAG_SIMULTANEOUS_ACCESS));
 		rasterDesc.resourceJobs.push_back(ResourceJob("depthTex", DESCRIPTOR_TYPE_SRV | DESCRIPTOR_TYPE_DSV, DEPTH_TEXTURE_FORMAT));
 
-		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_OBJECT));
+		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerObjectConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerMeshConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 1, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("texture_diffuse", ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE, 2, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, DESCRIPTOR_USAGE_SYSTEM_DEFINED));
 		rasterDesc.rootSigDesc.push_back(RootParamDesc("PerPassConstants", ROOT_PARAMETER_TYPE_CONSTANT_BUFFER, 3, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, DESCRIPTOR_USAGE_PER_PASS));
@@ -219,10 +212,6 @@ bool DemoApp::initialize() {
 			defines.push_back(DXDefine(L"VRS_4X4", L""));
 		}
 
-		// Shaders are binding order dependent/bound by unique names. This needs to be fixed. Probably add a usage context for shaders?
-		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {}));
-		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {}));
-		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {}));
 		rasterDesc.shaderFiles.push_back(ShaderDesc("Default.hlsl", "Vertex Shader", "VS", SHADER_TYPE_VS, defines));
 		rasterDesc.shaderFiles.push_back(ShaderDesc("Default.hlsl", "Pixel Shader", "PS", SHADER_TYPE_PS, defines));
 
@@ -300,7 +289,6 @@ bool DemoApp::initialize() {
 			defines.push_back(DXDefine(L"VRS_4X4", L""));
 		}
 
-		// Shaders are binding order dependent/bound by unique names. This needs to be fixed. Probably add a usage context for shaders?
 		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletAS.hlsl", "Amplification Shader", "AS", SHADER_TYPE_AS, {}));
 		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Shader", "MS", SHADER_TYPE_MS, {}));
 		rasterDesc.shaderFiles.push_back(ShaderDesc("MeshletMS.hlsl", "Mesh Pixel Shader", "PS", SHADER_TYPE_PS, {}));
@@ -938,8 +926,8 @@ void DemoApp::ApplyModelDataUpdate(ModelData* data) {
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < data->instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
-			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->instances[i].rot)),
-				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->instances[i].pos)))));
+			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&data->instances[i].scale)),
+				DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&data->instances[i].rot))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&data->instances[i].pos)))));
 		model->setTransform(i, transform);
 	}
 }
@@ -957,8 +945,8 @@ void DemoApp::loadModel(std::string name, std::string fileName, std::string dirN
 	DirectX::XMFLOAT4X4 transform;
 	for (int i = 0; i < instances.size(); i++) {
 		DirectX::XMStoreFloat4x4(&transform,
-			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&instances[i].rot)),
-				DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&instances[i].scale))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&instances[i].pos)))));
+			DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(DirectX::XMMatrixScalingFromVector(DirectX::XMLoadFloat3(&instances[i].scale)),
+				DirectX::XMMatrixRotationRollPitchYawFromVector(DirectX::XMLoadFloat3(&instances[i].rot))), DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&instances[i].pos)))));
 		model->setTransform(i, transform);
 	}
 }
@@ -1105,8 +1093,6 @@ void DemoApp::UpdateMainPassCB() {
 	vrsComputeStage->deferUpdateConstantBuffer("VrsConstants", vrsCB);
 	deferStage->deferUpdateConstantBuffer("LightData", lightDataCB);
 	renderStage->deferUpdateConstantBuffer("PerPassConstants", mainPassCB);
-	renderStage->deferUpdateConstantBuffer("PerObjectConstants", perObjCB);
-	renderStage->deferUpdateConstantBuffer("PerObjectConstantsMeshlet", perMeshletObjCB);
 
 	ModelLoader::updateTransforms();
 
