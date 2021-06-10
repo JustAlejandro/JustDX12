@@ -21,6 +21,14 @@ void TaskQueueThread::enqueue(Task* t) {
 	taskCv.notify_one();
 }
 
+void TaskQueueThread::clearQueue() {
+	std::lock_guard<std::mutex> lk(taskQueueMutex);
+	while (!taskQueue.empty()) {
+		delete taskQueue.front();
+		taskQueue.pop();
+	}
+}
+
 HANDLE TaskQueueThread::deferSetCpuEvent() {
 	HANDLE ev = CreateEvent(
 		NULL,

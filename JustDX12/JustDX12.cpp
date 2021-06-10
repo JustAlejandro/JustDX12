@@ -8,6 +8,7 @@
 #include "FrameResource.h"
 #include "DX12Helper.h"
 #include <DirectXColors.h>
+#include "ThreadPool.h"
 #include "PipelineStage/ComputePipelineStage.h"
 #include "PipelineStage\RenderPipelineStage.h"
 #include "ScreenRenderPipelineStage.h"
@@ -162,6 +163,11 @@ DemoApp::DemoApp(HINSTANCE hInstance) : DX12App(hInstance) {
 DemoApp::~DemoApp() {
 	if (md3dDevice != nullptr)
 		flushCommandQueue();
+
+	ModelLoader::getInstance().clearQueue();
+	WaitForSingleObject(ModelLoader::getInstance().deferSetCpuEvent(), INFINITE);
+	std::vector<HANDLE> threadsOngoing = ThreadPool::prepareQuit();
+	WaitForMultipleObjects(threadsOngoing.size(), threadsOngoing.data(), true, INFINITE);
 	// Have to explicitly call ModelLoader clear first since it dumps resources into ResourceDecay.
 	ModelLoader::destroyAll();
 	ResourceDecay::destroyAll();

@@ -14,6 +14,17 @@ void ThreadPool::enqueue(Task* task) {
 	instance.threads[value % instance.threadSize]->enqueue(task);
 }
 
+std::vector<HANDLE> ThreadPool::prepareQuit() {
+	ThreadPool& instance = ThreadPool::getInstance();
+	std::vector<HANDLE> threadEvents;
+	// TODO: Make this not rely on the fact that we currently use less than MAXIMUM_WAIT_OBJECTS threads.
+	for (auto& thread : instance.threads) {
+		thread->clearQueue();
+		threadEvents.push_back(thread->deferSetCpuEvent());
+	}
+	return threadEvents;
+}
+
 ThreadPool& ThreadPool::getInstance() {
 	static ThreadPool instance;
 	return instance;

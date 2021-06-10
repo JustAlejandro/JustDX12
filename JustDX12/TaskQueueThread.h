@@ -14,6 +14,8 @@ public:
 
 	void enqueue(Task* t);
 
+	void clearQueue();
+
 	HANDLE deferSetCpuEvent();
 
 private:

@@ -10,6 +10,10 @@ private:
 
 public:
 	static void enqueue(Task* task);
+	
+	// Empties all the threads in the ThreadPool's work queues and then
+	// Returns a single handle to wait for showing all TaskThreads finished their work.
+	static std::vector<HANDLE> prepareQuit();
 
 private:
 	static ThreadPool& getInstance();
