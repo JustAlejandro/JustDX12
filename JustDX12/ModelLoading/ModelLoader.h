@@ -106,22 +106,44 @@ private:
 		std::unique_ptr<Assimp::Importer> importer;
 	};
 
+	class ModelLoadFinalizeTask : public Task {
+	public:
+		ModelLoadFinalizeTask(std::shared_ptr<SimpleModel> model, bool registerToModelLoader);
+		virtual ~ModelLoadFinalizeTask() override = default;
+
+		void execute() override;
+
+	private:
+		bool registerToModelLoader;
+		std::shared_ptr<SimpleModel> model;
+	};
+
 	class MeshletModelLoadTask : public Task {
 	public:
-		MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, std::shared_ptr<MeshletModel> model);
+		MeshletModelLoadTask(std::shared_ptr<MeshletModel> model);
 		virtual ~MeshletModelLoadTask() override = default;
 
 		void execute() override;
 
 	private:
 		std::shared_ptr<MeshletModel> model;
-		DX12TaskQueueThread* taskQueueThread;
 	};
 
 	class MeshletModelSetupTask : public Task {
 	public:
 		MeshletModelSetupTask(std::shared_ptr<MeshletModel> model);
 		virtual ~MeshletModelSetupTask() override = default;
+
+		void execute() override;
+
+	private:
+		std::shared_ptr<MeshletModel> model;
+	};
+
+	class MeshletModelLoadFinalizeTask : public Task {
+	public:
+		MeshletModelLoadFinalizeTask(std::shared_ptr<MeshletModel> model);
+		virtual ~MeshletModelLoadFinalizeTask() override = default;
 
 		void execute() override;
 

@@ -120,7 +120,7 @@ std::weak_ptr<Model> ModelLoader::loadModel(std::string name, std::string dir, b
 		std::shared_ptr<MeshletModel> meshletModel;
 		if (findModel == instance.loadedMeshlets.end()) {
 			meshletModel = std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get());
-			instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
+			instance.enqueue(new MeshletModelLoadTask(meshletModel));
 		}
 		else {
 			meshletModel = findModel->second;
@@ -151,7 +151,7 @@ std::shared_ptr<Model> ModelLoader::loadModelTakeOwnership(std::string name, std
 	if (name.ends_with(".bin")) {
 		std::shared_ptr<MeshletModel> meshletModel = std::make_shared<MeshletModel>(name, dir, usesRT, instance.md3dDevice.Get());
 
-		instance.enqueue(new MeshletModelLoadTask(&instance, meshletModel));
+		instance.enqueue(new MeshletModelLoadTask(meshletModel));
 
 		return meshletModel;
 	}
@@ -504,54 +504,101 @@ void ModelLoader::ModelLoadSetupTask::execute() {
 			instance.waitOnFence();
 		}
 		
-		// Add the model to the map of loaded models
-		// have to add some duplication checking code since the model loading isn't entirely safe.
-		// TODO: investigate how to make this far safer than it is.
-		std::string modelName = model->name;
-		while (!model->allTexturesLoaded()) {
-
-		}
-		model->loaded = true;
-		std::unique_lock<std::mutex> lk(instance.databaseLock);
-		while (instance.loadedModels.contains(model->dir + modelName)) {
-			modelName.insert(0, "Dupe");
-		}
-		lk.unlock();
-		if (registerToModelLoader) {
-			lk.lock();
-			instance.loadedModels[model->dir + modelName] = model;
-			instance.instanceCountChanged = true;
-			instance.modelCountChanged = true;
-			instance.notifyModelListeners(model);
-		}
+		ThreadPool::enqueue(new ModelLoadFinalizeTask(model, registerToModelLoader));
 	}
 }
 
-ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(DX12TaskQueueThread* taskQueueThread, std::shared_ptr<MeshletModel> model) {
+ModelLoader::ModelLoadFinalizeTask::ModelLoadFinalizeTask(std::shared_ptr<SimpleModel> model, bool registerToModelLoader) {
 	this->model = model;
-	this->taskQueueThread = taskQueueThread;
+	this->registerToModelLoader = registerToModelLoader;
+}
+
+void ModelLoader::ModelLoadFinalizeTask::execute() {
+	if (!model->allTexturesLoaded()) {
+		ThreadPool::enqueue(new ModelLoadFinalizeTask(model, registerToModelLoader));
+		return;
+	}
+
+	// Add the model to the map of loaded models
+		// have to add some duplication checking code since the model loading isn't entirely safe.
+		// TODO: investigate how to make this far safer than it is.
+	std::string modelName = model->name;
+	model->loaded = true;
+	auto& instance = ModelLoader::getInstance();
+	std::unique_lock<std::mutex> lk(instance.databaseLock);
+	while (instance.loadedModels.contains(model->dir + modelName)) {
+		modelName.insert(0, "Dupe");
+	}
+	lk.unlock();
+	if (registerToModelLoader) {
+		lk.lock();
+		instance.loadedModels[model->dir + modelName] = model;
+		instance.instanceCountChanged = true;
+		instance.modelCountChanged = true;
+		instance.notifyModelListeners(model);
+	}
+}
+
+ModelLoader::MeshletModelLoadTask::MeshletModelLoadTask(std::shared_ptr<MeshletModel> model) {
+	this->model = model;
 }
 
 void ModelLoader::MeshletModelLoadTask::execute() {
-	auto& instance = ModelLoader::getInstance();
-
-	taskQueueThread->mDirectCmdListAlloc->Reset();
-	taskQueueThread->mCommandList->Reset(taskQueueThread->mDirectCmdListAlloc.Get(), nullptr);
-
 	OutputDebugStringA(("Starting to Load Meshlet Model: " + model->name + "\n").c_str());
 
 	model->LoadFromFile(model->dir + "\\" + model->name);
 
-	OutputDebugStringA(("Finished load, beginning processing/upload: " + model->name + "\n").c_str());
-
-	// TODO: possibly have multiple allocators for model loading.
-	{
-		std::lock_guard<std::mutex> lk(instance.commandQueueLock);
-		model->UploadGpuResources(taskQueueThread->md3dDevice.Get(), taskQueueThread->mCommandQueue.Get(), taskQueueThread->mDirectCmdListAlloc.Get(), taskQueueThread->mCommandList.Get());
-	}
+	OutputDebugStringA(("Finished load: " + model->name + "\n").c_str());
 
 	ThreadPool::enqueue(new MeshletModelSetupTask(model));
 }
+
+ModelLoader::MeshletModelSetupTask::MeshletModelSetupTask(std::shared_ptr<MeshletModel> model) {
+	this->model = model;
+}
+
+void ModelLoader::MeshletModelSetupTask::execute() {
+	auto& instance = ModelLoader::getInstance();
+
+	std::lock_guard<std::mutex> lk(instance.commandQueueLock);
+
+	instance.mDirectCmdListAlloc->Reset();
+	instance.mCommandList->Reset(instance.mDirectCmdListAlloc.Get(), nullptr);
+
+	// TODO: possibly have multiple allocators for model loading.
+	{
+		OutputDebugStringA(("Beginning Upload: " + model->name + "\n").c_str());
+		model->UploadGpuResources(instance.md3dDevice.Get(), instance.mCommandQueue.Get(), instance.mDirectCmdListAlloc.Get(), instance.mCommandList.Get());
+		OutputDebugStringA(("Finished Upload: " + model->name + "\n").c_str());
+	}
+
+	ThreadPool::enqueue(new MeshletModelLoadFinalizeTask(model));
+}
+
+ModelLoader::MeshletModelLoadFinalizeTask::MeshletModelLoadFinalizeTask(std::shared_ptr<MeshletModel> model) {
+	this->model = model;
+}
+
+void ModelLoader::MeshletModelLoadFinalizeTask::execute() {
+	if (!model->allTexturesLoaded() || !model->rtModel->loaded) {
+		ThreadPool::enqueue(new MeshletModelLoadFinalizeTask(model));
+		return;
+	}
+
+	model->loaded = true;
+
+	auto& instance = ModelLoader::getInstance();
+	std::lock_guard<std::mutex> lk(instance.databaseLock);
+	std::string modelName = model->name;
+	while (instance.loadedModels.contains(model->dir + modelName)) {
+		modelName.insert(0, "Dupe");
+	}
+	instance.loadedMeshlets[model->dir + modelName] = model;
+	instance.instanceCountChanged = true;
+	instance.modelCountChanged = true;
+	instance.notifyModelListeners(model);
+}
+
 
 ModelLoader::RTStructureLoadTask::RTStructureLoadTask(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> cmdList, std::vector<AccelerationStructureBuffers>& scratchBuffers) : scratchBuffers(scratchBuffers) {
 	this->cmdList = cmdList;
@@ -569,26 +616,3 @@ void ModelLoader::RTStructureUpdateTask::execute() {
 	ModelLoader::getInstance().updateRTAccelerationStructure(cmdList);
 }
 
-ModelLoader::MeshletModelSetupTask::MeshletModelSetupTask(std::shared_ptr<MeshletModel> model) {
-	this->model = model;
-}
-
-void ModelLoader::MeshletModelSetupTask::execute() {
-	while (!model->allTexturesLoaded() || !model->rtModel->loaded) {
-	}
-
-	OutputDebugStringA(("Finished Upload Meshlet Model: " + model->name + "\n").c_str());
-
-	model->loaded = true;
-
-	auto& instance = ModelLoader::getInstance();
-	std::lock_guard<std::mutex> lk(instance.databaseLock);
-	std::string modelName = model->name;
-	while (instance.loadedModels.contains(model->dir + modelName)) {
-		modelName.insert(0, "Dupe");
-	}
-	instance.loadedMeshlets[model->dir + modelName] = model;
-	instance.instanceCountChanged = true;
-	instance.modelCountChanged = true;
-	instance.notifyModelListeners(model);
-}
